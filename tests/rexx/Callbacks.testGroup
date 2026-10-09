@@ -1,0 +1,90 @@
+#!/usr/bin/env rexx
+/*----------------------------------------------------------------------------*/
+/* Callbacks.testGroup: Rexx objects in Python (oorexx.RexxObject), called    */
+/* back; identity on the way back; errors both ways; nesting.                 */
+/*                                                                            */
+/* Licensed under the Apache License, Version 2.0.                            */
+/*----------------------------------------------------------------------------*/
+  parse source . . fileSpec
+
+  group = .TestGroup~new(fileSpec)
+  group~add(.Callbacks.testGroup)
+
+  if group~isAutomatedTest then return group
+
+  testResult = group~suite~execute~~print
+
+return testResult
+-- End of entry point.
+
+::requires 'PyTestCase.cls'
+
+::class "Callbacks.testGroup" subclass PyTestCase public
+
+-- a routine of this file, as an object
+::method routine private
+  use strict arg name
+  return .context~package~findRoutine(name)
+
+::method test_routines_as_functions
+  b = .py
+  words = .array~of("pear", "fig", "banana", "kiwi")
+  self~assertSame("['fig', 'pear', 'kiwi', 'banana']", -
+                  b~sorted(words, b~kw("key", self~routine("byLength")))~string, "sorted key=routine")
+  self~assertSame("[2, 4, 6]", -
+                  b~eval("list")~new(b~map(self~routine("double"), .array~of(1, 2, 3)))~string, "list(map(...))")
+
+::method test_rexx_object_in_python
+  b = .py
+  d = .directory~new
+  d~color = "red"
+  self~assertTrue(b~eval("lambda x: x")~new(d) == d, "round trip identity")
+  self~assertSame("RexxObject", b~type(d)~__name__, "type")
+  b~exec(self~py("def get(o, k): return o[k]",       -
+                 "def put(o, k, v): o[k] = v",       -
+                 "def send(o): return o.items()",    -
+                 "def text(o): return str(o)",       -
+                 "def each(o): return [x for x in o]"))
+  m = b~main
+  self~assertSame("red", m~get(d, "COLOR"), "Python o[k]")
+  m~put(d, "SIZE", 3)
+  self~assertSame("3", d~size, "Python o[k] = v")
+  self~assertSame("2", m~send(d), "Python o.items()")
+  self~assertSame("a Directory", m~text(d), "Python str(o)")
+  self~assertSame("['a', 'b']", m~each(.array~of("a", "b"))~string, "Python iterates")
+  self~assertSame("2", b~len(d), "len()")
+
+::method test_arguments_and_results
+  b = .py
+  self~assertSame("42", b~eval("lambda f: f(20, 22)")~new(self~routine("add")), "callback args")
+  self~assertSame("Directory", b~eval("lambda f: f()")~new(self~routine("makeDir"))~class~id, "callback returns obj")
+
+-- errors in Rexx code reach Python as RexxError, and Rexx again as a Python error
+::method test_rexx_error_round_trip
+  co = self~syntaxOf(.py~eval("lambda f: f()"), "new", self~routine("fails"))
+  self~assertTrue(pos("RexxError: Rexx error 93.924: Invalid position", co~message) > 0, "RexxError reaches Rexx")
+
+::method test_python_catches_rexx_error
+  b = .py
+  b~exec(self~py("def catch(f):",                       -
+                 "    import oorexx",                   -
+                 "    try: f()",                        -
+                 "    except Exception as e: return type(e).__name__"))
+  self~assertSame("RexxError", b~main~catch(self~routine("fails")), "Python catches it")
+
+-- Rexx -> Python -> Rexx -> Python
+::method test_nested
+  self~assertSame("25", .py~eval("lambda f, x: f(x)")~new(self~routine("viaPython"), 5), "nested")
+
+::routine byLength
+  return length(arg(1))
+::routine double
+  return arg(1) * 2
+::routine add
+  return arg(1) + arg(2)
+::routine makeDir
+  return .directory~new
+::routine fails
+  return substr("x", 0)
+::routine viaPython
+  return .py~pow(arg(1), 2)

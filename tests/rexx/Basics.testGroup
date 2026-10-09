@@ -1,0 +1,145 @@
+#!/usr/bin/env rexx
+/*----------------------------------------------------------------------------*/
+/* Basics.testGroup: values, names, keywords, items,                          */
+/* iteration, errors, boxing, eval.                                           */
+/*                                                                            */
+/* Licensed under the Apache License, Version 2.0.                            */
+/*----------------------------------------------------------------------------*/
+  parse source . . fileSpec
+
+  group = .TestGroup~new(fileSpec)
+  group~add(.Basics.testGroup)
+
+  if group~isAutomatedTest then return group
+
+  testResult = group~suite~execute~~print
+
+return testResult
+-- End of entry point.
+
+::requires 'PyTestCase.cls'
+
+::class "Basics.testGroup" subclass PyTestCase public
+
+-- a Python class with case variants of the same name, and a method
+::method makeT private
+  b = .py
+  b~exec(self~py("class T:",                                              -
+                 "    nan = 1; NaN = 2; NAN = 3",                         -
+                 "    DataFrame = 'df'",                                  -
+                 "    Foo = 'a'; FOO = 'b'",                              -
+                 "    def hello(self, who='world'): return 'hello ' + who", -
+                 "t = T()"))
+  return b~main~t
+
+::method test_values_python_to_rexx
+  b = .py
+  self~assertSame("42", b~int("42")~string, "int")
+  self~assertSame("7", b~abs(-7), "abs(-7)")
+  self~assertSame("0.1", b~float("0.1") + 0, "float repr")
+  self~assertSame("1", b~bool(1), "True -> 1")
+  self~assertSame("0", b~bool(0), "False -> 0")
+  self~assertNil(b~eval("None"), "None -> .nil")
+  self~assertSame("Hi", b~bytes(.array~of(72, 105)), "bytes -> string")
+  self~assertSame("1267650600228229401496703205376", b~pow(2, 100), "big int exact")
+
+::method test_values_rexx_to_python
+  b = .py
+  self~assertSame("int",   b~type(42)~__name__,    "42 is int")
+  self~assertSame("int",   b~type(-7)~__name__,    "-7 is int")
+  self~assertSame("float", b~type(3.14)~__name__,  "3.14 is float")
+  self~assertSame("float", b~type("1E3")~__name__, "1E3 is float")
+  self~assertSame("float", b~type("1.")~__name__,  "1. is float")
+  self~assertSame("float", b~type(".5")~__name__,  ".5 is float")
+  self~assertSame("str",   b~type("007")~__name__, "007 is str")
+  self~assertSame("str",   b~type("+5")~__name__,  "+5 is str")
+  self~assertSame("str",   b~type(" 5")~__name__,  "' 5' is str")
+  self~assertSame("str",   b~type("abc")~__name__, "abc is str")
+  self~assertSame("str",   b~type("-")~__name__,   "- is str")
+  self~assertSame("str",   b~type(b~str(932))~__name__, ".py~str forces")
+  self~assertSame("0.1000000000000000000001", b~decimal("0.1000000000000000000001")~string, ".py~decimal")
+  self~assertSame("list",  b~type(.array~of(1, 2))~__name__, "array -> list")
+  self~assertSame("None",  b~repr(.nil), ".nil -> None")
+  self~assertSame("[1, 'a', 2.5]", b~repr(.array~of(1, "a", 2.5)), "list items typed")
+  self~assertSame("añø€",  b~str("añø€")~string, "utf-8 round trip")
+
+::method test_names
+  b = .py
+  t = self~makeT
+  self~assertSame("1",           t~nan,       "lowercase wins")
+  self~assertSame("df",          t~dataframe, "unique match")
+  self~assertSame("hello world", t~hello,     "method called")
+  self~assertSame("hello Rexx",  t~Hello("Rexx"), "method with arg")
+  self~assertSame("hello kw",    t~hello(b~kw("who", "kw")), "keyword argument")
+  self~assertSame("hello dir",   t~hello(b~kw(.directory~of(("who", "dir")))), "kw from directory")
+  self~assertSame("2",           t~getattr("NaN"), "exact getattr")
+  co = self~syntaxOf(t, "foo")
+  self~assertTrue(pos("ambiguous name FOO", co~message) > 0, "ambiguity is an error")
+
+::method test_attributes
+  t = self~makeT
+  t~setattr("newOne", 5)
+  self~assertSame("5", t~newone, "setattr new")
+  t~newone = 6
+  self~assertSame("6", t~getattr("newOne"), "assignment")
+  self~assertSame("hello inv", t~invoke("hello", "inv"), "invoke exact")
+
+::method test_items_and_iteration
+  b = .py
+  c = b~import("collections")
+  od = c~OrderedDict~new
+  od["x"] = 1
+  od["y"] = 2
+  self~assertSame("2", od["y"], "items set/get")
+  self~assertSame("2", b~len(od), "len")
+  keys = ""
+  do k over od; keys = keys k; end
+  self~assertSame("x y", keys~strip, "do over")
+  l = b~list(.array~of(10, 20, 30))
+  self~assertSame("10", l[0], "list index 0")
+  d2 = b~dict~new~copy
+  self~assertSame("dict", b~type(d2)~__name__, "copy is Python's")
+  self~assertSame("[1, 2]", b~list(.array~of(1, 2))~string, "string of proxy")
+  -- list and tuple are Python's builtins, unchanged
+  self~assertSame("['a', 'b', 'c']", b~list("abc")~string, "list(iterable)")
+  self~assertSame("(1, 'x')", b~tuple(.array~of(1, "x"))~string, "tuple(Array)")
+  self~assertSame("[[1, 2], [3]]", b~list(.array~of(.array~of(1, 2), .array~of(3)))~string, "nested Arrays")
+
+::method test_python_error
+  co = self~syntaxOf(.py, "int", "abc")
+  self~assertSame("98.900", co~code, "error code")
+  self~assertSame("Python error: ValueError: invalid literal for int() with base 10: 'abc'.", co~message, "error message")
+  self~assertTrue(pos("ValueError", co~additional[2]) > 0, "traceback")
+
+::method test_python_error_frames
+  b = .py
+  b~exec(self~py("def boom():", "    raise KeyError('deep')"))
+  co = self~syntaxOf(b~main, "boom")
+  self~assertTrue(pos('line 2, in boom', co~additional[2]) > 0, "traceback frames")
+
+::method test_missing_attribute
+  co = self~syntaxOf(self~makeT, "nonesuch")
+  self~assertTrue(pos("has no attribute nonesuch", co~message) > 0, "missing attribute")
+
+-- boxing (py.box) and the BSF4ooRexx-style routines
+::method test_box
+  b = .py
+  self~assertSame("str",            b~type(py.box("str", 2))~__name__, "box str")
+  self~assertSame("2",              py.box("str", 2)~string, "box str value")
+  self~assertSame("2.0",            b~repr(py.box("float", 2)), "box float")
+  self~assertSame("True",           b~repr(py.box("bool", 1)), "box bool 1")
+  self~assertSame("False",          b~repr(py.box("bool", 0)), "box bool 0")
+  self~assertSame("b'ab'",          b~repr(py.box("bytes", "ab")), "box bytes")
+  self~assertSame("(1+2j)",         b~repr(py.box("complex", "1+2j")), "box complex")
+  self~assertSame("Fraction(1, 3)", b~repr(py.box("fraction", "1/3")), "box fraction")
+  self~assertSame("42",             b~repr(py.box(b~getattr("int"), "42")), "box a Python type")
+  self~assertSame("7",              b~repr(py.box("int", "007")), "box 007 as int")
+
+::method test_routines
+  self~assertSame("2", py.import("math")~floor(2.5), "py.import")
+  self~assertSame("hello routine", self~makeT~hello(py.kw("who", "routine")), "py.kw")
+
+::method test_eval
+  b = .py
+  self~assertSame("42", b~eval("6 * 7"), "eval")
+  self~assertSame("42", b~eval("42"), "eval digits")

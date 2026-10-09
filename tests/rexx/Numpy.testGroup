@@ -1,0 +1,66 @@
+#!/usr/bin/env rexx
+/*----------------------------------------------------------------------------*/
+/* Numpy.testGroup: numpy arrays, arithmetic (Python's operators), indexing  */
+/* with tuple keys, numpy scalars; a matplotlib PNG with the Agg backend.     */
+/*                                                                            */
+/* Licensed under the Apache License, Version 2.0.                            */
+/*----------------------------------------------------------------------------*/
+  parse source . . fileSpec
+
+  group = .TestGroup~new(fileSpec)
+  group~add(.Numpy.testGroup)
+
+  if group~isAutomatedTest then return group
+
+  testResult = group~suite~execute~~print
+
+return testResult
+-- End of entry point.
+
+::requires 'PyTestCase.cls'
+
+::class "Numpy.testGroup" subclass PyTestCase public
+
+::method test_vectors
+  np = .py~import("numpy")
+  a = np~array(.array~of(1, 2, 3))
+  self~assertSame("2.0", np~mean(a), "mean")
+  self~assertSame("6", a~sum~string, "sum")
+  self~assertSame("i", a~dtype~kind, "dtype int")
+  f = np~array(.array~of(1.5, 2.5))
+  self~assertSame("f", f~dtype~kind, "dtype float")
+  self~assertSame("[2, 4, 6]", (a * 2)~tolist~string, "a * 2")
+  self~assertSame("[2, 4, 6]", (a + a)~tolist~string, "a + a")
+  self~assertSame("[-1, -2, -3]", (-a)~tolist~string, "-a")
+  self~assertSame("2.0", np~mean(f), "mean of floats")
+  total = 0
+  do x over a; total += x; end
+  self~assertSame("6", total, "do over array")
+
+::method test_matrices
+  np = .py~import("numpy")
+  m = np~array(.array~of(.array~of(1, 2), .array~of(3, 4)))
+  self~assertSame("(2, 2)", m~shape~string, "shape")
+  self~assertSame("3", m[1, 0]~string, "m[1, 0]")
+  self~assertSame("[[7, 10], [15, 22]]", np~dot(m, m)~tolist~string, "matrix product")
+  self~assertSame("[[1, 3], [2, 4]]", m~T~tolist~string, "transpose")
+  self~assertSame("-2.0", np~round(np~linalg~det(m), 6), "linalg det")
+  self~assertSame("(2, 5)", np~arange(10)~reshape(2, 5)~shape~string, "arange/reshape")
+  self~assertSame("[4, 6]", np~sum(m, .py~kw("axis", 0))~tolist~string, "kw axis")
+  m[0, 0] = 9
+  self~assertSame("[[9, 2], [3, 4]]", m~tolist~string, "setitem tuple")
+
+::method test_matplotlib_png
+  np = .py~import("numpy")
+  mpl = .py~import("matplotlib")
+  mpl~use("Agg")                                   -- no display
+  plt = .py~import("matplotlib.pyplot")
+  x = np~linspace(0, 6.28, 50)
+  plt~plot(x, np~sin(x), .py~kw("color", "red", "linewidth", 2))
+  plt~title("sin(x) from ooRexx")
+  file = "sin.png"
+  plt~savefig(file)
+  plt~close("all")
+  self~assertTrue(stream(file, "c", "query exists") \= "", "png written")
+  self~assertSame("PNG", charin(file, 2, 3), "png signature")
+  call stream file, "c", "close"

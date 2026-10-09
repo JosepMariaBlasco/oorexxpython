@@ -1,0 +1,164 @@
+#!/usr/bin/env rexx
+/*----------------------------------------------------------------------------*/
+/* Threads.testGroup: the stress test of docs/design.md, *Threads and        */
+/* locks*.  At the same time:                                                 */
+/*   - N Rexx threads call Python, which calls back into Rexx (nested);       */
+/*   - M Python threads (threading) call a Rexx routine (they attach);        */
+/*   - a Rexx thread waits inside Python on a queue that a Python thread      */
+/*     fills only after calling Rexx: the deadlock rule 1 prevents.           */
+/* Run under a timeout (tests/run.sh): a deadlock is a failure.               */
+/*                                                                            */
+/* Size: environment variable ORXPY_THREADS="n m k" (Rexx threads, Python     */
+/* threads, calls per thread); default "8 8 200", the heavy run is            */
+/* "16 16 2000".                                                              */
+/*                                                                            */
+/* Rare failures of the heavy run were traced to ooRexx bugs #2101, #2102     */
+/* and #2103 (fixed in r13256, r13259, r13265; notes/oorexx-bugs.md).        */
+/*                                                                            */
+/* Licensed under the Apache License, Version 2.0.                            */
+/*----------------------------------------------------------------------------*/
+  parse source . . fileSpec
+
+  group = .TestGroup~new(fileSpec)
+  group~add(.Threads.testGroup)
+
+  if group~isAutomatedTest then return group
+
+  testResult = group~suite~execute~~print
+
+return testResult
+-- End of entry point.
+
+::requires 'PyTestCase.cls'
+
+::class "Threads.testGroup" subclass PyTestCase public
+
+::method test_stress
+  parse value value("ORXPY_THREADS", , "ENVIRONMENT") with n m k .
+  if n = "" then n = 8          -- Rexx threads
+  if m = "" then m = 8          -- Python threads
+  if k = "" then k = 200        -- calls per thread
+  double = .context~package~findRoutine("double")
+
+  b = .py
+  b~exec(self~py("import threading, queue",                                     -
+                 "lock = threading.Lock(); total = [0]; done = []",             -
+                 "def work(f, x):",                                             -
+                 "    s = sum(range(100))",                                     -
+                 "    return f(x) + s - s",                                     -
+                 "def py_thread(f, k):",                                        -
+                 "    acc = 0",                                                 -
+                 "    for i in range(k): acc += f(i)",                          -
+                 "    with lock: total[0] += acc; done.append(1)",              -
+                 "def spawn(f, m, k):",                                         -
+                 "    ts = [threading.Thread(target=py_thread, args=(f, k)) for _ in range(m)]", -
+                 "    for t in ts: t.start()",                                  -
+                 "    return ts",                                               -
+                 "def join(ts):",                                               -
+                 "    for t in ts: t.join()",                                   -
+                 "q = queue.Queue()",                                           -
+                 "def producer(f):",                                            -
+                 "    threading.Thread(target=lambda: q.put(f(21))).start()",   -
+                 "def consumer():",                                             -
+                 "    return q.get(timeout=30)"))
+  main = b~main
+
+  start = time("E")
+  -- Python threads first: they keep calling Rexx while the Rexx threads run
+  pyThreads = main~spawn(double, m, k)
+
+  -- the queue test: a Rexx thread blocks in Python (q.get); the producer
+  -- (a Python thread) must call Rexx to make the value
+  waiter = .Worker~new~start("consume")
+  main~producer(double)
+
+  -- N Rexx threads calling Python, which calls Rexx back
+  workers = .array~new
+  do i = 1 to n
+    workers~append(.Worker~new~start("loop", k, double))
+  end
+  sum = 0
+  do w over workers
+    sum += w~result
+  end
+  main~join(pyThreads)
+
+  self~assertSame(n * (k * (k - 1)), sum, "Rexx threads results")
+  self~assertSame(m, b~len(main~done), "Python threads done")
+  self~assertSame(m * (k * (k - 1)), main~total[0], "Python threads total")
+  self~assertSame(42, waiter~result, "queue (no deadlock)")
+  say "elapsed:" format(time("E") - start, , 2) "s for" (n * k + m * k) "crossings + nested"
+
+-- Regression: .PyObject methods were GUARDED, so a Python thread
+-- calling back Rexx code that used the same proxy (.py) waited for the Rexx
+-- thread that was inside Python on that proxy, waiting for the Python thread.
+::method test_same_proxy_from_python_threads
+  sumTo = .context~package~findRoutine("sumTo")
+  cf = .py~import("concurrent.futures")
+  ex = cf~ThreadPoolExecutor(4)
+  -- .py~sum runs here, on .py, while the pool's threads call sumTo, which
+  -- uses .py too
+  total = .py~sum(ex~map(sumTo, .array~of(10, 100, 1000, 10000)))
+  ex~shutdown
+  self~assertSame(50499495, total, "pool threads calling Rexx that uses .py")
+
+-- two Rexx threads inside the same proxy at the same time
+::method test_same_proxy_from_rexx_threads
+  .py~exec(self~py("import threading",                                  -
+                   "gate = threading.Barrier(2, timeout=20)",            -
+                   "def meet(x):",                                       -
+                   "    gate.wait()",                                    -
+                   "    return x"))
+  a = .Worker~new~start("meet", 1)
+  b = .Worker~new~start("meet", 2)
+  self~assertSame(3, a~result + b~result, "both threads inside .py~main~meet")
+
+-- Regression: .PyObject's uninit was native; ooRexx's runUninits
+-- loop crashes when a native uninit releases the kernel lock and other threads
+-- create objects with uninit methods meanwhile (ooRexx bug #2101)
+::method test_proxies_dropped_by_many_threads
+  -- Python threads that keep the GIL busy, so that each native uninit waited
+  -- for it (with the kernel lock released) for a while
+  .py~exec(self~py("import threading, time",                                -
+                   "def spin(seconds):",                                    -
+                   "    end = time.time() + seconds",                       -
+                   "    while time.time() < end: sum(range(1000))",          -
+                   "spinners = [threading.Thread(target=spin, args=(3,)) for _ in range(2)]", -
+                   "for t in spinners: t.start()"))
+  workers = .array~new
+  do i = 1 to 8
+    workers~append(.Worker~new~start("churn", 20000))
+  end
+  total = 0
+  do w over workers
+    total += w~result
+  end
+  .py~exec("for t in spinners: t.join()")
+  self~assertSame(8 * 20000, total, "8 Rexx threads x 20000 proxies made and dropped")
+
+::class Worker
+::method churn
+  use arg n
+  made = 0
+  do i = 1 to n
+    p = .py~list(.array~of(i))        -- a new proxy each time; the old one dies
+    made += 1
+  end
+  return made
+::method meet
+  return .py~main~meet(arg(1))
+::method loop
+  use arg k, double
+  main = .py~main
+  acc = 0
+  do i = 0 to k - 1
+    acc += main~work(double, i)
+  end
+  return acc
+::method consume
+  return .py~main~consumer
+
+::routine double
+  return arg(1) * 2
+::routine sumTo
+  return .py~sum(.py~range(arg(1)))

@@ -1,0 +1,59 @@
+#!/usr/bin/env rexx
+/*----------------------------------------------------------------------------*/
+/* Lifetime.testGroup: proxies are released in both directions (memory       */
+/* bounded).  Measures the process's RSS: run it alone (tests/run.sh runs     */
+/* each test group in its own process).                                       */
+/*                                                                            */
+/* Licensed under the Apache License, Version 2.0.                            */
+/*----------------------------------------------------------------------------*/
+  parse source . . fileSpec
+
+  group = .TestGroup~new(fileSpec)
+  group~add(.Lifetime.testGroup)
+
+  if group~isAutomatedTest then return group
+
+  testResult = group~suite~execute~~print
+
+return testResult
+-- End of entry point.
+
+::requires 'PyTestCase.cls'
+
+::class "Lifetime.testGroup" subclass PyTestCase public
+
+::method test_proxies_released
+  b = .py
+  ident = b~eval("lambda x: x")
+  probe = b~object~new
+  b~exec(self~py("import sys", "def refs(o): return sys.getrefcount(o)"))
+  refs = b~main~getattr("refs")
+  base = refs~new(probe)
+  rss0 = rss()
+  do round = 1 to 5
+    do i = 1 to 40000
+      p = ident~new(probe)             -- a new .PyObject proxy each time
+      d = ident~new(.directory~new)    -- a Rexx object through Python and back
+      l = b~list(.array~of(i, i))      -- a new Python list each time
+    end
+    drop p d l
+  end
+  -- let ooRexx run the pending UNINITs
+  do i = 1 to 200000; o = .object~new; end
+  call SysSleep 0.5
+  do i = 1 to 200000; o = .object~new; end
+  after = refs~new(probe)
+  rss1 = rss()
+  say "refcount base" base "after" after "| RSS KB before" rss0 "after" rss1
+  self~assertTrue(after - base < 1000, "Python refcount back near base (base" base", after" after")")
+  self~assertTrue(rss1 - rss0 < 100000, "memory bounded (< 100 MB growth; RSS KB" rss0 "->" rss1")")
+
+::routine rss
+  f = "/proc/self/status"
+  do 100                              -- /proc files report no size: read on
+    line = linein(f)
+    if stream(f, "s") \= "READY" then leave
+    parse var line key ":" value
+    if key = "VmRSS" then do; call stream f, "c", "close"; return word(value, 1); end
+  end
+  return 0
