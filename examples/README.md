@@ -17,6 +17,16 @@ PYTHONPATH=/path/to/bridge python3 30-run-rexx.py
 
 (`./run-one.sh 01-hello.rex [3.11]` does that with the build of `scripts/build.sh`.)
 
+## As slides
+
+`slides/examples.md` is every example as one slide deck for
+[md2slides](https://rexx.epbcn.com/rexx-parser/doc/utilities/md2slides/),
+the Rexx Parser's slide tool: each example's code, the Python it replaces and
+its output. `md2slides slides/examples.md` makes one HTML file (with
+`slides/skin-default.css`, a plain skin; `-s` and `-mp` choose your own).
+The deck is generated from the examples and this README by
+`scripts/examples-deck.rex`: edit those, not the deck.
+
 ## ooRexx using Python
 
 | File | Shows |

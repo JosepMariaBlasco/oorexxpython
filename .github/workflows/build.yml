@@ -54,6 +54,11 @@ jobs:
         if: runner.os == 'macOS'
         run: brew install -q coreutils
       - run: rexx -v
+      - name: The examples' slide deck is up to date
+        if: runner.os == 'Linux'
+        run: |
+          rexx scripts/examples-deck.rex
+          git diff --exit-code examples/slides || { echo "run scripts/examples-deck.rex and commit examples/slides"; exit 1; }
       - name: Python ${{ env.PYTHONS }}, with numpy and matplotlib
         run: |
           scripts/setup-pythons.sh
