@@ -14,7 +14,8 @@
  *    Py* symbols.  Only then is the bridge loaded: its Py* references can be
  *    bound.  The bridge initializes Python when ooRexx loads the package.
  *
- * Platform-dependent by nature (docs/design.md, *Platforms*): Linux now; macOS and Windows later.
+ * Platform-dependent by nature (docs/design.md, *Platforms*): Linux and macOS
+ * (dlopen on both); Windows later.
  */
 
 #include "oorexxapi.h"
@@ -109,7 +110,10 @@ static bool loadLibpython(const PythonInfo &info, std::string &error)
 {
     std::vector<std::string> candidates;
     if (!info.instsoname.empty()) candidates.push_back(info.libdir + "/" + info.instsoname);
-    if (endsWith(info.ldlibrary, ".so")) candidates.push_back(info.libdir + "/" + info.ldlibrary);
+    if (endsWith(info.ldlibrary, ".so") || endsWith(info.ldlibrary, ".dylib"))
+    {
+        candidates.push_back(info.libdir + "/" + info.ldlibrary);
+    }
     for (const std::string &c : candidates)
     {
         if (dlopen(c.c_str(), RTLD_NOW | RTLD_GLOBAL) != NULL) return true;

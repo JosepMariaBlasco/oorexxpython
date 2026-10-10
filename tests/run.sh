@@ -9,13 +9,15 @@
 set -uo pipefail
 WORK=${ORXPY_WORK:-$(cd "$(dirname "$0")/../.." && pwd)}   # the directory that contains the clone
 HERE=$(cd "$(dirname "$0")" && pwd)
+. "$HERE/../scripts/platform.sh"
 BUILD=${BUILD:-$WORK/build}
 UNIT=${OOREXXUNIT_DIR:-$WORK/oorexxunit}
 export UV_PYTHON_INSTALL_DIR=${UV_PYTHON_INSTALL_DIR:-$WORK/pythons}
 PYTHONS=${PYTHONS:-3.9 3.10 3.11 3.12 3.13}
 TESTS=${TESTS:-$(cd "$HERE/rexx" && ls *.testGroup; cd "$HERE/python" && ls t*.py)}
 [ -f "$UNIT/testOORexx.rex" ] || { echo "ooRexxUnit missing: run scripts/setup-oorexxunit.sh"; exit 2; }
-export ORXPY_BUILD=$BUILD LD_LIBRARY_PATH=$BUILD${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+export ORXPY_BUILD=$BUILD
+export $LIBVAR="$BUILD${!LIBVAR:+:${!LIBVAR}}"
 export REXX_PATH=$BUILD:$UNIT:$HERE/rexx
 OUT=${OUT:-/tmp/orxpy-tests}; mkdir -p "$OUT"
 status=0

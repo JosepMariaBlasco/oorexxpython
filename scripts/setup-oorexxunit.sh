@@ -15,7 +15,13 @@ REV=${OOREXXUNIT_REV:-13254}
 DIR=${OOREXXUNIT_DIR:-$WORK/oorexxunit}
 SVN=https://svn.code.sf.net/p/oorexx/code-0/test/trunk
 if ! command -v svn >/dev/null; then
-  apt-get install -y -q subversion >/dev/null 2>&1 || { apt-get update -qq && apt-get install -y -q subversion >/dev/null; }
+  if command -v apt-get >/dev/null; then
+    apt-get install -y -q subversion >/dev/null 2>&1 || { apt-get update -qq && apt-get install -y -q subversion >/dev/null; }
+  elif command -v brew >/dev/null; then
+    brew install -q subversion
+  else
+    echo "setup-oorexxunit.sh: needs svn (Subversion)" >&2; exit 2
+  fi
 fi
 mkdir -p "$DIR"
 svn export -q --force -r "$REV" "$SVN/framework/OOREXXUNIT.CLS" "$DIR/OOREXXUNIT.CLS"

@@ -1,6 +1,7 @@
 # Builds the bridge once (Stable ABI) and runs every test with every Python,
-# 3.9 to 3.13, on Linux. ooRexx comes from its portable build on SourceForge,
-# pinned to one revision; a newer one is taken deliberately, after checking it.
+# 3.9 to 3.13, on Linux and macOS. ooRexx comes from its portable builds on
+# SourceForge, pinned to one revision; a newer one is taken deliberately,
+# after checking it.
 name: build
 
 on:
@@ -12,22 +13,34 @@ on:
 env:
   OOREXX_REV: "13268"
   OOREXX_URL: https://downloads.sourceforge.net/project/oorexx/oorexx/5.3.0beta/portable
-  OOREXX_PKG: ubuntu2404.x86_64
   PYTHONS: "3.9 3.10 3.11 3.12 3.13"
 
 jobs:
-  linux:
-    name: linux-x64
-    runs-on: ubuntu-24.04
+  unix:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x64
+            os: ubuntu-24.04
+            oorexx: ubuntu2404.x86_64
+          - name: macos-arm64
+            os: macos-14
+            oorexx: macos.arm64.x86_64
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
       - name: ooRexx r${{ env.OOREXX_REV }} (portable)
         run: |
           curl -sSfL --retry 3 -o "$RUNNER_TEMP/oorexx.zip" \
-            "$OOREXX_URL/oorexx-5.3.0-$OOREXX_REV.$OOREXX_PKG-portable-release.zip"
+            "$OOREXX_URL/oorexx-5.3.0-$OOREXX_REV.${{ matrix.oorexx }}-portable-release.zip"
           unzip -q "$RUNNER_TEMP/oorexx.zip" -d "$RUNNER_TEMP"
-          echo "$RUNNER_TEMP/oorexx-5.3.0-$OOREXX_REV.$OOREXX_PKG-portable-release/bin" >> "$GITHUB_PATH"
+          echo "$RUNNER_TEMP/oorexx-5.3.0-$OOREXX_REV.${{ matrix.oorexx }}-portable-release/bin" >> "$GITHUB_PATH"
+      - name: macOS tools (coreutils' timeout, Subversion)
+        if: runner.os == 'macOS'
+        run: brew install -q coreutils subversion
       - run: rexx -v
       - name: Python ${{ env.PYTHONS }}, with numpy and matplotlib
         run: |
@@ -38,7 +51,7 @@ jobs:
           done
       - name: ooRexxUnit
         run: |
-          sudo apt-get install -y -q subversion >/dev/null
+          if [ "$RUNNER_OS" = Linux ]; then sudo apt-get install -y -q subversion >/dev/null; fi
           scripts/setup-oorexxunit.sh
       - name: Build
         run: scripts/build.sh
@@ -49,5 +62,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-logs
+          name: test-logs-${{ matrix.name }}
           path: ${{ runner.temp }}/tests*

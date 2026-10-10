@@ -48,8 +48,13 @@ return testResult
   self~assertTrue(after - base < 1000, "Python refcount back near base (base" base", after" after")")
   self~assertTrue(rss1 - rss0 < 100000, "memory bounded (< 100 MB growth; RSS KB" rss0 "->" rss1")")
 
-::routine rss
+::routine rss                           -- the process's RSS in KB
   f = "/proc/self/status"
+  if \SysFileExists(f) then do          -- macOS: no /proc
+    out = .array~new
+    address system "ps -o rss= -p" SysQueryProcess("PID") with output using (out)
+    return word(out~makeString("L", " "), 1)
+  end
   do 100                              -- /proc files report no size: read on
     line = linein(f)
     if stream(f, "s") \= "READY" then leave

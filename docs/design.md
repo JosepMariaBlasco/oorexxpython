@@ -64,9 +64,13 @@ it before 3.15.
 
 ## Platforms
 
-Linux x86_64 first. The platform-dependent parts (finding and loading
-libpython, library names) are kept apart, in the loader, so that macOS
-(Python frameworks) and Windows (`python3.dll`, `LoadLibrary`) can follow.
+Linux x86_64 and macOS (arm64), both built and tested by CI. The
+platform-dependent parts (finding and loading libpython, library names) are
+kept apart, in the loader and `scripts/platform.sh`, so that Windows
+(`python3.dll`, `LoadLibrary`) can follow. On macOS the ooRexx package is
+`librexxpython.dylib` and the library path variable `DYLD_LIBRARY_PATH`,
+which macOS drops when it starts a protected program such as `/bin/sh`: a
+command run through a shell must set it itself.
 
 ## ooRexx → Python
 
