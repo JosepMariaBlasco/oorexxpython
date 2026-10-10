@@ -39,14 +39,15 @@ with oorexx.Interpreter() as rexx:
 
 **Status: prototype.** Both directions work and are covered by automated
 tests (ooRexxUnit test groups and Python checks, every nutshell example
-included), on Linux x86_64, with CPython 3.9–3.13, against ooRexx 5.3.0
-(trunk). Every push runs them all with every Python (GitHub Actions:
-`.github/workflows/build.yml`). macOS and Windows are next. The design is
+included), on Linux x86_64 and macOS (arm64), with CPython 3.9–3.13,
+against ooRexx 5.3.0 (trunk). Every push runs them all with every Python on
+both (GitHub Actions: `.github/workflows/build.yml`). Windows is next. The design is
 still being discussed and parts of the API may change.
 
 ## Getting started
 
-Linux x86_64, with `g++`, `svn` and [uv](https://docs.astral.sh/uv/) (or
+Linux x86_64 or macOS, with a C++ compiler (`g++`; Xcode's command line
+tools on macOS), `svn` and [uv](https://docs.astral.sh/uv/) (or
 `pip`, which `setup-pythons.sh` uses to install uv), and an ooRexx 5.3.0
 with its API headers: an installed ooRexx (`/usr/local`), or one of ooRexx's
 portable builds from
@@ -64,7 +65,7 @@ Everything goes into the directory that contains your clone
 (`$ORXPY_WORK`, overridable), next to it:
 
 ```
-build/        oorexx.abi3.so, librexxpython.so, python.cls
+build/        oorexx.abi3.so, librexxpython.so (.dylib on macOS), python.cls
 pythons/      the CPython versions to test against
 oorexxunit/   ooRexx's test framework (for the tests)
 ```
@@ -72,9 +73,9 @@ oorexxunit/   ooRexx's test framework (for the tests)
 To use the bridge from your own programs:
 
 - **From Rexx**: put the build directory on `REXX_PATH` and
-  `LD_LIBRARY_PATH`, and say which Python to use with `ORX_PYTHON` (default:
-  the `python3` on the `PATH`; its installed packages are the ones Rexx
-  sees):
+  `LD_LIBRARY_PATH` (`DYLD_LIBRARY_PATH` on macOS), and say which Python to
+  use with `ORX_PYTHON` (default: the `python3` on the `PATH`; its installed
+  packages are the ones Rexx sees):
   `ORX_PYTHON=$(which python3) LD_LIBRARY_PATH=build REXX_PATH=build rexx prog.rex`
 - **From Python**: put the build directory on `PYTHONPATH` and
   `import oorexx`: `PYTHONPATH=build python3 prog.py`.
