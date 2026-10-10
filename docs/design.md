@@ -64,7 +64,7 @@ it before 3.15.
 
 ## Platforms
 
-Linux x86_64, macOS (arm64) and Windows x64, all built and tested by CI
+Linux x86_64, macOS (arm64 and x86_64) and Windows x64, all built and tested by CI
 with the same scripts (on Windows, in Git Bash with MSVC). The
 platform-dependent parts (finding and loading Python's library, file names,
 paths) are kept apart, in the loader and `scripts/platform.sh`.

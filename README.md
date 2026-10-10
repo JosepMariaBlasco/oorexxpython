@@ -39,15 +39,15 @@ with oorexx.Interpreter() as rexx:
 
 **Status: prototype.** Both directions work and are covered by automated
 tests (ooRexxUnit test groups and Python checks, every nutshell example
-included), on Linux x86_64, macOS (arm64) and Windows x64, with CPython
+included), on Linux x86_64, macOS (arm64 and x86_64) and Windows x64, with CPython
 3.9–3.13, against ooRexx 5.3.0 (trunk). Every push runs them all with every
-Python on all three (GitHub Actions: `.github/workflows/build.yml`). The design is
+Python on all four (GitHub Actions: `.github/workflows/build.yml`). The design is
 still being discussed and parts of the API may change.
 
 ## Binaries
 
-Every push builds a zip of binaries for Linux x64, macOS arm64 and Windows
-x64 (GitHub Actions artifacts `oorexxpython-<platform>`), checked unzipped
+Every push builds a zip of binaries for Linux x64, macOS arm64, macOS x64
+and Windows x64 (GitHub Actions artifacts `oorexxpython-<platform>`), checked unzipped
 with the system's own Python; tagged versions are published as GitHub
 releases. The zip's `README.md` (`dist/README.md` here) says how to install
 it: unzip, and point the library path, `REXX_PATH` and `PYTHONPATH` at the

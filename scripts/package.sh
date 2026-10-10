@@ -4,7 +4,7 @@
 #
 #   oorexxpython-VERSION-PLATFORM.zip, one folder oorexxpython/: the bridge
 #   (oorexx.abi3.so / oorexx.pyd), the ooRexx package (librexxpython.so /
-#   .dylib, rexxpython.dll), python.cls, README.md (dist/README.md: how to
+#   .dylib, rexxpython.dll), both stripped, python.cls, README.md (dist/README.md: how to
 #   install), check.rex and check.py, the examples and the licence.
 #
 # VERSION: ORXPY_VERSION, else YYYYMMDD-COMMIT.  PLATFORM: linux-x64,
@@ -34,6 +34,13 @@ for f in "$BRIDGE" "$LOADER" python.cls; do
   [ -f "$BUILD/$f" ] || { echo "package.sh: no $BUILD/$f (run build.sh)" >&2; exit 2; }
   cp "$BUILD/$f" "$STAGE/"
 done
+# build.sh keeps debug information (-g); users get the binaries without it
+# (and without local symbols): a tenth of the size.  On Windows there is
+# nothing to strip (build.sh asks cl for no debug information).
+case $OS in
+  Linux)  strip --strip-unneeded "$STAGE/$BRIDGE" "$STAGE/$LOADER" ;;
+  Darwin) strip -x "$STAGE/$BRIDGE" "$STAGE/$LOADER" ;;
+esac
 cp "$ROOT/dist/README.md" "$ROOT/dist/check.rex" "$ROOT/dist/check.py" "$ROOT/LICENSE" "$STAGE/"
 cp "$ROOT"/examples/*.rex "$ROOT"/examples/*.py "$ROOT/examples/README.md" "$STAGE/examples/"
 

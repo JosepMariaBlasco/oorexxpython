@@ -1,5 +1,5 @@
 # Builds the bridge once (Stable ABI) and runs every test with every Python,
-# 3.9 to 3.13, on Linux, macOS and Windows. ooRexx comes from its portable
+# 3.9 to 3.13, on Linux, macOS (arm64 and x64) and Windows. ooRexx comes from its portable
 # builds on SourceForge, pinned to one revision; a newer one is taken
 # deliberately, after checking it.
 #
@@ -7,7 +7,7 @@
 # (scripts/package.sh; artifacts oorexxpython-<platform>), which is checked
 # unzipped, as a user would install it, with the system's own Python. A tag
 # vX.Y.Z[-suffix] (git tag v0.1.0 && git push origin v0.1.0) also makes a
-# GitHub release with the three zips; pushes to main publish nothing.
+# GitHub release with the four zips; pushes to main publish nothing.
 name: build
 
 on:
@@ -34,6 +34,11 @@ jobs:
             oorexx: ubuntu2404.x86_64
           - name: macos-arm64
             os: macos-14
+            oorexx: macos.arm64.x86_64
+          # Intel: the last x86_64 macOS image GitHub offers (until fall 2027);
+          # ooRexx's macOS portable build is universal
+          - name: macos-x64
+            os: macos-15-intel
             oorexx: macos.arm64.x86_64
     runs-on: ${{ matrix.os }}
     steps:

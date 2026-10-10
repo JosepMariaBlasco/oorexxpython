@@ -45,16 +45,21 @@ return testResult
   after = refs~new(probe)
   rss1 = rss()
   say "refcount base" base "after" after "| RSS KB before" rss0 "after" rss1
+  self~assertTrue(rss0 > 0 & rss1 > 0, "RSS measured (RSS KB" rss0 "->" rss1")")
   self~assertTrue(after - base < 1000, "Python refcount back near base (base" base", after" after")")
   self~assertTrue(rss1 - rss0 < 100000, "memory bounded (< 100 MB growth; RSS KB" rss0 "->" rss1")")
 
 ::routine rss                           -- the process's RSS in KB
   f = "/proc/self/status"
-  if \SysFileExists(f) then do          -- macOS: no /proc (Windows: no ps either)
+  if \SysFileExists(f) then do          -- macOS and Windows: no /proc
+    pid = SysQueryProcess("PID")
     parse upper source platform .
-    if platform~abbrev("WIN") then return 0
+    if platform~abbrev("WIN") then      -- the working set, Windows' RSS
+      cmd = 'powershell -NoProfile -Command "[long]((Get-Process -Id' pid').WorkingSet64 / 1KB)"'
+    else
+      cmd = "ps -o rss= -p" pid
     out = .array~new
-    address system "ps -o rss= -p" SysQueryProcess("PID") with output using (out)
+    address system cmd with output using (out)
     rss = word(out~makeString("L", " "), 1)
     return (datatype(rss, "W"))~?(rss, 0)
   end
