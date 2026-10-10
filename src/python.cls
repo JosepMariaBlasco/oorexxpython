@@ -74,7 +74,8 @@
 ::attribute graveyard class get unguarded
 ::method activate class
   expose graveyard
-  graveyard = .Queue~new
+  graveyard = self~"PY.GRAVEYARD"        -- one Queue for the whole process
+::method "PY.GRAVEYARD" class private unguarded external "LIBRARY rexxpython Py_Graveyard"
 ::method "PY.POINTER" unguarded external "LIBRARY rexxpython PyObj_Pointer"
 ::method unknown unguarded      external "LIBRARY rexxpython PyObj_Unknown"
 ::method getattr unguarded      external "LIBRARY rexxpython PyObj_GetAttr"

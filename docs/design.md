@@ -321,7 +321,11 @@ Its `uninit` is not native: it is two Rexx clauses that send only built-in
 messages, so it never gives up the kernel lock, and it only queues the
 pointer on `.PyObject~graveyard`. The bridge drains that queue (no GIL) and
 drops the Python references (with the GIL) at the start of every native
-method. This avoids ooRexx bug #2101 (an uninit that releases the kernel lock
+method and of every call from Python into Rexx. The queue is one for the
+whole process, made by the bridge and kept by a global reference: a package
+loaded while no other instance is alive is loaded afresh, with a new
+`.PyObject` class, and a queue per class would be lost with the last
+instance that used it. This avoids ooRexx bug #2101 (an uninit that releases the kernel lock
 can crash `runUninits` when other threads create objects meanwhile), present
 in every released ooRexx 5.x. The cost: a Python object is freed at the next
 bridge call rather than at once, and a few may still be queued when the
@@ -341,6 +345,30 @@ collection on another thread cannot free it before the GIL comes back
 (`tests/python/t20_returned_objects.py`). The thread that created an
 interpreter stays attached until `close()`: detaching it makes `Terminate`
 wait forever (ooRexx bug #2107).
+
+**Objects shared between interpreters.** All interpreter instances in a
+process share one object memory and one garbage collector, and `.environment`
+is common to all of them. So a Rexx object made in one instance can be used
+in another, whether Python passes it or Rexx code leaves it in
+`.environment`, and it lives as long as any instance reaches it. The bridge
+accepts this rather than forbid it (a ban could not see what crosses through
+`.environment`), and nothing it keeps belongs to one instance in a way that
+would break it:
+
+- `close()` empties the instance's keep Directory before `Terminate`: the
+  Rexx objects only Python held become collectable, and those another
+  instance reaches survive.
+- The Python objects that the instance's `.PyObject`s held are dropped as
+  their uninits run, during `Terminate` or in a later collection in any
+  instance, through the process-wide graveyard. A `.PyObject` another
+  instance still reaches keeps its Python object.
+- A Python proxy of a closed instance's object (`oorexx.RexxObject`) cannot
+  be used, nor passed to another instance: its object may be gone. ooRexx
+  reuses the address of a terminated instance for a later one, so proxies
+  identify their instance by a handle of the bridge's, never reused, not by
+  the `RexxInstance` pointer.
+
+`tests/python/t30_instances.py` checks all of this.
 
 The ooRexx bugs the bridge has found, and what in the code depends on each,
 are listed in [`../notes/oorexx-bugs.md`](../notes/oorexx-bugs.md).

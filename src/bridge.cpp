@@ -152,7 +152,7 @@ struct Val
     bool owned = false;                   // REF/REXX: we hold a reference to ref
     std::vector<Val> items;               // LIST
     RexxObjectPtr robj = NULLOBJECT;      // REXX: a Rexx object
-    RexxInstance *inst = NULL;            // REXX: its interpreter instance
+    struct Inst *inst = NULL;             // REXX: its interpreter instance
     unsigned long keepKey = 0;            // REXX: robj is kept alive under this key
 };
 
@@ -201,6 +201,42 @@ static std::map<RexxInstance *, InstanceData> instances;
 static std::atomic<unsigned long> keepCounter(0);
 
 static void drainReleases(RexxThreadContext *tc);
+
+/*
+ * An interpreter instance as the bridge's proxies see it.  ooRexx reuses the
+ * address of a terminated instance for a later one, so a proxy cannot tell
+ * by the RexxInstance pointer alone whether its instance is still the one it
+ * was made in: it holds one of these instead, never freed (a few bytes per
+ * instance), and closed once its instance is terminated.
+ */
+struct Inst
+{
+    RexxInstance *rexx;
+    std::atomic<bool> closed;
+    explicit Inst(RexxInstance *r) : rexx(r), closed(false) {}
+};
+static std::mutex handlesLock;
+static std::map<RexxInstance *, Inst *> handles;   // the live ones
+
+static Inst *handleOf(RexxInstance *inst)
+{
+    std::lock_guard<std::mutex> guard(handlesLock);
+    Inst *&h = handles[inst];
+    if (h == NULL) h = new Inst(inst);
+    return h;
+}
+
+// a newly created instance: a new handle, even if its address is reused
+static Inst *newHandle(RexxInstance *inst)
+{
+    std::lock_guard<std::mutex> guard(handlesLock);
+    Inst *&h = handles[inst];
+    if (h != NULL) h->closed = true;
+    h = new Inst(inst);
+    return h;
+}
+
+static bool isClosed(Inst *h) { return h == NULL || h->closed; }
 static void drainGraveyard(RexxThreadContext *tc, RexxObjectPtr graveyard);
 
 static RexxObjectPtr graveyardOf(RexxThreadContext *tc, RexxClassObject pyObjectClass)
@@ -249,7 +285,7 @@ static bool findClasses(RexxMethodContext *context, RexxSide &side)
 
 // the same for a thread context (an attached thread); false if python.cls
 // was never loaded in that instance
-static bool sideFor(RexxThreadContext *tc, RexxSide &side)
+static bool sideFor(RexxThreadContext *tc, RexxSide &side, RexxObjectPtr *graveyard = NULL)
 {
     side.tc = tc;
     side.inst = tc->instance;
@@ -259,6 +295,7 @@ static bool sideFor(RexxThreadContext *tc, RexxSide &side)
     side.pyObjectClass = it->second.pyObjectClass;
     side.kwClass = it->second.kwClass;
     side.keep = it->second.keep;
+    if (graveyard != NULL) *graveyard = it->second.graveyard;
     return true;
 }
 
@@ -285,9 +322,9 @@ static unsigned long keepObject(RexxSide &side, RexxObjectPtr o)
  * that interpreter instance.
  */
 static std::mutex releasesLock;
-static std::vector<std::pair<RexxInstance *, unsigned long>> pendingReleases;
+static std::vector<std::pair<Inst *, unsigned long>> pendingReleases;
 
-static void queueRelease(RexxInstance *inst, unsigned long key)
+static void queueRelease(Inst *inst, unsigned long key)
 {
     if (key == 0) return;
     std::lock_guard<std::mutex> guard(releasesLock);
@@ -297,11 +334,12 @@ static void queueRelease(RexxInstance *inst, unsigned long key)
 static void drainReleases(RexxThreadContext *tc)
 {
     std::vector<unsigned long> mine;
+    Inst *self = handleOf(tc->instance);
     {
         std::lock_guard<std::mutex> guard(releasesLock);
         for (size_t i = 0; i < pendingReleases.size(); )
         {
-            if (pendingReleases[i].first == tc->instance)
+            if (pendingReleases[i].first == self)
             {
                 mine.push_back(pendingReleases[i].second);
                 pendingReleases[i] = pendingReleases.back();
@@ -328,8 +366,8 @@ static void drainReleases(RexxThreadContext *tc)
 }
 
 // the Python proxies of Rexx objects (defined below, "oorexx.RexxObject")
-static PyObject *newRexxProxy(RexxInstance *inst, RexxObjectPtr o, unsigned long key);
-static bool rexxProxyTarget(PyObject *o, RexxInstance **inst, RexxObjectPtr *target);
+static PyObject *newRexxProxy(Inst *inst, RexxObjectPtr o, unsigned long key);
+static bool rexxProxyTarget(PyObject *o, Inst **inst, RexxObjectPtr *target);
 
 /* phase 1: Rexx -> Val (no GIL) ------------------------------------------ */
 
@@ -376,7 +414,7 @@ static void rexxToVal(RexxSide &side, RexxObjectPtr o, Val &v)
         // Python: callable, if it has a CALL method, as Routines do)
         v.kind = Val::REXX;
         v.robj = o;
-        v.inst = side.inst;
+        v.inst = handleOf(side.inst);
         v.keepKey = keepObject(side, o);
     }
 }
@@ -553,7 +591,7 @@ static void pyToVal(PyObject *o, Val &v, bool keep = false)
         return;
     }
     RexxObjectPtr target;
-    RexxInstance *inst;
+    Inst *inst;
     if (rexxProxyTarget(o, &inst, &target))
     {
         // a Rexx object coming back: itself (the proxy is kept until the
@@ -824,6 +862,13 @@ static RexxObjectPtr valToRexx(RexxSide &side, Val &v)
             return proxy;
         }
         case Val::REXX:
+            if (isClosed(v.inst))
+            {
+                // its instance let it go when it was closed: it may be gone
+                c->RaiseException1(Rexx_Error_Execution_user_defined,
+                    c->String("ooRexx/Python: a Rexx object of an interpreter instance that has been closed"));
+                return NULLOBJECT;
+            }
             return v.robj;
         case Val::LIST:
         {
@@ -929,7 +974,7 @@ static RexxObjectPtr finish(RexxSide &side, Val &result, PyError &err)
 struct RexxProxy
 {
     PyObject_HEAD
-    RexxInstance *inst;
+    Inst *inst;
     RexxObjectPtr target;                 // kept alive in the instance's keep Directory
     unsigned long key;                    // under this key
 };
@@ -945,7 +990,7 @@ static PyObject *rexxProxyType = NULL;
 static PyObject *rexxBoundType = NULL;
 static PyObject *rexxErrorType = NULL;
 
-static bool rexxProxyTarget(PyObject *o, RexxInstance **inst, RexxObjectPtr *target)
+static bool rexxProxyTarget(PyObject *o, Inst **inst, RexxObjectPtr *target)
 {
     if (rexxProxyType == NULL || !PyObject_TypeCheck(o, (PyTypeObject *)rexxProxyType)) return false;
     *inst = ((RexxProxy *)o)->inst;
@@ -953,7 +998,7 @@ static bool rexxProxyTarget(PyObject *o, RexxInstance **inst, RexxObjectPtr *tar
     return true;
 }
 
-static PyObject *newRexxProxy(RexxInstance *inst, RexxObjectPtr o, unsigned long key)
+static PyObject *newRexxProxy(Inst *inst, RexxObjectPtr o, unsigned long key)
 {
     PyTypeObject *type = (PyTypeObject *)rexxProxyType;
     allocfunc alloc = (allocfunc)PyType_GetSlot(type, Py_tp_alloc);
@@ -982,15 +1027,6 @@ static void rexxProxyDealloc(PyObject *self)
  * Interpreter instances closed from Python (oorexx.Interpreter.close): their
  * proxies may outlive them, and must not touch them.
  */
-static std::mutex closedLock;
-static std::vector<RexxInstance *> closedInstances;
-
-static bool isClosed(RexxInstance *inst)
-{
-    std::lock_guard<std::mutex> guard(closedLock);
-    for (RexxInstance *i : closedInstances) if (i == inst) return true;
-    return false;
-}
 
 // a pending Rexx condition as the text of an oorexx.RexxError (and cleared)
 static std::string takeCondition(RexxThreadContext *tc)
@@ -1022,7 +1058,7 @@ static std::string takeCondition(RexxThreadContext *tc)
  */
 typedef std::function<RexxObjectPtr(RexxThreadContext *, RexxSide &, RexxArrayObject, std::string &)> RexxOp;
 
-static PyObject *intoRexx(RexxInstance *inst, PyObject *args, Py_ssize_t skip, PyObject *first, const RexxOp &op)
+static PyObject *intoRexx(Inst *inst, PyObject *args, Py_ssize_t skip, PyObject *first, const RexxOp &op)
 {
     if (isClosed(inst))
     {
@@ -1051,7 +1087,7 @@ static PyObject *intoRexx(RexxInstance *inst, PyObject *args, Py_ssize_t skip, P
     std::string error;
     PyThreadState *saved = PyEval_SaveThread();
     RexxThreadContext *tc;
-    if (!inst->AttachThread(&tc))
+    if (!inst->rexx->AttachThread(&tc))
     {
         error = "cannot attach this thread to the Rexx interpreter instance";
     }
@@ -1059,20 +1095,25 @@ static PyObject *intoRexx(RexxInstance *inst, PyObject *args, Py_ssize_t skip, P
     {
         drainReleases(tc);
         RexxSide side;
-        if (!sideFor(tc, side))
+        RexxObjectPtr graveyard = NULLOBJECT;
+        if (!sideFor(tc, side, &graveyard))
         {
             side.tc = tc;
             side.inst = tc->instance;
             side.pyObjectClass = NULLOBJECT;
             side.kwClass = NULLOBJECT;
         }
+        // Python objects Rexx dropped since: a program driven from Python may
+        // never run a .PyObject method, which is where the graveyard is
+        // otherwise drained (findClasses)
+        drainGraveyard(tc, graveyard);
         RexxArrayObject rargs = tc->NewArray(a.positional.size());
         for (size_t i = 0; i < a.positional.size(); i++)
         {
             RexxObjectPtr o = valToRexx(side, a.positional[i]);
             if (o != NULLOBJECT) tc->ArrayPut(rargs, o, i + 1);
         }
-        RexxObjectPtr r = op(tc, side, rargs, error);
+        RexxObjectPtr r = tc->CheckCondition() ? NULLOBJECT : op(tc, side, rargs, error);
         if (tc->CheckCondition()) error = takeCondition(tc);
         else if (error.empty() && r != NULLOBJECT) rexxToVal(side, r, result);   // may run Rexx code
         // The Python objects in the result are borrowed from their .PyObject
@@ -1104,7 +1145,7 @@ static PyObject *intoRexx(RexxInstance *inst, PyObject *args, Py_ssize_t skip, P
 
 // send message to target with args (a tuple); first, if given, goes before
 // args (the value of "[]=")
-static PyObject *rexxSend(RexxInstance *inst, RexxObjectPtr target, const std::string &message,
+static PyObject *rexxSend(Inst *inst, RexxObjectPtr target, const std::string &message,
                           PyObject *args, PyObject *first = NULL)
 {
     return intoRexx(inst, args, 0, first,
@@ -1324,7 +1365,7 @@ static void registerModule()
 struct Interpreter
 {
     PyObject_HEAD
-    RexxInstance *inst;
+    Inst *inst;
 };
 
 
@@ -1527,7 +1568,7 @@ static PyObject *interpreterNew(PyTypeObject *type, PyObject *args, PyObject *kw
         // r13268; notes/oorexx-bugs.md)
     }
     PyEval_RestoreThread(saved);
-    self->inst = inst;
+    self->inst = inst != NULL ? newHandle(inst) : NULL;
     if (!error.empty())
     {
         PyErr_SetString(rexxErrorType, error.c_str());
@@ -1540,7 +1581,7 @@ static PyObject *interpreterNew(PyTypeObject *type, PyObject *args, PyObject *kw
         Py_ssize_t pos = 0;
         while (PyDict_Next(environments, &pos, &key, &value))
         {
-            addCommandEnvironment(inst, NULL, pyString(key), value);
+            addCommandEnvironment(self->inst->rexx, NULL, pyString(key), value);
         }
     }
     return (PyObject *)self;
@@ -1606,26 +1647,33 @@ static PyObject *interpreterEval(PyObject *self, PyObject *args)
         });
 }
 
-static void forgetInstance(RexxInstance *inst)
+// closing: from now on the instance's proxies are unusable and the Rexx
+// objects they kept are no longer released one by one
+static void forgetInstance(Inst *h)
 {
+    h->closed = true;
+    std::lock_guard<std::mutex> guard(releasesLock);
+    for (size_t i = 0; i < pendingReleases.size(); )
     {
-        std::lock_guard<std::mutex> guard(closedLock);
-        closedInstances.push_back(inst);
-    }
-    {
-        std::lock_guard<std::mutex> guard(releasesLock);
-        for (size_t i = 0; i < pendingReleases.size(); )
+        if (pendingReleases[i].first == h)
         {
-            if (pendingReleases[i].first == inst)
-            {
-                pendingReleases[i] = pendingReleases.back();
-                pendingReleases.pop_back();
-            }
-            else i++;
+            pendingReleases[i] = pendingReleases.back();
+            pendingReleases.pop_back();
         }
+        else i++;
     }
+}
+
+// closed: drop what the bridge knew about the instance, unless a new instance
+// already reuses its address
+static void eraseInstance(Inst *h)
+{
     std::lock_guard<std::mutex> guard(instancesLock);
-    instances.erase(inst);
+    std::lock_guard<std::mutex> guard2(handlesLock);
+    auto it = handles.find(h->rexx);
+    if (it == handles.end() || it->second != h) return;
+    handles.erase(it);
+    instances.erase(h->rexx);
 }
 
 // r.close(): terminate the instance (its Rexx objects in Python become unusable)
@@ -1634,11 +1682,28 @@ static PyObject *interpreterClose(PyObject *self, PyObject *)
     Interpreter *r = (Interpreter *)self;
     if (r->inst != NULL && !isClosed(r->inst))
     {
-        RexxInstance *inst = r->inst;
-        forgetInstance(inst);
+        Inst *h = r->inst;
+        RexxDirectoryObject keep = NULLOBJECT;
+        {
+            std::lock_guard<std::mutex> guard(instancesLock);
+            auto it = instances.find(h->rexx);
+            if (it != instances.end()) keep = it->second.keep;
+        }
+        forgetInstance(h);
         Py_BEGIN_ALLOW_THREADS
-        inst->Terminate();
+        // the Rexx objects Python still holds through this instance's proxies
+        // are let go (the proxies are unusable from now on); those another
+        // instance still reaches survive, since all instances share one object
+        // memory (docs/design.md, *Lifetime*)
+        RexxThreadContext *tc;
+        if (keep != NULLOBJECT && h->rexx->AttachThread(&tc))
+        {
+            tc->SendMessage0(keep, "EMPTY");
+            tc->DetachThread();
+        }
+        h->rexx->Terminate();
         Py_END_ALLOW_THREADS
+        eraseInstance(h);
     }
     Py_RETURN_NONE;
 }
@@ -2070,7 +2135,7 @@ static PyObject *interpreterAddEnvironment(PyObject *self, PyObject *args)
         PyErr_SetString(PyExc_TypeError, "the handler must be callable: handler(command, context)");
         return NULL;
     }
-    addCommandEnvironment(r->inst, NULL, pyString(nameObj), handler);
+    addCommandEnvironment(r->inst->rexx, NULL, pyString(nameObj), handler);
     Py_RETURN_NONE;
 }
 
@@ -2444,6 +2509,28 @@ static PyObject *builtinsModule()
 }
 
 // the object .py stands for: a .Pointer holding a reference to builtins
+/*
+ * .PyObject~graveyard (python.cls, the class's activate): one Queue for the
+ * whole process.  A package loaded while no other instance is alive is loaded
+ * afresh, with a new .PyObject class; a graveyard per class would be orphaned
+ * when its last instance closes, with the pointers of the uninits that ran
+ * while it terminated (and of any of its .PyObjects another instance still
+ * reaches, when they die).  A global reference keeps the Queue: those survive
+ * the instance that made them.
+ */
+RexxMethod0(RexxObjectPtr, Py_Graveyard)
+{
+    static std::mutex lock;
+    static RexxObjectPtr graveyard = NULLOBJECT;
+    std::lock_guard<std::mutex> guard(lock);
+    if (graveyard == NULLOBJECT)
+    {
+        RexxObjectPtr q = context->SendMessage0(context->FindClass("QUEUE"), "NEW");
+        if (q != NULLOBJECT) graveyard = context->RequestGlobalReference(q);
+    }
+    return graveyard != NULLOBJECT ? graveyard : context->Nil();
+}
+
 RexxMethod0(RexxObjectPtr, Py_Builtins)
 {
     PyObject *b;
@@ -2615,6 +2702,7 @@ static RexxMethodEntry bridgeMethods[] =
     REXX_METHOD(PyObj_HashCode,  PyObj_HashCode),
     REXX_METHOD(Py_Import,       Py_Import),
     REXX_METHOD(Py_Builtins,     Py_Builtins),
+    REXX_METHOD(Py_Graveyard,    Py_Graveyard),
     REXX_METHOD(Py_Make,         Py_Make),
     REXX_METHOD(Py_Box,          Py_Box),
     REXX_LAST_METHOD()
