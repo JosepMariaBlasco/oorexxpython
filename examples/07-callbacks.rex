@@ -8,10 +8,10 @@
  *   print(sorted(["pear", "fig", "banana"], key=by_length))
  *   print(sum(map(lambda x: x * x, [1, 2, 3])))
  */
-words = .array~of("pear", "fig", "banana")
+words = "pear", "fig", "banana"
 byLength = .context~package~findRoutine("byLength")
 say .py~sorted(words, .py~kw("key", byLength))
-say .py~sum(.py~map(.context~package~findRoutine("square"), .array~of(1, 2, 3)))
+say .py~sum(.py~map(.context~package~findRoutine("square"), (1, 2, 3)))
 
 -- Python sends messages to a Rexx object
 .py~exec("def shout(o): return o.upper() + '!'")

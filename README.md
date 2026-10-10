@@ -21,7 +21,7 @@ and Python 3, modelled after BSF4ooRexx.
 
 ```rexx
 np = .py~import("numpy")
-m  = np~array(.array~of(.array~of(1, 2), .array~of(3, 4)))
+m  = np~array(((1, 2), (3, 4)))
 say m~sum m~shape                                -- 10 (2, 2)
 say .py~round(np~linalg~det(m), 2)               -- -2.0
 

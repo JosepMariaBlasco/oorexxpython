@@ -72,6 +72,7 @@ The deck is generated from the examples and this README by
 | `31-rexx-objects.py` | Rexx objects in Python: messages, `[]`, `len`, iteration |
 | `32-address.py` | an ADDRESS environment written in Python |
 | `33-stdio.py` | SAY/PULL through Python's `sys.stdout`/`sys.stdin` |
+| `34-send-message.py` | messages by name: `sendMessage`, `sendMessage0`…`5`, `sendMessageScope` (as BSF4ooRexx) |
 
 ## Things worth knowing (they show up in the examples)
 
@@ -82,6 +83,6 @@ The deck is generated from the examples and this README by
   arguments; a class is not: `io~StringIO~new` makes an instance (11, 18).
 - `.py~list(x)`, `.py~tuple(x)`, `.py~dict(...)`... are Python's builtins.
   A Rexx Array goes to Python as a list (nested Arrays as nested lists), so
-  `.py~list(.array~of(1, 2))` is `[1, 2]` (05, 13). `.py~str`, `~int`,
+  `.py~list((1, 2))` is `[1, 2]` (05, 13). `.py~str`, `~int`,
   `~float` are Python's too, but keep the result as a Python object instead
   of a Rexx string (02).

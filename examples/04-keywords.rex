@@ -10,7 +10,7 @@
  *   opts = {"sep": " | ", "maxsplit": 1}
  *   print("a | b | c".split(**opts))
  */
-words = .array~of("pear", "Fig", "banana")
+words = "pear", "Fig", "banana"
 say .py~sorted(words, .py~kw("key", .py~eval("str.lower"), "reverse", .true))
 say .py~int("ff", py.kw("base", 16))
 opts = .directory~new

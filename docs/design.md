@@ -241,6 +241,16 @@ and iteration work, `str()` is its string value. Rexx results follow the
 *Values* rule: `rexx.eval("6 * 7")` is the `int` 42 and a Rexx Array comes
 back as a `list` (a copy); other objects stay proxies.
 
+Messages can also be sent by name, with the methods of BSF4ooRexx's
+`RexxProxy` (Java), under the same names: `o.sendMessage(name[, args])`
+(`args` a list or tuple), `o.sendMessage0(name)` … `o.sendMessage5(name, a1,
+…, a5)`, and `o.sendMessageScope(name, scope[, args])`, where the method
+search starts at `scope`, a Rexx class, as in Rexx's `o~name:scope`. The name
+is any string, uppercased as `o.name` is: one held in a variable, or one that
+is no Python name (`"[]="`, `"||"`, `"<>"`). These eight names are Python
+methods of `RexxObject`, so `o.sendMessage` never sends a Rexx message of
+that name; `o.sendMessage("sendMessage")` does.
+
 A Python thread that uses an interpreter attaches to it (`AttachThread`) for
 the duration of the call.
 

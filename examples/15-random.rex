@@ -14,7 +14,7 @@ do 5
   dice = dice random~randint(1, 6)
 end
 say dice~strip
-say random~choice(.array~of("Rexx", "Python", "Java"))
+say random~choice(("Rexx", "Python", "Java"))
 
 ::requires "python.cls"
 /* Output:

@@ -6,7 +6,7 @@
  *   print(st.mean(data), st.median(data), st.mode(data), st.pstdev(data))
  */
 st = .py~import("statistics")
-data = .array~of(2, 4, 4, 4, 5, 5, 7, 9)
+data = 2, 4, 4, 4, 5, 5, 7, 9
 say st~mean(data) st~median(data) st~mode(data) st~pstdev(data)
 
 ::requires "python.cls"

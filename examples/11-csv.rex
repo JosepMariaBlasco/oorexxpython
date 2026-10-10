@@ -16,7 +16,7 @@ end
 -- and write it
 out = io~StringIO~new                       -- a class: ~new makes an instance
 w = csv~writer(out)
-w~writerow(.array~of("total", 175))
+w~writerow(("total", 175))
 say out~getvalue~strip("T", "0a"x)~strip("T", "0d"x)
 
 ::requires "python.cls"

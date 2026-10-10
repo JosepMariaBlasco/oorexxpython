@@ -11,7 +11,7 @@
 sqlite3 = .py~import("sqlite3")
 db = sqlite3~connect(":memory:")
 db~execute("create table langs (name text, year int)")
-rows = .array~of(.array~of("Rexx", 1979), .array~of("Python", 1991), .array~of("ooRexx", 2004))
+rows = ("Rexx", 1979), ("Python", 1991), ("ooRexx", 2004)
 db~executemany("insert into langs values (?, ?)", rows)
 do row over db~execute("select name, year from langs order by year")
   say row[0]~left(8) row[1]

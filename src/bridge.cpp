@@ -1180,12 +1180,15 @@ static PyObject *rexxProxyCall(PyObject *self, PyObject *args, PyObject *kwargs)
     return rexxSend(p->inst, p->target, "CALL", args);
 }
 
+static bool isSendName(const std::string &s);   // below: sendMessage...
+
 static PyObject *rexxProxyGetAttr(PyObject *self, PyObject *name)
 {
     // Python's own protocol names are not Rexx messages (numpy and friends
     // probe __array__, __len__... on any object)
     std::string s = pyString(name);
     if (s.size() >= 2 && s[0] == '_' && s[1] == '_') return PyObject_GenericGetAttr(self, name);
+    if (isSendName(s)) return PyObject_GenericGetAttr(self, name);   // sendMessage...: ours
     PyTypeObject *type = (PyTypeObject *)rexxBoundType;
     allocfunc alloc = (allocfunc)PyType_GetSlot(type, Py_tp_alloc);
     RexxBound *b = (RexxBound *)alloc(type, 0);
@@ -1289,8 +1292,141 @@ static void rexxBoundDealloc(PyObject *self)
     Py_DECREF(type);
 }
 
+/*
+ * Messages by name, as BSF4ooRexx's RexxProxy (Java) sends them:
+ *
+ *   r.sendMessage(name[, args])               args: a list or tuple
+ *   r.sendMessageScope(name, scope[, args])   the search starts at scope
+ *   r.sendMessage0(name) ... r.sendMessage5(name, a1, ..., a5)
+ *
+ * The name is any string, uppercased as r.name is: one held in a variable,
+ * or one that is no Python name ("+", "[]=", "<>").  scope is a Rexx class
+ * (an oorexx.RexxObject), as in Rexx's r~name:scope.  These eight names are
+ * Python methods, so r.sendMessage is not a message SENDMESSAGE (send that
+ * one with r.sendMessage("sendMessage", ...)).
+ */
+static const char *const sendNames[] =
+{
+    "sendMessage", "sendMessageScope", "sendMessage0", "sendMessage1",
+    "sendMessage2", "sendMessage3", "sendMessage4", "sendMessage5", NULL
+};
+
+static bool isSendName(const std::string &s)
+{
+    for (int i = 0; sendNames[i] != NULL; i++) if (s == sendNames[i]) return true;
+    return false;
+}
+
+// the message name, uppercased; false (and a TypeError) if not a str
+static bool messageName(PyObject *o, const char *method, std::string &name)
+{
+    if (!PyUnicode_Check(o))
+    {
+        PyErr_Format(PyExc_TypeError, "%s: the message name must be a str", method);
+        return false;
+    }
+    name = upper(pyString(o));
+    return !PyErr_Occurred();
+}
+
+// args as a tuple (a new reference): None is no arguments; else a list or tuple
+static PyObject *messageArgs(PyObject *o, const char *method)
+{
+    if (o == NULL || o == Py_None) return PyTuple_New(0);
+    if (PyTuple_Check(o) || PyList_Check(o)) return PySequence_Tuple(o);
+    PyErr_Format(PyExc_TypeError, "%s: the arguments must be a list or a tuple", method);
+    return NULL;
+}
+
+static PyObject *rexxProxySendMessage(PyObject *self, PyObject *args)
+{
+    PyObject *nameObj, *argsObj = NULL;
+    if (!PyArg_ParseTuple(args, "O|O:sendMessage", &nameObj, &argsObj)) return NULL;
+    std::string name;
+    if (!messageName(nameObj, "sendMessage", name)) return NULL;
+    PyObject *t = messageArgs(argsObj, "sendMessage");
+    if (t == NULL) return NULL;
+    RexxProxy *p = (RexxProxy *)self;
+    PyObject *r = rexxSend(p->inst, p->target, name, t);
+    Py_DECREF(t);
+    return r;
+}
+
+static PyObject *rexxProxySendMessageScope(PyObject *self, PyObject *args)
+{
+    PyObject *nameObj, *scopeObj, *argsObj = NULL;
+    if (!PyArg_ParseTuple(args, "OO|O:sendMessageScope", &nameObj, &scopeObj, &argsObj)) return NULL;
+    std::string name;
+    if (!messageName(nameObj, "sendMessageScope", name)) return NULL;
+    Inst *scopeInst;
+    RexxObjectPtr scope;
+    if (!rexxProxyTarget(scopeObj, &scopeInst, &scope))
+    {
+        PyErr_SetString(PyExc_TypeError, "sendMessageScope: the scope must be a Rexx class (an oorexx.RexxObject)");
+        return NULL;
+    }
+    if (isClosed(scopeInst))
+    {
+        PyErr_SetString(rexxErrorType, "sendMessageScope: the scope's Rexx interpreter instance has been closed");
+        return NULL;
+    }
+    PyObject *t = messageArgs(argsObj, "sendMessageScope");
+    if (t == NULL) return NULL;
+    RexxProxy *p = (RexxProxy *)self;
+    RexxObjectPtr target = p->target;
+    PyObject *r = intoRexx(p->inst, t, 0, NULL,
+        [&](RexxThreadContext *tc, RexxSide &, RexxArrayObject rargs, std::string &error) -> RexxObjectPtr {
+            if (!tc->IsOfType(scope, "CLASS"))
+            {
+                error = "sendMessageScope: the scope must be a Rexx class";
+                return NULLOBJECT;
+            }
+            return tc->SendMessageScoped(target, name.c_str(), (RexxClassObject)scope, rargs);
+        });
+    Py_DECREF(t);
+    return r;
+}
+
+// sendMessage0 ... sendMessage5: the name and exactly N arguments
+template <int N>
+static PyObject *rexxProxySendMessageN(PyObject *self, PyObject *args)
+{
+    char method[16];
+    snprintf(method, sizeof method, "sendMessage%d", N);
+    if (PyTuple_Size(args) != N + 1)
+    {
+        PyErr_Format(PyExc_TypeError, "%s takes %d arguments, the message name and %d more (%zd given)",
+                     method, N + 1, N, PyTuple_Size(args));
+        return NULL;
+    }
+    std::string name;
+    if (!messageName(PyTuple_GetItem(args, 0), method, name)) return NULL;
+    RexxProxy *p = (RexxProxy *)self;
+    RexxObjectPtr target = p->target;
+    return intoRexx(p->inst, args, 1, NULL,
+        [&](RexxThreadContext *tc, RexxSide &, RexxArrayObject rargs, std::string &) {
+            return tc->SendMessage(target, name.c_str(), rargs);
+        });
+}
+
+static PyMethodDef rexxProxyMethods[] =
+{
+    {"sendMessage", rexxProxySendMessage, METH_VARARGS,
+     "sendMessage(name[, args]): send the message name (uppercased), with args (a list or tuple)."},
+    {"sendMessageScope", rexxProxySendMessageScope, METH_VARARGS,
+     "sendMessageScope(name, scope[, args]): the same, the method search starting at scope (a Rexx class)."},
+    {"sendMessage0", rexxProxySendMessageN<0>, METH_VARARGS, "sendMessage0(name)"},
+    {"sendMessage1", rexxProxySendMessageN<1>, METH_VARARGS, "sendMessage1(name, a1)"},
+    {"sendMessage2", rexxProxySendMessageN<2>, METH_VARARGS, "sendMessage2(name, a1, a2)"},
+    {"sendMessage3", rexxProxySendMessageN<3>, METH_VARARGS, "sendMessage3(name, a1, a2, a3)"},
+    {"sendMessage4", rexxProxySendMessageN<4>, METH_VARARGS, "sendMessage4(name, a1, a2, a3, a4)"},
+    {"sendMessage5", rexxProxySendMessageN<5>, METH_VARARGS, "sendMessage5(name, a1, a2, a3, a4, a5)"},
+    {NULL, NULL, 0, NULL}
+};
+
 static PyType_Slot rexxProxySlots[] =
 {
+    {Py_tp_methods, (void *)rexxProxyMethods},
     {Py_tp_dealloc, (void *)rexxProxyDealloc},
     {Py_tp_call, (void *)rexxProxyCall},
     {Py_tp_getattro, (void *)rexxProxyGetAttr},

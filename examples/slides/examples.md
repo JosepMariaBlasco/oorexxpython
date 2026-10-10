@@ -147,7 +147,7 @@ print(getattr(c, "most_common")(1))
 Keyword arguments. .py~kw(name, value, ...) as the LAST argument of a call; py.kw(...) is the same as a routine. A Directory works too: .py~kw(aDirectory).
 
 ```rexx
-words = .array~of("pear", "Fig", "banana")
+words = "pear", "Fig", "banana"
 say .py~sorted(words, .py~kw("key", .py~eval("str.lower"), "reverse", .true))
 say .py~int("ff", py.kw("base", 16))
 opts = .directory~new
@@ -195,7 +195,7 @@ ages["Cy"]  = 45
 do name over ages
   say name ages[name]
 end
-grid = .py~list(.array~of(.array~of(1, 2), .array~of(3, 4)))   -- Rexx Arrays go as lists
+grid = .py~list(((1, 2), (3, 4)))   -- Rexx Arrays go as lists
 say grid[1][0]
 say .py~len(ages) "people, average age" .py~sum(ages~values) / .py~len(ages)
 
@@ -273,10 +273,10 @@ Python says: ValueError: invalid literal for int() with base 10: 'abc'
 # Rexx routines and objects called from Python {#ex07-callbacks kicker="07-callbacks.rex"}
 
 ```rexx
-words = .array~of("pear", "fig", "banana")
+words = "pear", "fig", "banana"
 byLength = .context~package~findRoutine("byLength")
 say .py~sorted(words, .py~kw("key", byLength))
-say .py~sum(.py~map(.context~package~findRoutine("square"), .array~of(1, 2, 3)))
+say .py~sum(.py~map(.context~package~findRoutine("square"), (1, 2, 3)))
 
 -- Python sends messages to a Rexx object
 .py~exec("def shout(o): return o.upper() + '!'")
@@ -365,7 +365,7 @@ print(0.1 + 0.2, Decimal("0.1") + Decimal("0.2"))
 
 ```rexx
 workers = .array~new
-do n over .array~of(10, 100, 1000, 10000)
+do n over 10, 100, 1000, 10000
   workers~append(.Summer~new~start("sumTo", n))   -- one Rexx thread each
 end
 total = 0
@@ -377,7 +377,7 @@ say total
 -- and Python's thread pool calling a Rexx routine
 cf = .py~import("concurrent.futures")
 ex = cf~ThreadPoolExecutor(4)
-say .py~sum(ex~map(.context~package~findRoutine("sumTo"), .array~of(10, 100, 1000, 10000)))
+say .py~sum(ex~map(.context~package~findRoutine("sumTo"), (10, 100, 1000, 10000)))
 ex~shutdown
 
 ::class Summer
@@ -467,7 +467,7 @@ end
 -- and write it
 out = io~StringIO~new                       -- a class: ~new makes an instance
 w = csv~writer(out)
-w~writerow(.array~of("total", 175))
+w~writerow(("total", 175))
 say out~getvalue~strip("T", "0a"x)~strip("T", "0d"x)
 
 ::requires "python.cls"
@@ -503,7 +503,7 @@ Descriptive statistics with Python's statistics module.
 
 ```rexx
 st = .py~import("statistics")
-data = .array~of(2, 4, 4, 4, 5, 5, 7, 9)
+data = 2, 4, 4, 4, 5, 5, 7, 9
 say st~mean(data) st~median(data) st~mode(data) st~pstdev(data)
 
 ::requires "python.cls"
@@ -532,7 +532,7 @@ An SQL database with Python's sqlite3 module.
 sqlite3 = .py~import("sqlite3")
 db = sqlite3~connect(":memory:")
 db~execute("create table langs (name text, year int)")
-rows = .array~of(.array~of("Rexx", 1979), .array~of("Python", 1991), .array~of("ooRexx", 2004))
+rows = ("Rexx", 1979), ("Python", 1991), ("ooRexx", 2004)
 db~executemany("insert into langs values (?, ?)", rows)
 do row over db~execute("select name, year from langs order by year")
   say row[0]~left(8) row[1]
@@ -610,6 +610,8 @@ print((date(2026, 12, 25) - d).days)
 
 Random numbers with Python's random module (seeded, so the output is the same on every run).
 
+::: row
+::: col-6
 ```rexx
 random = .py~import("random")
 random~seed(2026)
@@ -618,12 +620,11 @@ do 5
   dice = dice random~randint(1, 6)
 end
 say dice~strip
-say random~choice(.array~of("Rexx", "Python", "Java"))
+say random~choice(("Rexx", "Python", "Java"))
 
 ::requires "python.cls"
 ```
-
-::: row
+:::
 ::: col-6
 [Python]{.label}
 
@@ -634,8 +635,6 @@ print([random.randint(1, 6) for _ in range(5)])
 print(random.choice(["Rexx", "Python", "Java"]))
 ```
 
-:::
-::: col-6
 [Output]{.label}
 
 ```output
@@ -813,9 +812,9 @@ Numpy arrays: Rexx operators are numpy's.
 
 ```rexx
 np = .py~import("numpy")
-a = np~array(.array~of(1, 2, 3, 4))
+a = np~array((1, 2, 3, 4))
 say a * 10 a~mean a[a > 2]
-m = np~array(.array~of(.array~of(1, 2), .array~of(3, 4)))
+m = np~array(((1, 2), (3, 4)))
 say np~matmul(m, m)~tolist m[1, 0] np~round(np~linalg~det(m), 6)
 
 ::requires "python.cls"
@@ -1068,6 +1067,46 @@ Hi, Josep Maria
 ```
 
 
+# Messages by name: `sendMessage`, `sendMessage0`…`5`, `sendMessageScope` (as BSF4ooRexx) {#ex34-send-message kicker="34-send-message.py"}
+
+```python
+import oorexx
+
+with oorexx.Interpreter() as rexx:
+    square, circle = rexx.routine("""
+      return .Square, .Circle
+      ::class Shape
+      ::method describe; return "a shape"
+      ::class Square subclass Shape
+      ::method describe; return "a square"
+      ::method area;     use arg side; return side * side
+      ::class Circle subclass Shape
+      ::method describe; return "a circle"
+      ::method area;     use arg r; return 3.14159 * r * r
+    """)()
+    s = square.new()
+    message = "describe"                               # a name in a variable
+    print(s.sendMessage(message), s.sendMessage1("area", 3), circle.new().sendMessage("area", [1]))
+    print(s.sendMessageScope("describe", square.superclass()))     # Shape's describe
+
+    d = rexx.eval(".directory~new")
+    d.sendMessage2("[]=", "ooRexx", "lang")           # d["lang"] = "ooRexx"
+    print(d.sendMessage1("[]", "lang"), d.sendMessage0("items"))
+```
+
+# Messages by name: `sendMessage`, `sendMessage0`…`5`, `sendMessageScope` (as BSF4ooRexx) {#ex34-send-message-2 kicker="34-send-message.py"}
+
+Messages by name, as in BSF4ooRexx's RexxProxy. o.name(...) is the short way; sendMessage(name, args) and sendMessage0 ... sendMessage5 take the name as a string: one held in a variable, or one that is no Python name ("[]=", "||"). sendMessageScope starts the method search at a class, as Rexx's o~name:scope does.
+
+[Output]{.label}
+
+```output
+a square 9 3.14159
+a shape
+ooRexx 1
+```
+
+
 # Things worth knowing
 
 ::: {.contents scale=0.8}
@@ -1079,7 +1118,7 @@ Hi, Josep Maria
   arguments; a class is not: `io~StringIO~new` makes an instance (11, 18).
 - `.py~list(x)`, `.py~tuple(x)`, `.py~dict(...)`... are Python's builtins.
   A Rexx Array goes to Python as a list (nested Arrays as nested lists), so
-  `.py~list(.array~of(1, 2))` is `[1, 2]` (05, 13). `.py~str`, `~int`,
+  `.py~list((1, 2))` is `[1, 2]` (05, 13). `.py~str`, `~int`,
   `~float` are Python's too, but keep the result as a Python object instead
   of a Rexx string (02).
 :::

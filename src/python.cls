@@ -4,7 +4,7 @@
  * python.cls: Python objects as Rexx objects (the ooRexx/Python bridge).
  *
  *   np = .py~import("numpy")
- *   a  = np~array(.array~of(1, 2, 3))
+ *   a  = np~array((1, 2, 3))
  *   say np~mean(a)                       -- 2.0
  *   ::requires "python.cls"
  *
@@ -25,7 +25,7 @@
  *               ~main                    the __main__ module
  *             Every other name is Python's builtin, unchanged: .py~list(x) is
  *             list(x); to build a list or tuple from items, pass a Rexx Array:
- *             .py~list(.array~of(1, 2)), .py~tuple(.array~of("a", 1)).
+ *             .py~list((1, 2)), .py~tuple(("a", 1)).
  * Routines, as BSF4ooRexx's bsf.import: py.import(name), py.box(type, x),
  * py.kw(name, value, ...).
  * .PyObject   a Python object, by reference:

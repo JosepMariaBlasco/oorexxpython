@@ -13,7 +13,7 @@ ages["Cy"]  = 45
 do name over ages
   say name ages[name]
 end
-grid = .py~list(.array~of(.array~of(1, 2), .array~of(3, 4)))   -- Rexx Arrays go as lists
+grid = .py~list(((1, 2), (3, 4)))   -- Rexx Arrays go as lists
 say grid[1][0]
 say .py~len(ages) "people, average age" .py~sum(ages~values) / .py~len(ages)
 
