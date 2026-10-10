@@ -1563,7 +1563,11 @@ static PyObject *interpreterNew(PyTypeObject *type, PyObject *args, PyObject *kw
     }
     std::string dir = bridgeDirectory();
     path.push_back(dir);
+#ifdef _WIN32
+    std::string pathText = join(path, ";");
+#else
     std::string pathText = join(path, ":");
+#endif
     std::string extText = join(exts, ",");
     std::string address = initialAddress != NULL && initialAddress != Py_None ? pyString(initialAddress) : "";
 

@@ -99,7 +99,9 @@ return testResult
  */
 ::method expectedOutput private
   use strict arg path
-  lines = .stream~new(path)~arrayIn
+  s = .stream~new(path)
+  lines = s~arrayIn
+  s~close                              -- Windows: an open file cannot be run
   python = path~endsWith(".py")
   marker = (python)~?("# Output:", "/" || "* Output:")
   start = 0
