@@ -16,8 +16,8 @@ and Python 3, modelled after BSF4ooRexx.
 - **Both ways at once, on any thread**: Rexx calls Python, which calls back a
   Rexx object, which calls Python again.
 - **One build for every Python 3 from 3.9**: the bridge uses Python's Stable
-  ABI only, so the same binary works with 3.9, 3.10, 3.11, 3.12, 3.13 and
-  later, with no virtual environments and no per-version builds.
+  ABI only, so the same binary works with 3.9, 3.10, 3.11, 3.12, 3.13,
+  3.14 and later, with no virtual environments and no per-version builds.
 
 ```rexx
 np = .py~import("numpy")
@@ -40,7 +40,7 @@ with oorexx.Interpreter() as rexx:
 **Status: prototype.** Both directions work and are covered by automated
 tests (ooRexxUnit test groups and Python checks, every nutshell example
 included), on Linux x86_64, macOS (arm64 and x86_64) and Windows x64, with CPython
-3.9–3.13, against ooRexx 5.3.0 (trunk). Every push runs them all with every
+3.9–3.14, against ooRexx 5.3.0 (trunk). Every push runs them all with every
 Python on all four (GitHub Actions: `.github/workflows/build.yml`). The design is
 still being discussed and parts of the API may change.
 
@@ -67,7 +67,7 @@ with its `bin/` on the `PATH`.
 
 ```bash
 git clone https://github.com/JosepMariaBlasco/oorexxpython
-oorexxpython/scripts/setup-pythons.sh        # CPython 3.9 ... 3.13, with uv
+oorexxpython/scripts/setup-pythons.sh        # CPython 3.9 ... 3.14, with uv
 oorexxpython/scripts/build.sh                # the bridge, seconds
 oorexxpython/examples/run-one.sh 01-hello.rex
 ```
@@ -101,7 +101,7 @@ To use the bridge from your own programs:
 ```bash
 oorexxpython/scripts/setup-oorexxunit.sh     # ooRexxUnit, from ooRexx's SVN
 # numpy and matplotlib in each Python, for Numpy.testGroup:
-for v in 3.9 3.10 3.11 3.12 3.13; do
+for v in 3.9 3.10 3.11 3.12 3.13 3.14; do
   uv pip install --python "$(uv python find $v)" --break-system-packages numpy matplotlib
 done
 oorexxpython/tests/run.sh                    # every test with every Python, ~1 min

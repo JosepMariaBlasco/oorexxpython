@@ -50,7 +50,7 @@ The bridge is compiled once, with `Py_LIMITED_API=0x03090000` against the
 3.9 headers, and uses only the **Stable ABI** (PEP 384, PEP 652). The same
 binary loads into every CPython from 3.9 up, with no virtual environments and
 no per-version builds; the tests run that one build with 3.9, 3.10, 3.11,
-3.12 and 3.13. Any use of an API outside the Stable ABI would be a design
+3.12, 3.13 and 3.14. Any use of an API outside the Stable ABI would be a design
 change.
 
 What it costs: no object internals or fast macros (`PyTuple_GET_ITEM`), no
@@ -59,7 +59,7 @@ before `Py_InitializeEx`), and no `PyObject_GetBuffer` before 3.11 (numpy
 data goes through ordinary calls such as `tobytes()`). A bridge needs none of
 those.
 
-Free-threaded CPython (3.13t) is not supported: the Stable ABI does not cover
+Free-threaded CPython (3.13t, 3.14t) is not supported: the Stable ABI does not cover
 it before 3.15.
 
 ## Platforms

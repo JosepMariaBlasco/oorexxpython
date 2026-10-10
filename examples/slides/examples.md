@@ -19,7 +19,7 @@ Short programs, each showing one thing
 - Each example is a short program, ooRexx using Python (`.rex`) or
   Python using ooRexx (`.py`).
 - Next to it: the Python it replaces, and its output, exactly.
-- Every example is run with every Python from 3.9 to 3.13, on Linux,
+- Every example is run with every Python from 3.9 to 3.14, on Linux,
   macOS and Windows, and its output checked.
 - A Rexx program needs `::requires "python.cls"`; a Python program,
   `import oorexx`.

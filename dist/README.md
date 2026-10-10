@@ -59,7 +59,10 @@ rexx check.rex       ooRexx -> Python
 python check.py      Python -> ooRexx (python3 on Linux and macOS)
 ```
 
-Both end with `ooRexx/Python: OK`.
+Both end with `ooRexx/Python: OK`. A check that ends with `NOT ON PYTHONPATH`
+or `NOT ON REXX_PATH` found the bridge only because it sits next to it, and
+other programs (the examples, yours) would not: it shows the `set` (or
+`export`) that is missing.
 
 ## Use
 
