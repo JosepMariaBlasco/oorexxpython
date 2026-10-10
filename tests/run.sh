@@ -12,13 +12,14 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 . "$HERE/../scripts/platform.sh"
 BUILD=${BUILD:-$WORK/build}
 UNIT=${OOREXXUNIT_DIR:-$WORK/oorexxunit}
-export UV_PYTHON_INSTALL_DIR=${UV_PYTHON_INSTALL_DIR:-$WORK/pythons}
+export UV_PYTHON_INSTALL_DIR=${UV_PYTHON_INSTALL_DIR:-$(native_path "$WORK/pythons")}
 PYTHONS=${PYTHONS:-3.9 3.10 3.11 3.12 3.13}
 TESTS=${TESTS:-$(cd "$HERE/rexx" && ls *.testGroup; cd "$HERE/python" && ls t*.py)}
 [ -f "$UNIT/testOORexx.rex" ] || { echo "ooRexxUnit missing: run scripts/setup-oorexxunit.sh"; exit 2; }
-export ORXPY_BUILD=$BUILD
+export ORXPY_BUILD=$(native_path "$BUILD")
 export $LIBVAR="$BUILD${!LIBVAR:+:${!LIBVAR}}"
-export REXX_PATH=$BUILD:$UNIT:$HERE/rexx
+export REXX_PATH=$(native_path_list "$BUILD" "$UNIT" "$HERE/rexx")
+PYPATH=$(native_path "$BUILD")
 OUT=${OUT:-/tmp/orxpy-tests}; mkdir -p "$OUT"
 status=0
 for v in $PYTHONS; do
@@ -35,7 +36,7 @@ for v in $PYTHONS; do
         [ $rc -eq 0 ] && [ "$(n 'Tests ran')" != "" ] && [ "$(n 'Tests ran')" != 0 ] || rc=${rc/#0/1}
         ;;
       *.py)
-        (cd "$OUT" && PYTHONPATH=$BUILD timeout -s KILL ${TIMEOUT:-120} "$ORX_PYTHON" -u "$HERE/python/$t") > "$log" 2>&1
+        (cd "$OUT" && PYTHONPATH=$PYPATH timeout -s KILL ${TIMEOUT:-120} "$ORX_PYTHON" -u "$HERE/python/$t") > "$log" 2>&1
         rc=$?
         summary=$(grep -E '^[0-9]+ checks' "$log" | tail -1)
         ;;

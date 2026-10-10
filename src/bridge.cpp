@@ -20,10 +20,25 @@
  * itself releases its kernel lock while native code runs.
  */
 
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#define _CRT_SECURE_NO_WARNINGS
+#endif
 #include <Python.h>
 #include "oorexxapi.h"
 #include <string.h>
+#ifdef _WIN32
+#include <windows.h>
+#define ORXPY_EXPORT __declspec(dllexport)
+static void setEnv(const char *name, const char *value) { _putenv_s(name, value); }
+static void unsetEnv(const char *name) { _putenv_s(name, ""); }
+#else
 #include <dlfcn.h>
+#define ORXPY_EXPORT __attribute__((visibility("default")))
+static void setEnv(const char *name, const char *value) { setenv(name, value, 1); }
+static void unsetEnv(const char *name) { unsetenv(name); }
+#endif
 #include <ctype.h>
 #include <stdlib.h>
 #include <string>
@@ -45,7 +60,7 @@ static std::string launchHome, launchExecutable;
 static std::vector<std::string> launchPath;
 static bool pythonOwned = false;          // we initialized Python (Rexx started)
 
-extern "C" __attribute__((visibility("default")))
+extern "C" ORXPY_EXPORT
 void orxpy_launch(const char *home, const char *executable, const char *const *path, int npath)
 {
     launchPending = true;
@@ -81,9 +96,9 @@ static void startPython()
     // ADDRESS SYSTEM "python3 ...", must not inherit it)
     const char *old = getenv("PYTHONHOME");
     std::string saved = old != NULL ? old : "";
-    setenv("PYTHONHOME", launchHome.c_str(), 1);
+    setEnv("PYTHONHOME", launchHome.c_str());
     Py_InitializeEx(0);                   // no signal handlers: ooRexx owns them
-    if (old != NULL) setenv("PYTHONHOME", saved.c_str(), 1); else unsetenv("PYTHONHOME");
+    if (old != NULL) setEnv("PYTHONHOME", saved.c_str()); else unsetEnv("PYTHONHOME");
     pythonOwned = true;
 
     // the executable's own sys.path (site-packages, a virtual environment's,
@@ -1369,13 +1384,23 @@ struct Interpreter
 };
 
 
-// the directory oorexx.abi3.so lives in (python.cls is next to it)
+// the directory oorexx.abi3.so (oorexx.pyd) lives in (python.cls is next to it)
 static std::string bridgeDirectory()
 {
+#ifdef _WIN32
+    HMODULE self;
+    char buf[MAX_PATH];
+    if (!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                            (LPCSTR)&bridgeDirectory, &self) ||
+        GetModuleFileNameA(self, buf, sizeof buf) == 0) return ".";
+    std::string path = buf;
+    size_t slash = path.find_last_of("\\/");
+#else
     Dl_info info;
     if (dladdr((void *)&bridgeDirectory, &info) == 0 || info.dli_fname == NULL) return ".";
     std::string path = info.dli_fname;
     size_t slash = path.rfind('/');
+#endif
     return slash == std::string::npos ? std::string(".") : path.substr(0, slash);
 }
 
@@ -2720,7 +2745,7 @@ static RexxPackageEntry bridgePackage =
     bridgeMethods
 };
 
-extern "C" __attribute__((visibility("default")))
+extern "C" ORXPY_EXPORT
 RexxPackageEntry *orxpy_package(void)
 {
     return &bridgePackage;
@@ -2737,9 +2762,43 @@ static struct PyModuleDef moduleDef =
     -1, NULL, NULL, NULL, NULL, NULL
 };
 
-extern "C" __attribute__((visibility("default")))
-PyObject *PyInit_oorexx(void)
+#ifdef _WIN32
+/*
+ * Windows: rexx.dll is delay-loaded (build.sh), because Python (3.8 and
+ * later) loads an extension module's DLLs without searching the PATH, where
+ * ooRexx's bin directory is.  Before the first call into it, find it there
+ * ourselves: once loaded, the delay-load helper finds it by name.
+ */
+static bool preloadRexx()
 {
+    if (GetModuleHandleA("rexx.dll") != NULL) return true;
+    const char *home = getenv("OOREXX_HOME");
+    std::string dirs = home != NULL ? std::string(home) + "\\bin;" : "";
+    const char *path = getenv("PATH");
+    if (path != NULL) dirs += path;
+    size_t start = 0;
+    while (start <= dirs.size())
+    {
+        size_t end = dirs.find(';', start);
+        if (end == std::string::npos) end = dirs.size();
+        std::string dir = dirs.substr(start, end - start);
+        start = end + 1;
+        if (dir.empty()) continue;
+        std::string dll = dir + "\\rexx.dll";
+        if (GetFileAttributesA(dll.c_str()) == INVALID_FILE_ATTRIBUTES) continue;
+        if (LoadLibraryExA(dll.c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH) != NULL) return true;
+    }
+    PyErr_SetString(PyExc_ImportError,
+        "oorexx: rexx.dll not found: put ooRexx's bin directory on the PATH (or set OOREXX_HOME)");
+    return false;
+}
+#endif
+
+PyMODINIT_FUNC PyInit_oorexx(void)
+{
+#ifdef _WIN32
+    if (!preloadRexx()) return NULL;
+#endif
     PyObject *m = PyModule_Create(&moduleDef);
     if (m == NULL) return NULL;
     if (!fillModule(m)) { Py_DECREF(m); return NULL; }

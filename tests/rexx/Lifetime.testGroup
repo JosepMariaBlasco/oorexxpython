@@ -50,10 +50,13 @@ return testResult
 
 ::routine rss                           -- the process's RSS in KB
   f = "/proc/self/status"
-  if \SysFileExists(f) then do          -- macOS: no /proc
+  if \SysFileExists(f) then do          -- macOS: no /proc (Windows: no ps either)
+    parse upper source platform .
+    if platform~abbrev("WIN") then return 0
     out = .array~new
     address system "ps -o rss= -p" SysQueryProcess("PID") with output using (out)
-    return word(out~makeString("L", " "), 1)
+    rss = word(out~makeString("L", " "), 1)
+    return (datatype(rss, "W"))~?(rss, 0)
   end
   do 100                              -- /proc files report no size: read on
     line = linein(f)

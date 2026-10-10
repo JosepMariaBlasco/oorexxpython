@@ -42,10 +42,12 @@ return testResult
   -- DYLD_* variables when it starts /bin/sh (ADDRESS SYSTEM), so the command
   -- sets it itself
   parse upper source platform .
+  windows = platform~abbrev("WIN")
   libvar = ""
   if platform~pos("DARWIN") > 0 | platform~pos("MAC") > 0 then
     libvar = "DYLD_LIBRARY_PATH='"build"' "
   tmp = value("TMPDIR", , "ENVIRONMENT")
+  if tmp == "" then tmp = value("TEMP", , "ENVIRONMENT")
   if tmp == "" then tmp = "/tmp"
   work = .File~new(tmp)~absolutePath || sl || "orxpy-examples"
   call SysMkDir work
@@ -65,12 +67,21 @@ return testResult
       failures~append(path": no Output block")
       iterate
     end
-    if path~endsWith(".py") then
+    if windows then do                 -- cmd.exe
+      if path~endsWith(".py") then
+        cmd = 'cd /d "'work'" && set "PYTHONPATH='build'" && "'python'" "'path'" 2>&1'
+      else
+        cmd = 'cd /d "'work'" && rexx "'path'" 2>&1'
+    end
+    else if path~endsWith(".py") then
       cmd = 'cd "'work'" && PYTHONPATH="'build'" "'python'" "'path'" 2>&1'
     else
       cmd = 'cd "'work'" && 'libvar'rexx "'path'" 2>&1'
     out = .array~new
     address system cmd with output using (out)
+    do i = 1 to out~items              -- Windows: lines may end in CR
+      if out[i]~right(1) == "0d"x then out[i] = out[i]~left(out[i]~length - 1)
+    end
     got = out~makeString("L", "0a"x)
     if got == expected then self~assertTrue(.true)
     else failures~append(.File~new(path)~name || "0a"x ||,
