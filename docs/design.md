@@ -64,13 +64,22 @@ it before 3.15.
 
 ## Platforms
 
-Linux x86_64 and macOS (arm64), both built and tested by CI. The
-platform-dependent parts (finding and loading libpython, library names) are
-kept apart, in the loader and `scripts/platform.sh`, so that Windows
-(`python3.dll`, `LoadLibrary`) can follow. On macOS the ooRexx package is
-`librexxpython.dylib` and the library path variable `DYLD_LIBRARY_PATH`,
-which macOS drops when it starts a protected program such as `/bin/sh`: a
-command run through a shell must set it itself.
+Linux x86_64, macOS (arm64) and Windows x64, all built and tested by CI
+with the same scripts (on Windows, in Git Bash with MSVC). The
+platform-dependent parts (finding and loading Python's library, file names,
+paths) are kept apart, in the loader and `scripts/platform.sh`.
+
+- **macOS:** the ooRexx package is `librexxpython.dylib`, the library path
+  variable `DYLD_LIBRARY_PATH`, which macOS drops when it starts a protected
+  program such as `/bin/sh`: a command run through a shell must set it
+  itself. The bridge leaves its Python symbols to be bound at load time.
+- **Windows:** the bridge is `oorexx.pyd` (linked against `python3.dll`, the
+  Stable ABI's), the package `rexxpython.dll`, found on the `PATH`. When Rexx
+  starts, the loader loads `python3X.dll` and `python3.dll` from the chosen
+  Python's home before the bridge. Python (3.8 and later) loads an extension
+  module's DLLs without searching the `PATH`, so the bridge delay-loads
+  `rexx.dll` and finds it on the `PATH` (or in `OOREXX_HOME\bin`) when it is
+  imported. `rexx_path` is separated by `;`.
 
 ## ooRexx → Python
 

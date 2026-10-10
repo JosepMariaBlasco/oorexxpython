@@ -39,15 +39,17 @@ with oorexx.Interpreter() as rexx:
 
 **Status: prototype.** Both directions work and are covered by automated
 tests (ooRexxUnit test groups and Python checks, every nutshell example
-included), on Linux x86_64 and macOS (arm64), with CPython 3.9–3.13,
-against ooRexx 5.3.0 (trunk). Every push runs them all with every Python on
-both (GitHub Actions: `.github/workflows/build.yml`). Windows is next. The design is
+included), on Linux x86_64, macOS (arm64) and Windows x64, with CPython
+3.9–3.13, against ooRexx 5.3.0 (trunk). Every push runs them all with every
+Python on all three (GitHub Actions: `.github/workflows/build.yml`). The design is
 still being discussed and parts of the API may change.
 
 ## Getting started
 
-Linux x86_64 or macOS, with a C++ compiler (`g++`; Xcode's command line
-tools on macOS), `svn` and [uv](https://docs.astral.sh/uv/) (or
+Linux x86_64, macOS or Windows, with a C++ compiler (`g++`; Xcode's
+command line tools on macOS; on Windows, MSVC, with the scripts run from Git
+Bash in a developer command prompt's environment), `curl` and
+[uv](https://docs.astral.sh/uv/) (or
 `pip`, which `setup-pythons.sh` uses to install uv), and an ooRexx 5.3.0
 with its API headers: an installed ooRexx (`/usr/local`), or one of ooRexx's
 portable builds from
@@ -65,7 +67,8 @@ Everything goes into the directory that contains your clone
 (`$ORXPY_WORK`, overridable), next to it:
 
 ```
-build/        oorexx.abi3.so, librexxpython.so (.dylib on macOS), python.cls
+build/        oorexx.abi3.so, librexxpython.so, python.cls
+              (macOS: librexxpython.dylib; Windows: oorexx.pyd, rexxpython.dll)
 pythons/      the CPython versions to test against
 oorexxunit/   ooRexx's test framework (for the tests)
 ```
@@ -76,9 +79,13 @@ To use the bridge from your own programs:
   `LD_LIBRARY_PATH` (`DYLD_LIBRARY_PATH` on macOS), and say which Python to
   use with `ORX_PYTHON` (default: the `python3` on the `PATH`; its installed
   packages are the ones Rexx sees):
-  `ORX_PYTHON=$(which python3) LD_LIBRARY_PATH=build REXX_PATH=build rexx prog.rex`
+  `ORX_PYTHON=$(which python3) LD_LIBRARY_PATH=build REXX_PATH=build rexx prog.rex`.
+  On Windows the build directory goes on the `PATH` instead, and
+  `ORX_PYTHON` defaults to the `python` on the `PATH`.
 - **From Python**: put the build directory on `PYTHONPATH` and
-  `import oorexx`: `PYTHONPATH=build python3 prog.py`.
+  `import oorexx`: `PYTHONPATH=build python3 prog.py`. On Windows, ooRexx's
+  `bin` directory must be on the `PATH` (or `OOREXX_HOME` set): the module
+  finds `rexx.dll` there itself.
 
 ## Tests
 
