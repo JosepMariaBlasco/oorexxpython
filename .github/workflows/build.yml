@@ -1,12 +1,19 @@
 # Builds the bridge once (Stable ABI) and runs every test with every Python,
-# 3.9 to 3.13, on Linux, macOS and Windows. ooRexx comes from its portable builds on
-# SourceForge, pinned to one revision; a newer one is taken deliberately,
-# after checking it.
+# 3.9 to 3.13, on Linux, macOS and Windows. ooRexx comes from its portable
+# builds on SourceForge, pinned to one revision; a newer one is taken
+# deliberately, after checking it.
+#
+# Each platform's build is then packaged as a zip of binaries
+# (scripts/package.sh; artifacts oorexxpython-<platform>), which is checked
+# unzipped, as a user would install it, with the system's own Python. A tag
+# vX.Y.Z[-suffix] (git tag v0.1.0 && git push origin v0.1.0) also makes a
+# GitHub release with the three zips; pushes to main publish nothing.
 name: build
 
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 
@@ -60,6 +67,28 @@ jobs:
         run: OUT=$RUNNER_TEMP/tests tests/run.sh
       - name: Heavy threads stress test (3.9 and 3.13)
         run: OUT=$RUNNER_TEMP/tests-heavy PYTHONS="3.9 3.13" TESTS=Threads.testGroup ORXPY_THREADS="16 16 2000" TIMEOUT=600 tests/run.sh
+      - name: Package
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then export ORXPY_VERSION=${GITHUB_REF_NAME#v}; fi
+          scripts/package.sh "$RUNNER_TEMP/dist"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: oorexxpython-${{ matrix.name }}
+          path: ${{ runner.temp }}/dist/*.zip
+      - uses: actions/setup-python@v5
+        if: runner.os == 'macOS'
+        with:
+          python-version: "3.12"
+      - name: The package, unzipped, with the system's Python
+        run: |
+          mkdir -p "$RUNNER_TEMP/try" && cd "$RUNNER_TEMP/try"
+          unzip -q "$RUNNER_TEMP"/dist/*.zip
+          D=$PWD/oorexxpython
+          if [ "$RUNNER_OS" = macOS ]; then export DYLD_LIBRARY_PATH=$D; else export LD_LIBRARY_PATH=$D; fi
+          export REXX_PATH=$D PYTHONPATH=$D
+          PY=$(command -v python3); [ "$RUNNER_OS" = Linux ] && PY=/usr/bin/python3
+          "$PY" -c "import sys, sysconfig; print(sys.version, sysconfig.get_config_var('LDLIBRARY'))"
+          cd .. && ORX_PYTHON=$PY rexx "$D/check.rex" && "$PY" "$D/check.py"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -100,8 +129,47 @@ jobs:
         run: OUT=$RUNNER_TEMP/tests tests/run.sh
       - name: Heavy threads stress test (3.9 and 3.13)
         run: OUT=$RUNNER_TEMP/tests-heavy PYTHONS="3.9 3.13" TESTS=Threads.testGroup ORXPY_THREADS="16 16 2000" TIMEOUT=600 tests/run.sh
+      - name: Package
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then export ORXPY_VERSION=${GITHUB_REF_NAME#v}; fi
+          scripts/package.sh "$RUNNER_TEMP/dist"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: oorexxpython-windows-x64
+          path: ${{ runner.temp }}/dist/*.zip
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: The package, unzipped, with the system's Python
+        run: |
+          mkdir -p "$RUNNER_TEMP/try" && cd "$RUNNER_TEMP/try"
+          unzip -q "$RUNNER_TEMP"/dist/*.zip
+          D=$PWD/oorexxpython
+          export PATH="$D:$PATH" REXX_PATH=$(cygpath -w "$D") PYTHONPATH=$(cygpath -w "$D")
+          python -c "import sys; print(sys.version, sys.executable)"
+          cd .. && rexx "$(cygpath -w "$D/check.rex")" && python "$(cygpath -w "$D/check.py")"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-logs-windows-x64
           path: ${{ runner.temp }}/tests*
+
+  release:
+    if: github.ref_type == 'tag'
+    needs: [unix, windows]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: oorexxpython-*
+          path: dist
+          merge-multiple: true
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pre=(); case "$GITHUB_REF_NAME" in *-*) pre=(--prerelease) ;; esac
+          gh release create "$GITHUB_REF_NAME" -R "$GITHUB_REPOSITORY" "${pre[@]}" \
+            --title "$GITHUB_REF_NAME" --generate-notes dist/*.zip

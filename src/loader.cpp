@@ -101,7 +101,7 @@ static std::string commandLine(const std::string &exe, const std::string &code)
 // what the chosen Python executable says about itself
 struct PythonInfo
 {
-    std::string libdir, instsoname, ldlibrary, home, executable, version;
+    std::string libdir, instsoname, ldlibrary, home, executable, version, framework;
     std::vector<std::string> path;
 };
 
@@ -109,7 +109,8 @@ struct PythonInfo
 static const char *probe =
     "import sys, sysconfig; v = sysconfig.get_config_var; "
     "[print(x or '') for x in (v('LIBDIR'), v('INSTSONAME'), v('LDLIBRARY'), sys.base_prefix, "
-    "sys.executable, str(sys.version_info[0]) + str(sys.version_info[1]))]; "
+    "sys.executable, str(sys.version_info[0]) + str(sys.version_info[1]), "
+    "v('PYTHONFRAMEWORKPREFIX'))]; "
     "[print(p) for p in sys.path]";
 
 static bool askPython(const std::string &exe, PythonInfo &info)
@@ -125,14 +126,15 @@ static bool askPython(const std::string &exe, PythonInfo &info)
         lines.push_back(line);
     }
     int rc = pclose(f);
-    if (rc != 0 || lines.size() < 6) return false;
+    if (rc != 0 || lines.size() < 7) return false;
     info.libdir = lines[0];
     info.instsoname = lines[1];
     info.ldlibrary = lines[2];
     info.home = lines[3];
     info.executable = lines[4];
     info.version = lines[5];
-    info.path.assign(lines.begin() + 6, lines.end());
+    info.framework = lines[6];
+    info.path.assign(lines.begin() + 7, lines.end());
     return true;
 }
 
@@ -176,6 +178,12 @@ static bool loadLibpython(const PythonInfo &info, std::string &error)
     if (endsWith(info.ldlibrary, ".so") || endsWith(info.ldlibrary, ".dylib"))
     {
         candidates.push_back(info.libdir + "/" + info.ldlibrary);
+    }
+    // macOS framework builds (python.org's, Homebrew's): LDLIBRARY is
+    // Python.framework/Versions/3.X/Python, under PYTHONFRAMEWORKPREFIX
+    if (!info.framework.empty() && info.ldlibrary.find(".framework/") != std::string::npos)
+    {
+        candidates.push_back(info.framework + "/" + info.ldlibrary);
     }
     for (const std::string &c : candidates)
     {

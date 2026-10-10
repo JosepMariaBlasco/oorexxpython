@@ -44,6 +44,15 @@ included), on Linux x86_64, macOS (arm64) and Windows x64, with CPython
 Python on all three (GitHub Actions: `.github/workflows/build.yml`). The design is
 still being discussed and parts of the API may change.
 
+## Binaries
+
+Every push builds a zip of binaries for Linux x64, macOS arm64 and Windows
+x64 (GitHub Actions artifacts `oorexxpython-<platform>`), checked unzipped
+with the system's own Python; tagged versions are published as GitHub
+releases. The zip's `README.md` (`dist/README.md` here) says how to install
+it: unzip, and point the library path, `REXX_PATH` and `PYTHONPATH` at the
+folder. `scripts/package.sh` makes the same zip from a local build.
+
 ## Getting started
 
 Linux x86_64, macOS or Windows, with a C++ compiler (`g++`; Xcode's
