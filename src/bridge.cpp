@@ -1428,6 +1428,26 @@ static void writeStream(const char *stream, const char *data, size_t n)
     PyErr_Clear();
 }
 
+// RexxAllocateMemory (rexxapi): on Windows, ooRexx's portable builds have no
+// import library for rexxapi.dll, so it is looked up there (rexx.dll loads it)
+static void *rexxAllocate(size_t n)
+{
+#ifdef _WIN32
+    typedef void *(REXXENTRY *AllocFn)(size_t);
+    static AllocFn alloc = NULL;
+    if (alloc == NULL)
+    {
+        HMODULE api = GetModuleHandleA("rexxapi.dll");
+        if (api == NULL) api = LoadLibraryA("rexxapi.dll");
+        if (api != NULL) alloc = (AllocFn)GetProcAddress(api, "RexxAllocateMemory");
+        if (alloc == NULL) return NULL;
+    }
+    return alloc(n);
+#else
+    return RexxAllocateMemory(n);
+#endif
+}
+
 static void readStdin(RXSTRING *out)
 {
     std::string line;
@@ -1450,7 +1470,8 @@ static void readStdin(RXSTRING *out)
     while (!line.empty() && (line.back() == '\n' || line.back() == '\r')) line.pop_back();
     if (out->strptr == NULL || out->strlength < line.size())
     {
-        out->strptr = (char *)RexxAllocateMemory(line.size() + 1);
+        out->strptr = (char *)rexxAllocate(line.size() + 1);
+        if (out->strptr == NULL) { out->strlength = 0; return; }
     }
     memcpy(out->strptr, line.data(), line.size());
     out->strlength = line.size();
