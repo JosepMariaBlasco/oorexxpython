@@ -482,7 +482,7 @@ static bool isDigits(const char *p, const char *end)
 }
 
 // what a Rexx string becomes in Python (docs/design.md, *Values*)
-enum NumberKind { NOT_NUMBER, INTEGER, FLOAT };
+enum NumberKind { NOT_NUMBER, INTEGER_NUMBER, FLOAT_NUMBER };
 
 static NumberKind numberKind(const std::string &s)
 {
@@ -490,7 +490,7 @@ static NumberKind numberKind(const std::string &s)
     if (p < end && *p == '-') p++;
     if (p == end) return NOT_NUMBER;
     // canonical integer: 0, or no leading zero
-    if (isDigits(p, end)) return (*p != '0' || end - p == 1) ? INTEGER : NOT_NUMBER;
+    if (isDigits(p, end)) return (*p != '0' || end - p == 1) ? INTEGER_NUMBER : NOT_NUMBER;
     // a Rexx number with a decimal point and/or an exponent
     const char *e = p;
     while (e < end && *e != 'e' && *e != 'E') e++;
@@ -507,10 +507,10 @@ static NumberKind numberKind(const std::string &s)
         mantissa = isDigits(p, e);
     }
     if (!mantissa) return NOT_NUMBER;
-    if (e == end) return dot != NULL ? FLOAT : NOT_NUMBER;   // "007": not a number
+    if (e == end) return dot != NULL ? FLOAT_NUMBER : NOT_NUMBER;   // "007": not a number
     const char *x = e + 1;
     if (x < end && (*x == '+' || *x == '-')) x++;
-    return isDigits(x, end) ? FLOAT : NOT_NUMBER;
+    return isDigits(x, end) ? FLOAT_NUMBER : NOT_NUMBER;
 }
 
 // a new reference, or NULL with a Python error set
@@ -555,8 +555,8 @@ static PyObject *valToPy(const Val &v)
         default:
             switch (numberKind(v.s))
             {
-                case INTEGER: return PyLong_FromString(v.s.c_str(), NULL, 10);
-                case FLOAT:
+                case INTEGER_NUMBER: return PyLong_FromString(v.s.c_str(), NULL, 10);
+                case FLOAT_NUMBER:
                 {
                     PyObject *text = PyUnicode_FromString(v.s.c_str());
                     if (text == NULL) return NULL;
@@ -1484,7 +1484,7 @@ static int RexxEntry stdioExit(RexxExitContext *, int exitnum, int subfunction, 
     }
 }
 
-extern "C" RexxPackageEntry *orxpy_package(void);
+extern "C" ORXPY_EXPORT RexxPackageEntry *orxpy_package(void);
 
 // the strings of a str or a list of str (for the options)
 static bool stringList(PyObject *o, std::vector<std::string> &out, const char *what)
