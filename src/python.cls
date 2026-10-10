@@ -33,6 +33,7 @@
  *               o~name                   attribute; called if a function/method
  *               o~name = v               set an existing attribute
  *               o[k] / o[k] = v          items (o[i, j] -> o[(i, j)])
+ *               o[.py~slice(a, b, c)]    o[a:b:c] (.nil for an empty part)
  *               o~new(args...)           o(args...) (classes)
  *               o~getattr("exactName"), o~setattr("exactName", v),
  *               o~invoke("exactName" | .nil, args...)

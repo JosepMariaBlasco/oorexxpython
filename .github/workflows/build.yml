@@ -48,6 +48,9 @@ jobs:
           export UV_PYTHON_INSTALL_DIR=$(cd .. && pwd)/pythons
           for v in $PYTHONS; do
             uv pip install -q --python "$(uv python find $v)" --break-system-packages numpy matplotlib
+            # matplotlib builds its font cache on first use and says so on
+            # stderr, which an example's output check would see
+            "$(uv python find $v)" -c "import matplotlib.pyplot"
           done
       - name: ooRexxUnit
         run: |

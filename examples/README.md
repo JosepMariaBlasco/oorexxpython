@@ -52,6 +52,7 @@ PYTHONPATH=/path/to/bridge python3 30-run-rexx.py
 |---|---|
 | `20-numpy.rex` | numpy arrays with Rexx operators, boolean masks, matrices |
 | `21-matplotlib.rex` | a chart saved as PNG |
+| `22-slices.rex` | slices: `o[.py~slice(start, stop, step)]` for Python's `o[start:stop:step]`, numpy's `m[0:2, 1]` |
 
 ## Python using ooRexx
 
