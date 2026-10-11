@@ -54,11 +54,11 @@ jobs:
         if: runner.os == 'macOS'
         run: brew install -q coreutils
       - run: rexx -v
-      - name: The examples' slide deck is up to date
+      - name: The samples' slide deck is up to date
         if: runner.os == 'Linux'
         run: |
-          rexx scripts/examples-deck.rex
-          git diff --exit-code examples/slides || { echo "run scripts/examples-deck.rex and commit examples/slides"; exit 1; }
+          rexx scripts/samples-deck.rex
+          git diff --exit-code samples/slides || { echo "run scripts/samples-deck.rex and commit samples/slides"; exit 1; }
       - name: Python ${{ env.PYTHONS }}, with numpy and matplotlib
         run: |
           scripts/setup-pythons.sh
@@ -66,7 +66,7 @@ jobs:
           for v in $PYTHONS; do
             uv pip install -q --python "$(uv python find $v)" --break-system-packages numpy matplotlib
             # matplotlib builds its font cache on first use and says so on
-            # stderr, which an example's output check would see
+            # stderr, which a sample's output check would see
             "$(uv python find $v)" -c "import matplotlib.pyplot"
           done
       - name: ooRexxUnit

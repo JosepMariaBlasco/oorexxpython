@@ -5,8 +5,8 @@
 #   oorexxpython-VERSION-PLATFORM.zip, one folder oorexxpython/: the bridge
 #   (oorexx.abi3.so / oorexx.pyd), the ooRexx package (librexxpython.so /
 #   .dylib, rexxpython.dll), both stripped, python.cls, README.md (dist/README.md: how to
-#   install), check.rex and check.py, the examples (with their md2slides deck,
-#   examples/slides/) and the licence.
+#   install), check.rex and check.py, the samples (with their md2slides deck,
+#   samples/slides/) and the licence.
 #
 # VERSION: ORXPY_VERSION, else YYYYMMDD-COMMIT.  PLATFORM: linux-x64,
 # macos-arm64, windows-x64...  The folder is checked before it is zipped:
@@ -30,7 +30,7 @@ NAME=oorexxpython-$VERSION-$PLAT
 
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
 STAGE=$TMP/oorexxpython
-mkdir -p "$STAGE/examples/slides" "$TMP/elsewhere"
+mkdir -p "$STAGE/samples/slides" "$TMP/elsewhere"
 for f in "$BRIDGE" "$LOADER" python.cls; do
   [ -f "$BUILD/$f" ] || { echo "package.sh: no $BUILD/$f (run build.sh)" >&2; exit 2; }
   cp "$BUILD/$f" "$STAGE/"
@@ -43,8 +43,8 @@ case $OS in
   Darwin) strip -x "$STAGE/$BRIDGE" "$STAGE/$LOADER" ;;
 esac
 cp "$ROOT/dist/README.md" "$ROOT/dist/check.rex" "$ROOT/dist/check.py" "$ROOT/LICENSE" "$STAGE/"
-cp "$ROOT"/examples/*.rex "$ROOT"/examples/*.py "$ROOT/examples/README.md" "$STAGE/examples/"
-cp "$ROOT"/examples/slides/examples.md "$ROOT"/examples/slides/skin-default.css "$STAGE/examples/slides/"
+cp "$ROOT"/samples/*.rex "$ROOT"/samples/*.py "$ROOT/samples/README.md" "$STAGE/samples/"
+cp "$ROOT"/samples/slides/samples.md "$ROOT"/samples/slides/skin-default.css "$STAGE/samples/slides/"
 
 # the check, as a user would run it: from another directory
 DIR=$(native_path "$STAGE")

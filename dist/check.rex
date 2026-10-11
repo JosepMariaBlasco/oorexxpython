@@ -16,7 +16,7 @@ end
 
 -- ooRexx looks for ::requires files in the folder of the program first, so
 -- this program finds python.cls next to it even without REXX_PATH (or the
--- PATH); other programs (the examples, yours) would not.
+-- PATH); other programs (the samples, yours) would not.
 cls = .File~new(.PyObject~package~name)~parent
 parse source system . me
 if same(cls, .File~new(me)~parent) then do
@@ -31,7 +31,7 @@ if same(cls, .File~new(me)~parent) then do
   if \found then do
     if system~upper~abbrev("WIN") then set = "set"; else set = "export"
     say "ooRexx/Python: NOT ON REXX_PATH: python.cls found only because check.rex is next to it;"
-    say "ooRexx/Python: other programs (the examples) will not find it. Set REXX_PATH:"
+    say "ooRexx/Python: other programs (the samples) will not find it. Set REXX_PATH:"
     say "   " set "REXX_PATH="cls
     exit 1
   end

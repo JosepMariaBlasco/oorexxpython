@@ -1,0 +1,6 @@
+/* A plain skin for samples.md, so that "md2slides samples.md" works as it
+ * is.  Any other skin will do: md2slides -s your-skin.css samples.md
+ * (scripts/samples-deck.rex lays the slides out for this body size). */
+:root {
+  --skin-body-size: 30px;
+}

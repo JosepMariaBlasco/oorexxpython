@@ -1,11 +1,11 @@
 #!/usr/bin/env rexx
 /*----------------------------------------------------------------------------*/
-/* Examples.testGroup: every nutshell example (examples, .rex and .py) runs, */
+/* Samples.testGroup: every nutshell sample (samples, .rex and .py) runs,     */
 /* in its own process, with the Python of ORX_PYTHON, and prints exactly what */
-/* its Output block says.  So the examples cannot rot.                         */
+/* its Output block says.  So the samples cannot rot.                         */
 /*                                                                            */
 /* Environment: ORX_PYTHON (the Python, as for any Rexx program using the     */
-/* bridge), ORXPY_BUILD (the build directory, default $ORXPY_WORK/build,     */
+/* bridge), ORXPY_BUILD (the build directory, default $ORXPY_WORK/build,      */
 /* where ORXPY_WORK defaults to the directory that contains the clone).       */
 /*                                                                            */
 /* Licensed under the Apache License, Version 2.0.                            */
@@ -13,7 +13,7 @@
   parse source . . fileSpec
 
   group = .TestGroup~new(fileSpec)
-  group~add(.Examples.testGroup)
+  group~add(.Samples.testGroup)
 
   if group~isAutomatedTest then return group
 
@@ -24,12 +24,12 @@ return testResult
 
 ::requires 'PyTestCase.cls'
 
-::class "Examples.testGroup" subclass PyTestCase public
+::class "Samples.testGroup" subclass PyTestCase public
 
-::method test_all_examples
+::method test_all_samples
   parse source . . me
   sl = .File~separator
-  dir = .File~new(me)~parentFile~parentFile~parentFile~absolutePath || sl || "examples"
+  dir = .File~new(me)~parentFile~parentFile~parentFile~absolutePath || sl || "samples"
   build = value("ORXPY_BUILD", , "ENVIRONMENT")
   if build == "" then do
     work = value("ORXPY_WORK", , "ENVIRONMENT")
@@ -49,7 +49,7 @@ return testResult
   tmp = value("TMPDIR", , "ENVIRONMENT")
   if tmp == "" then tmp = value("TEMP", , "ENVIRONMENT")
   if tmp == "" then tmp = "/tmp"
-  work = .File~new(tmp)~absolutePath || sl || "orxpy-examples"
+  work = .File~new(tmp)~absolutePath || sl || "orxpy-samples"
   call SysMkDir work
 
   files = .File~new(dir)~listFiles
@@ -58,7 +58,7 @@ return testResult
     if f~name~endsWith(".rex") | f~name~endsWith(".py") then names~append(f~absolutePath)
   end
   names = names~sort
-  self~assertTrue(names~items >= 20, "examples found in" dir)
+  self~assertTrue(names~items >= 20, "samples found in" dir)
 
   failures = .array~new
   do path over names
@@ -89,10 +89,10 @@ return testResult
                          "  got:      [" || got~changeStr("0a"x, "|") || "]")
   end
   if failures~items > 0 then
-    self~fail(failures~items "example(s) differ:" || "0a"x || failures~makeString("L", "0a"x))
+    self~fail(failures~items "sample(s) differ:" || "0a"x || failures~makeString("L", "0a"x))
 
 /** expectedOutput(path)
- * The lines of the example's Output block: in a Rexx file, the lines between
+ * The lines of the sample's Output block: in a Rexx file, the lines between
  * the comment line that opens with "Output:" and the line that closes it; in
  * a Python file, the "# " comment lines after a line "# Output:".  .nil if
  * there is none.

@@ -38,7 +38,7 @@ with oorexx.Interpreter() as rexx:
 ```
 
 **Status: prototype.** Both directions work and are covered by automated
-tests (ooRexxUnit test groups and Python checks, every nutshell example
+tests (ooRexxUnit test groups and Python checks, every nutshell sample
 included), on Linux x86_64, macOS (arm64 and x86_64) and Windows x64, with CPython
 3.9–3.14, against ooRexx 5.3.0 (trunk). Every push runs them all with every
 Python on all four (GitHub Actions: `.github/workflows/build.yml`). The design is
@@ -69,7 +69,7 @@ with its `bin/` on the `PATH`.
 git clone https://github.com/JosepMariaBlasco/oorexxpython
 oorexxpython/scripts/setup-pythons.sh        # CPython 3.9 ... 3.14, with uv
 oorexxpython/scripts/build.sh                # the bridge, seconds
-oorexxpython/examples/run-one.sh 01-hello.rex
+oorexxpython/samples/run-one.sh 01-hello.rex
 ```
 
 Everything goes into the directory that contains your clone
@@ -121,10 +121,10 @@ is a failure). `PYTHONS="3.9 3.13"` and `TESTS=Threads.testGroup` choose;
   - `loader.cpp` — `librexxpython.so`, the ooRexx package that finds and
     loads a Python when Rexx starts, then hands over to the bridge.
   - `python.cls` — the Rexx side: `.py`, `.PyObject`, `py.import` & co.
-- `examples/` — short "nutshell" programs, one feature each, both ways;
+- `samples/` — short "nutshell" programs, one feature each, both ways;
   each shows the Python it replaces and its exact output (see its README).
 - `tests/` — `run.sh`; `rexx/` (ooRexxUnit test groups: basics, callbacks,
-  numpy, lifetime, threads, and all the examples), `python/` (the Python
+  numpy, lifetime, threads, and all the samples), `python/` (the Python
   side).
 - `scripts/` — `build.sh`, `setup-pythons.sh`, `setup-oorexxunit.sh`, and
   `setup-oorexx.sh` (builds ooRexx from SVN, when no build with headers is

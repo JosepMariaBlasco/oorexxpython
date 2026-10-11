@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# run-one.sh EXAMPLE [PYTHON_VERSION]: run one example the way Examples.testGroup does.
+# run-one.sh SAMPLE [PYTHON_VERSION]: run one sample the way Samples.testGroup does.
 set -u
 WORK=${ORXPY_WORK:-$(cd "$(dirname "$0")/../.." && pwd)}   # the directory that contains the clone
 HERE=$(cd "$(dirname "$0")" && pwd)

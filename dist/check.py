@@ -16,7 +16,7 @@ with oorexx.Interpreter() as rexx:
 
 # Python always looks in the folder of the program it runs, so this program
 # finds the bridge next to it even without PYTHONPATH; other programs (the
-# examples, yours) would not.
+# samples, yours) would not.
 def same(a, b):
     return os.path.normcase(os.path.abspath(a)) == os.path.normcase(os.path.abspath(b))
 bridge = os.path.dirname(os.path.abspath(oorexx.__file__))
@@ -24,7 +24,7 @@ here = os.path.dirname(os.path.abspath(__file__))
 if same(bridge, here) and not any(same(p, bridge) for p in os.environ.get("PYTHONPATH", "").split(os.pathsep) if p):
     set_ = "set" if os.name == "nt" else "export"
     print("ooRexx/Python: NOT ON PYTHONPATH: found only because check.py is next to it;")
-    print("ooRexx/Python: other programs (the examples) will not find it. Set PYTHONPATH:")
+    print("ooRexx/Python: other programs (the samples) will not find it. Set PYTHONPATH:")
     print(f"    {set_} PYTHONPATH={bridge}")
     sys.exit(1)
 print("ooRexx/Python: OK")

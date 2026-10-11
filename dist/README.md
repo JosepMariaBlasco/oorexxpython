@@ -61,7 +61,7 @@ python check.py      Python -> ooRexx (python3 on Linux and macOS)
 
 Both end with `ooRexx/Python: OK`. A check that ends with `NOT ON PYTHONPATH`
 or `NOT ON REXX_PATH` found the bridge only because it sits next to it, and
-other programs (the examples, yours) would not: it shows the `set` (or
+other programs (the samples, yours) would not: it shows the `set` (or
 `export`) that is missing.
 
 ## Use
@@ -83,8 +83,8 @@ with oorexx.Interpreter() as rexx:
     print(rexx.eval("'Hello'~reverse"))    # olleH
 ```
 
-The `examples` folder has short examples of every feature, each with its
-expected output (`examples/README.md`), and `examples/slides/examples.md`
+The `samples` folder has short samples of every feature, each with its
+expected output (`samples/README.md`), and `samples/slides/samples.md`
 has them all as one [md2slides](https://rexx.epbcn.com/rexx-parser/doc/utilities/md2slides/)
 slide deck. `20-numpy.rex` and
 `21-matplotlib.rex` need `pip install numpy matplotlib` in the Python used.

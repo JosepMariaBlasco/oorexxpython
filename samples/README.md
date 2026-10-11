@@ -2,7 +2,7 @@
 
 Short programs, each showing one thing. Every file starts with the Python it
 replaces, as a comment, and ends with an `Output:` block: what it prints,
-exactly. `tests/rexx/Examples.testGroup` runs them all with every Python
+exactly. `tests/rexx/Samples.testGroup` runs them all with every Python
 (3.9–3.14) and checks that output, so they stay true.
 
 Licensed under the Apache License, Version 2.0.
@@ -19,13 +19,13 @@ PYTHONPATH=/path/to/bridge python3 30-run-rexx.py
 
 ## As slides
 
-`slides/examples.md` is every example as one slide deck for
+`slides/samples.md` is every sample as one slide deck for
 [md2slides](https://rexx.epbcn.com/rexx-parser/doc/utilities/md2slides/),
-the Rexx Parser's slide tool: each example's code, the Python it replaces and
-its output. `md2slides slides/examples.md` makes one HTML file (with
+the Rexx Parser's slide tool: each sample's code, the Python it replaces and
+its output. `md2slides slides/samples.md` makes one HTML file (with
 `slides/skin-default.css`, a plain skin; `-s` and `-mp` choose your own).
-The deck is generated from the examples and this README by
-`scripts/examples-deck.rex`: edit those, not the deck.
+The deck is generated from the samples and this README by
+`scripts/samples-deck.rex`: edit those, not the deck.
 
 ## ooRexx using Python
 
@@ -74,7 +74,7 @@ The deck is generated from the examples and this README by
 | `33-stdio.py` | SAY/PULL through Python's `sys.stdout`/`sys.stdin` |
 | `34-send-message.py` | messages by name: `sendMessage`, `sendMessage0`…`5`, `sendMessageScope` (as BSF4ooRexx) |
 
-## Things worth knowing (they show up in the examples)
+## Things worth knowing (they show up in the samples)
 
 - Rexx symbols are upper case: `o~name` finds `name`, `Name` or `NAME`, the
   lowercase one first. `logging~INFO` therefore finds the function
