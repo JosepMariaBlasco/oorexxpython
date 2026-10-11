@@ -60,12 +60,12 @@ jobs:
         run: |
           rexx scripts/samples-deck.rex
           git diff --exit-code samples/slides || { echo "run scripts/samples-deck.rex and commit samples/slides"; exit 1; }
-      - name: Python ${{ env.PYTHONS }}, with numpy and matplotlib
+      - name: Python ${{ env.PYTHONS }}, with numpy, matplotlib and pandas
         run: |
           scripts/setup-pythons.sh
           export UV_PYTHON_INSTALL_DIR=$(cd .. && pwd)/pythons
           for v in $PYTHONS; do
-            uv pip install -q --python "$(uv python find $v)" --break-system-packages numpy matplotlib
+            uv pip install -q --python "$(uv python find $v)" --break-system-packages numpy matplotlib pandas
             # matplotlib builds its font cache on first use and says so on
             # stderr, which a sample's output check would see
             "$(uv python find $v)" -c "import matplotlib.pyplot"
@@ -124,12 +124,12 @@ jobs:
           unzip -q "$RUNNER_TEMP/oorexx.zip" -d "$RUNNER_TEMP"
           cygpath -w "$RUNNER_TEMP/oorexx-5.3.0-$OOREXX_REV.windows.x86_64-portable-release/bin" >> "$GITHUB_PATH"
       - run: rexx -v
-      - name: Python ${{ env.PYTHONS }}, with numpy and matplotlib
+      - name: Python ${{ env.PYTHONS }}, with numpy, matplotlib and pandas
         run: |
           scripts/setup-pythons.sh
           export UV_PYTHON_INSTALL_DIR=$(cygpath -w "$(cd .. && pwd)/pythons")
           for v in $PYTHONS; do
-            uv pip install -q --python "$(uv python find $v)" --break-system-packages numpy matplotlib
+            uv pip install -q --python "$(uv python find $v)" --break-system-packages numpy matplotlib pandas
             "$(uv python find $v)" -c "import matplotlib.pyplot"
           done
       - name: ooRexxUnit
@@ -185,12 +185,12 @@ jobs:
           unzip -q "$RUNNER_TEMP/oorexx.zip" -d "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/$OOREXX_MIN/bin" >> "$GITHUB_PATH"
       - run: rexx -v
-      - name: Python ${{ env.PYTHONS }}, with numpy and matplotlib
+      - name: Python ${{ env.PYTHONS }}, with numpy, matplotlib and pandas
         run: |
           scripts/setup-pythons.sh
           export UV_PYTHON_INSTALL_DIR=$(cd .. && pwd)/pythons
           for v in $PYTHONS; do
-            uv pip install -q --python "$(uv python find $v)" --break-system-packages numpy matplotlib
+            uv pip install -q --python "$(uv python find $v)" --break-system-packages numpy matplotlib pandas
             "$(uv python find $v)" -c "import matplotlib.pyplot"
           done
       - name: ooRexxUnit

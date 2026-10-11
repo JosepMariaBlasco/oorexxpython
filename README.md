@@ -103,9 +103,9 @@ To use the bridge from your own programs:
 
 ```bash
 oorexxpython/scripts/setup-oorexxunit.sh     # ooRexxUnit, from ooRexx's SVN
-# numpy and matplotlib in each Python, for Numpy.testGroup:
+# numpy, matplotlib and pandas in each Python, for Numpy.testGroup:
 for v in 3.9 3.10 3.11 3.12 3.13 3.14; do
-  uv pip install --python "$(uv python find $v)" --break-system-packages numpy matplotlib
+  uv pip install --python "$(uv python find $v)" --break-system-packages numpy matplotlib pandas
 done
 oorexxpython/tests/run.sh                    # every test with every Python, ~1 min
 ```

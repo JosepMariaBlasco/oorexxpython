@@ -63,6 +63,7 @@ The deck is generated from the samples and this README by
 | `20-numpy.rex` | numpy arrays with Rexx operators, boolean masks, matrices |
 | `21-matplotlib.rex` | a chart saved as PNG |
 | `22-slices.rex` | slices: `o[.py~slice(start, stop, step)]` for Python's `o[start:stop:step]`, numpy's `m[0:2, 1]` |
+| `23-pandas.rex` | a pandas DataFrame from CSV text: a new column, `inplace=True`, a boolean mask, groupby |
 
 ## Python using ooRexx
 
@@ -86,3 +87,6 @@ The deck is generated from the samples and this README by
   `.py~list((1, 2))` is `[1, 2]` (05, 13). `.py~str`, `~int`,
   `~float` are Python's too, but keep the result as a Python object instead
   of a Rexx string (02).
+- `.true` and `.false` are the Rexx strings `1` and `0`, so they go to
+  Python as ints. Where a real `bool` is required (pandas' `inplace=`),
+  `py.box("bool", 1)` makes `True` (23).
