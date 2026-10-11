@@ -60,8 +60,16 @@ return testResult
   names = names~sort
   self~assertTrue(names~items >= 20, "samples found in" dir)
 
+  -- before 5.3.0, using one interpreter from several threads at once crashes
+  -- inside ooRexx (docs/design.md, *ooRexx versions*): skip the samples that
+  -- do it there
+  concurrent = .set~of("09-threads.rex")
+  parse version "REXX-ooRexx_" major "." minor "."
+  oldOoRexx = major < 5 | (major = 5 & minor < 3)
+
   failures = .array~new
   do path over names
+    if oldOoRexx, concurrent~hasIndex(.File~new(path)~name) then iterate
     expected = self~expectedOutput(path)
     if expected == .nil then do
       failures~append(path": no Output block")

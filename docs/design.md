@@ -385,7 +385,9 @@ needs 5.3.0 (r13265 or later): using an interpreter from several threads at
 once. On 5.2.0 that crashes inside ooRexx, in its tables of activities
 (`AttachThread`, `addWaitingActivity`), and the three concurrent tests
 (`Threads.testGroup`, `t15_concurrent_calls.py`,
-`t20_returned_objects.py`) fail; everything else passes. 5.2.0 also has
+`t20_returned_objects.py`) fail, as can the sample `09-threads.rex` (Python's
+thread pool calling a Rexx routine), which `Samples.testGroup` skips there;
+everything else passes. 5.2.0 also has
 bug #2102, which slows down programs that make many proxies.
 
 **Objects shared between interpreters.** All interpreter instances in a
