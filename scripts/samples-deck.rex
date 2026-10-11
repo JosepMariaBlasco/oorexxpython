@@ -14,7 +14,10 @@
 /* OUT defaults to samples/slides/samples.md.  Build the slides with          */
 /*   md2slides samples.md                                                     */
 /* in samples/slides, where the RexxLA skin is (skin-default.css,             */
-/* master-default.css, img/); -s and -mp choose another.                     */
+/* master-default.css, img/); -s and -mp choose another.  The built deck,     */
+/* samples.html, is in the repository too (the release zips carry it, not     */
+/* its sources): build it again after changing the deck, with                 */
+/* scripts/samples-html.sh.                                                   */
 /*                                                                            */
 /* Licensed under the Apache License, Version 2.0.                            */
 /*----------------------------------------------------------------------------*/

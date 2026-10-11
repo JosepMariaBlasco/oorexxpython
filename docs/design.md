@@ -107,8 +107,16 @@ itself, and the bridge loads `python.cls` from its own folder.
   bridge. Nothing is copied into Python, any version from 3.9 takes it, and
   each Python that should see the bridge gets its own `.pth`.
 
+- **The uninstaller and the samples:** `install.rex` copies itself next to
+  `rexx` as `oorexxpython-uninstall.rex`, which uninstalls by default (it
+  knows itself by its name), and the samples into ooRexx's samples folder,
+  under `python` (beside `rexx.exe` on Windows, beside `bin/` in the
+  portable builds, `share/ooRexx/samples` in the Linux packages). So the
+  unzipped folder can be deleted once installed.
+
 What was installed is listed in `oorexxpython-installed.txt` in that folder;
-`rexx install uninstall` removes exactly what it lists. The ooRexx is the one
+`rexx oorexxpython-uninstall` (or `rexx install uninstall`) removes exactly
+what it lists, the uninstaller last. The ooRexx is the one
 running `install.rex` (`.RexxInfo~executable`, `.RexxInfo~libraryPath`), so a
 portable ooRexx is installed into in the same way as a system one.
 

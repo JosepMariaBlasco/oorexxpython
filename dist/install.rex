@@ -5,6 +5,7 @@
  *   rexx install [install] [--python EXE]... [--user]
  *   rexx install uninstall
  *   rexx install status
+ *   rexx oorexxpython-uninstall [status]    (from anywhere, once installed)
  *
  * Where things go (docs/design.md, *Installation*):
  *   Windows:        the bridge, its package and python.cls in the folder of
@@ -16,6 +17,12 @@
  *                   Python given with --python (default: ORX_PYTHON, else
  *                   python3 on the PATH; Windows: python), or in its user
  *                   site-packages with --user.
+ *   This program:   copied as oorexxpython-uninstall.rex next to rexx, which
+ *                   uninstalls by default, so the unzipped folder can go.
+ *   The samples:    in ooRexx's samples folder, under python/ (Windows:
+ *                   samples\ beside rexx.exe; the portable builds: samples/
+ *                   beside bin/; Linux packages: share/ooRexx/samples; else
+ *                   the bridge's folder's samples/python).
  * What was installed is listed in oorexxpython-installed.txt, in that same
  * folder; uninstall removes exactly that.  Installing again (a new version,
  * another Python) replaces the files and adds to the list.
@@ -24,7 +31,12 @@
  * opened "as administrator"; on Linux and macOS, sudo rexx install.
  */
 parse arg args
-command = "install"; pythons = .array~new; user = .false
+parse source . . me
+uninstaller = "oorexxpython-uninstall.rex"
+-- the copy next to rexx uninstalls by default
+if .File~new(me)~name~caselessEquals(uninstaller) then command = "uninstall"
+else command = "install"
+pythons = .array~new; user = .false
 do while args \= ""
   parse var args word args
   select case word~lower
@@ -42,7 +54,6 @@ do while args \= ""
 end
 
 windows = .File~separator == "\"
-parse source . . me
 from = .File~new(me)~parent
 mac = .File~new(from || .File~separator || "librexxpython.dylib")~exists
 select
@@ -68,6 +79,8 @@ exit 0
 /* ------------------------------------------------------------------------ */
 
 install:
+  if .File~new(me)~name~caselessEquals(uninstaller) then
+    call fail "this is the uninstaller; to install, run install.rex from the unzipped oorexxpython folder"
   say "ooRexx/Python installer"
   say "  ooRexx" .RexxInfo~version "r".RexxInfo~revision "("rexxExe")"
   parse value .RexxInfo~version with major "." minor "."
@@ -104,6 +117,17 @@ install:
     call link join(home, "python.cls"), join(bin, "python.cls")
     say "  linked" loader "into" lib "and python.cls into" bin
   end
+  -- the uninstaller, next to rexx
+  target = join(bin, uninstaller)
+  if SysFileCopy(me, target) \= 0 then call denied target
+  done~put(target, "file")
+  say "  copied this program to" target "(rexx oorexxpython-uninstall)"
+  -- the samples
+  if .File~new(join(from, "samples"))~isDirectory then do
+    samples = join(samplesFolder(), "python")
+    call copyTree join(from, "samples"), samples
+    say "  copied the samples to" samples
+  end
   call writeManifest done
 
   -- Python
@@ -130,7 +154,7 @@ install:
     exit 1
   end
   say "ooRexx/Python: installed and OK"
-  say "  (to remove it: rexx install uninstall)"
+  say "  (to remove it: rexx oorexxpython-uninstall, from anywhere)"
   return
 
 uninstall:
@@ -140,8 +164,10 @@ uninstall:
     return
   end
   failed = .false
+  self = join(bin, uninstaller)
   do kind over "pth", "link", "file"
     do path over done~allAt(kind)
+      if same(path, self) then iterate   -- last: it may be the one running
       if \.File~new(path)~exists & SysIsFileLink(path) \= 1 then iterate
       if SysFileDelete(path) \= 0 then do
         say "  could not remove" path
@@ -150,9 +176,18 @@ uninstall:
       else say "  removed" path
     end
   end
+  -- folders, deepest first (only if empty: nothing of the user's is lost)
+  dirs = done~allAt("dir")~sortWith(.DescendingLength~new)
+  do path over dirs
+    if .File~new(path)~isDirectory then call SysRmDir path
+  end
   if failed then call denied manifest
   call SysFileDelete manifest
   if \windows then call SysRmDir home
+  if done~hasItem(self, "file") | .File~new(self)~exists then do
+    if SysFileDelete(self) \= 0 then say "  could not remove" self "(delete it by hand)"
+    else say "  removed" self
+  end
   say "ooRexx/Python: uninstalled"
   return
 
@@ -164,7 +199,7 @@ status:
     return
   end
   say "ooRexx/Python: installed in" home
-  do kind over "file", "link", "pth"
+  do kind over "file", "dir", "link", "pth"
     do path over done~allAt(kind)
       if .File~new(path)~exists then state = ""; else state = "  (MISSING)"
       say "  "kind~left(5) path || state
@@ -244,7 +279,36 @@ check: procedure expose rexxExe home windows
   if \okPython then say "    Python -> Rexx with" exe": FAILED"
   return okRexx & okPython
 
--- the manifest: lines "kind path" (kind: file, link, pth) -> a Relation
+-- ooRexx's samples folder: beside rexx.exe (Windows), beside bin/ (the
+-- portable builds), share/ooRexx/samples (Linux packages), else one of ours
+samplesFolder: procedure expose bin home windows
+  if windows then candidates = .array~of(join(bin, "samples"), join(.File~new(bin)~parent, "samples"))
+  else candidates = .array~of(join(.File~new(bin)~parent, "samples"),-
+                              join(join(join(.File~new(bin)~parent, "share"), "ooRexx"), "samples"))
+  do c over candidates
+    if .File~new(c)~isDirectory then return c
+  end
+  if windows then return join(bin, "samples")
+  return join(home, "samples")
+
+-- copy a folder's files and subfolders, adding them to the manifest
+copyTree: procedure expose done windows
+  use arg source, target
+  if \.File~new(target)~isDirectory then do
+    if \.File~new(target)~makeDirs then call denied target
+  end
+  done~put(target, "dir")
+  do f over .File~new(source)~listFiles
+    name = join(target, f~name)
+    if f~isDirectory then call copyTree f~absolutePath, name
+    else do
+      if SysFileCopy(f~absolutePath, name) \= 0 then call denied name
+      done~put(name, "file")
+    end
+  end
+  return
+
+-- the manifest: lines "kind path" (kind: file, dir, link, pth) -> a Relation
 readManifest: procedure expose manifest
   done = .Relation~new
   if \.File~new(manifest)~exists then return done
@@ -259,7 +323,7 @@ readManifest: procedure expose manifest
 writeManifest: procedure expose manifest
   use arg done
   lines = .array~new
-  do kind over "file", "link", "pth"
+  do kind over "file", "dir", "link", "pth"
     seen = .Set~new
     do path over done~allAt(kind)
       if seen~hasIndex(path) then iterate
@@ -311,8 +375,14 @@ help:
   say "Usage: rexx install [install] [--python EXE]... [--user]"
   say "       rexx install uninstall"
   say "       rexx install status"
+  say "       rexx oorexxpython-uninstall [status]   (once installed, from anywhere)"
   say "Installs the ooRexx/Python bridge into the ooRexx that runs this program,"
   say "and makes it importable from the given Pythons (default: ORX_PYTHON, else"
   say "the python3 on the PATH; Windows: python).  --user: into the Pythons' user"
   say "site-packages instead of their site-packages."
   exit 0
+
+::class DescendingLength                -- longer paths (deeper folders) first
+::method compare
+  use arg a, b
+  return b~length - a~length

@@ -48,9 +48,14 @@ with no environment variables. Nothing else to set: Rexx programs find
   `--python` as you like; again later adds them). `--user` puts the link in
   the Pythons' user site-packages instead (no administrator needed for that
   part).
-- `rexx install status` shows what is installed and where;
-  `rexx install uninstall` removes exactly that. To update, run the new
-  version's `rexx install`.
+- It also copies itself next to `rexx`, as `oorexxpython-uninstall.rex`, and
+  the samples into ooRexx's samples folder, under `python` (Windows:
+  `samples\python` beside `rexx.exe`; Linux packages:
+  `share/ooRexx/samples/python`). After that, **the unzipped folder can be
+  deleted**.
+- `rexx oorexxpython-uninstall status` (from any folder) shows what is
+  installed and where; `rexx oorexxpython-uninstall` removes exactly that,
+  itself included. To update, run the new version's `rexx install`.
 
 ### Without installing
 
@@ -116,9 +121,11 @@ with oorexx.Interpreter() as rexx:
 ```
 
 The `samples` folder has short samples of every feature, each with its
-expected output (`samples/README.md`), and `samples/slides/samples.md`
-has them all as one [md2slides](https://rexx.epbcn.com/rexx-parser/doc/utilities/md2slides/)
-slide deck. `20-numpy.rex`, `21-matplotlib.rex` and `23-pandas.rex` need
+expected output (`samples/README.md`), and `samples/slides/samples.html`
+has them all as one slide deck (made with
+[md2slides](https://rexx.epbcn.com/rexx-parser/doc/utilities/md2slides/);
+open it in a browser). Once installed, they are in ooRexx's samples folder,
+under `python`. `20-numpy.rex`, `21-matplotlib.rex` and `23-pandas.rex` need
 `pip install numpy matplotlib pandas` in the Python used.
 
 ## Licence

@@ -109,9 +109,17 @@ jobs:
           PY=$(command -v python3); OPT=; [ "$RUNNER_OS" = Linux ] && { PY=/usr/bin/python3; OPT=--user; }
           rexx install --python "$PY" $OPT
           rexx install status
-          rexx install uninstall
+          # the unzipped folder is no longer needed: the uninstaller and the
+          # samples are in ooRexx's folders
+          cd "$RUNNER_TEMP" && rm -rf "$RUNNER_TEMP/try/oorexxpython"
+          BIN=$(dirname "$(command -v rexx)")
+          S=$(dirname "$BIN")/samples/python
+          test -f "$S/01-hello.rex" && test -f "$S/slides/samples.html"
+          ORX_PYTHON=$PY rexx "$S/01-hello.rex" && "$PY" "$S/30-run-rexx.py"
+          rexx oorexxpython-uninstall status
+          rexx oorexxpython-uninstall
           ! "$PY" -c "import oorexx" 2>/dev/null
-          test ! -e "$(dirname "$(command -v rexx)")/python.cls"
+          test ! -e "$BIN/python.cls" && test ! -e "$BIN/oorexxpython-uninstall.rex" && test ! -e "$S"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -176,9 +184,16 @@ jobs:
           cd "$RUNNER_TEMP/try/oorexxpython"
           rexx install
           rexx install status
-          rexx install uninstall
+          # the unzipped folder is no longer needed (see the Unix jobs)
+          cd "$RUNNER_TEMP" && rm -rf "$RUNNER_TEMP/try/oorexxpython"
+          BIN=$(dirname "$(command -v rexx)")
+          S=$(dirname "$BIN")/samples/python
+          test -f "$S/01-hello.rex" && test -f "$S/slides/samples.html"
+          rexx "$(cygpath -w "$S/01-hello.rex")" && python "$(cygpath -w "$S/30-run-rexx.py")"
+          rexx oorexxpython-uninstall status
+          rexx oorexxpython-uninstall
           ! python -c "import oorexx" 2>/dev/null
-          test ! -e "$(dirname "$(command -v rexx)")/rexxpython.dll"
+          test ! -e "$BIN/rexxpython.dll" && test ! -e "$BIN/oorexxpython-uninstall.rex" && test ! -e "$S"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -226,7 +241,9 @@ jobs:
           mkdir -p "$RUNNER_TEMP/try" && cd "$RUNNER_TEMP/try" && unzip -q "$RUNNER_TEMP"/dist/*.zip
           cd oorexxpython
           rexx install --python "$(uv python find 3.9)" --python "$(uv python find 3.14)"
-          rexx install uninstall
+          cd "$RUNNER_TEMP" && rm -rf "$RUNNER_TEMP/try/oorexxpython"
+          rexx oorexxpython-uninstall
+          test ! -e "$(dirname "$(command -v rexx)")/oorexxpython-uninstall.rex"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

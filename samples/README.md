@@ -19,14 +19,14 @@ PYTHONPATH=/path/to/bridge python3 30-run-rexx.py
 
 ## As slides
 
-`slides/samples.md` is every sample as one slide deck for
-[md2slides](https://rexx.epbcn.com/rexx-parser/doc/utilities/md2slides/),
-the Rexx Parser's slide tool: each sample's code, the Python it replaces and
-its output. `md2slides samples.md`, in `slides/`, makes one HTML file in
-the RexxLA skin (`skin-default.css`, `master-default.css` and the logos in
-`img/`, credited in `img/README.md`); `-s` and `-mp` choose your own.
-The deck is generated from the samples and this README by
-`scripts/samples-deck.rex`: edit those, not the deck.
+`slides/samples.html` is every sample as one slide deck (open it in a
+browser): each sample's code, the Python it replaces and its output. It is
+made with [md2slides](https://rexx.epbcn.com/rexx-parser/doc/utilities/md2slides/),
+the Rexx Parser's slide tool, in the RexxLA skin. Its sources are in the
+repository: `slides/samples.md`, generated from the samples and this README
+by `scripts/samples-deck.rex` (edit those, not the deck), and the skin
+(`skin-default.css`, `master-default.css`, the logos in `img/`, credited in
+`img/README.md`); `scripts/samples-html.sh` builds the HTML.
 
 ## ooRexx using Python
 
