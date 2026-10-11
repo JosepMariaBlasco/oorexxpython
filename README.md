@@ -12,7 +12,8 @@ and Python 3, modelled after BSF4ooRexx.
 - **Python → ooRexx**: a Python program creates ooRexx interpreters, runs
   Rexx code and uses Rexx objects as Python objects (`oorexx.Interpreter`,
   `oorexx.RexxObject`); Python functions can be `ADDRESS` environments, and
-  Rexx's `SAY` goes through Python's `sys.stdout`.
+  Rexx's standard streams go through Python's (`sys.stdout`...), each line
+  marked as Rexx's (`REXXout>`, as in BSF4ooRexx).
 - **Both ways at once, on any thread**: Rexx calls Python, which calls back a
   Rexx object, which calls Python again.
 - **One build for every Python 3 from 3.9**: the bridge uses Python's Stable

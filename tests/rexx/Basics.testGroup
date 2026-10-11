@@ -170,3 +170,36 @@ return testResult
   b = .py
   self~assertSame("42", b~eval("6 * 7"), "eval")
   self~assertSame("42", b~eval("42"), "eval digits")
+
+-- a program started from Rexx sends its standard streams to Python's
+::method test_redirectTo
+  sys = .py~import("sys")
+  io = .py~import("io")
+  out = sys~stdout
+  err = sys~stderr
+  buf = io~StringIO~new
+  ebuf = io~StringIO~new
+  monitors = .array~of(.input, .output, .error, .debugInput, .traceOutput)
+  call py.redirectTo
+  sys~stdout = buf                      -- looked up at every write
+  sys~stderr = ebuf
+  say "hello"
+  .output~charout("a" || "0a"x || "b")
+  .output~lineout("c")
+  .error~lineout("oops")
+  .traceOutput~lineout("t")
+  .py~redirectTo("P", , , , , , .false)
+  say "plain"
+  sys~stdout = out
+  sys~stderr = err
+  do 2
+    do m over monitors; m~destination; end   -- pop what was pushed
+  end
+  self~assertSame("REXXout>hello|REXXout>a|REXXout>bc|plain|", buf~getvalue~changeStr("0a"x, "|"), "stdout")
+  self~assertSame("REXXerr>oops|REXXtrc>t|", ebuf~getvalue~changeStr("0a"x, "|"), "stderr")
+  self~assertSame("REXXout>", .PyOutputStream~new("stdout", "REXXout>")~prefix, "prefix attribute")
+  self~assertFalse(.output~current~isA(.PyOutputStream), "popped")
+  t = .Directory~new
+  t["nosuch"] = "x"
+  self~expectSyntax(93.900)
+  call py.redirectTo "P", , , , , , t

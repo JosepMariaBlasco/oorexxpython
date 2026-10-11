@@ -1636,7 +1636,8 @@ static void registerModule()
  *   r = oorexx.Interpreter(rexx_path=[...], extensions=[".rex", ".cls"],
  *                          initial_address="SYSTEM", load_libraries=[...],
  *                          command_environments={"NAME": callable},
- *                          stdio=True)     (docs/design.md, *Interpreter options*)
+ *                          stdio=True, prefixes=True)
+ *                                      (docs/design.md, *Interpreter options*)
  *   r.run("program.rex", args...)      CALL a program: its result
  *   r.routine("use arg a, b; return a * b")   a callable Rexx Routine
  *   r.eval("expression")               the value of a Rexx expression
@@ -1678,107 +1679,6 @@ static std::string bridgeDirectory()
     return slash == std::string::npos ? std::string(".") : path.substr(0, slash);
 }
 
-/*
- * SAY and trace output go to Python's sys.stdout / sys.stderr, pulls
- * from the terminal read sys.stdin (so Rexx is not mute in Jupyter).  Exits
- * run with the kernel lock released (docs/design.md, *Threads and locks*,
- * rule 4): the GIL may be taken.
- */
-static void writeStream(const char *stream, const char *data, size_t n)
-{
-    Gil gil;
-    PyObject *sys = PyImport_ImportModule("sys");
-    PyObject *s = sys != NULL ? PyObject_GetAttrString(sys, stream) : NULL;
-    if (s != NULL && s != Py_None)
-    {
-        std::string line(data, n);
-        line += '\n';
-        PyObject *text = pyText(line.data(), line.size());
-        if (text != NULL) Py_XDECREF(PyObject_CallMethod(s, "write", "O", text));
-        Py_XDECREF(text);
-    }
-    Py_XDECREF(s);
-    Py_XDECREF(sys);
-    PyErr_Clear();
-}
-
-// RexxAllocateMemory (rexxapi): on Windows, ooRexx's portable builds have no
-// import library for rexxapi.dll, so it is looked up there (rexx.dll loads it)
-static void *rexxAllocate(size_t n)
-{
-#ifdef _WIN32
-    typedef void *(REXXENTRY *AllocFn)(size_t);
-    static AllocFn alloc = NULL;
-    if (alloc == NULL)
-    {
-        HMODULE api = GetModuleHandleA("rexxapi.dll");
-        if (api == NULL) api = LoadLibraryA("rexxapi.dll");
-        if (api != NULL) alloc = (AllocFn)GetProcAddress(api, "RexxAllocateMemory");
-        if (alloc == NULL) return NULL;
-    }
-    return alloc(n);
-#else
-    return RexxAllocateMemory(n);
-#endif
-}
-
-static void readStdin(RXSTRING *out)
-{
-    std::string line;
-    {
-        Gil gil;
-        PyObject *sys = PyImport_ImportModule("sys");
-        PyObject *s = sys != NULL ? PyObject_GetAttrString(sys, "stdin") : NULL;
-        PyObject *r = s != NULL && s != Py_None ? PyObject_CallMethod(s, "readline", NULL) : NULL;
-        if (r != NULL)
-        {
-            Val v;
-            pyToVal(r, v);
-            if (v.kind == Val::STR) line = v.s;
-            dropVal(v);
-        }
-        Py_XDECREF(s);
-        Py_XDECREF(sys);
-        PyErr_Clear();
-    }
-    while (!line.empty() && (line.back() == '\n' || line.back() == '\r')) line.pop_back();
-    if (out->strptr == NULL || out->strlength < line.size())
-    {
-        out->strptr = (char *)rexxAllocate(line.size() + 1);
-        if (out->strptr == NULL) { out->strlength = 0; return; }
-    }
-    memcpy(out->strptr, line.data(), line.size());
-    out->strlength = line.size();
-}
-
-static int RexxEntry stdioExit(RexxExitContext *, int exitnum, int subfunction, PEXIT parm)
-{
-    if (exitnum != RXSIO) return RXEXIT_NOT_HANDLED;
-    switch (subfunction)
-    {
-        case RXSIOSAY:
-        {
-            RXSIOSAY_PARM *p = (RXSIOSAY_PARM *)parm;
-            writeStream("stdout", p->rxsio_string.strptr, p->rxsio_string.strlength);
-            return RXEXIT_HANDLED;
-        }
-        case RXSIOTRC:
-        {
-            RXSIOTRC_PARM *p = (RXSIOTRC_PARM *)parm;
-            writeStream("stderr", p->rxsio_string.strptr, p->rxsio_string.strlength);
-            return RXEXIT_HANDLED;
-        }
-        case RXSIOTRD:
-            readStdin(&((RXSIOTRD_PARM *)parm)->rxsiotrd_retc);
-            return RXEXIT_HANDLED;
-        case RXSIODTR:
-            readStdin(&((RXSIODTR_PARM *)parm)->rxsiodtr_retc);
-            return RXEXIT_HANDLED;
-        default:
-            return RXEXIT_NOT_HANDLED;
-    }
-}
-
 extern "C" ORXPY_EXPORT RexxPackageEntry *orxpy_package(void);
 
 // the strings of a str or a list of str (for the options)
@@ -1814,15 +1714,41 @@ static void addCommandEnvironment(RexxInstance *inst, RexxThreadContext *tc, con
 static PyObject *interpreterNew(PyTypeObject *type, PyObject *args, PyObject *kwargs)
 {
     static const char *keywords[] = {"rexx_path", "extensions", "initial_address", "load_libraries",
-                                     "command_environments", "stdio", NULL};
+                                     "command_environments", "stdio", "prefixes", NULL};
     PyObject *rexxPath = NULL, *extensions = NULL, *initialAddress = NULL, *libraries = NULL;
-    PyObject *environments = NULL;
+    PyObject *environments = NULL, *prefixesObj = NULL;
     int stdio = 1;
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|OOOOOp:Interpreter", (char **)keywords,
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|OOOOOpO:Interpreter", (char **)keywords,
                                      &rexxPath, &extensions, &initialAddress, &libraries,
-                                     &environments, &stdio))
+                                     &environments, &stdio, &prefixesObj))
     {
         return NULL;
+    }
+    // prefixes: True (BSF4ooRexx's), False, or a dict stream -> str or None
+    bool prefixes = true;
+    std::vector<std::pair<std::string, std::string>> prefixStrings;
+    std::vector<bool> prefixNone;                                 // None: no prefix
+    bool prefixDict = prefixesObj != NULL && PyDict_Check(prefixesObj);
+    if (prefixDict)
+    {
+        PyObject *key, *value;
+        Py_ssize_t pos = 0;
+        while (PyDict_Next(prefixesObj, &pos, &key, &value))
+        {
+            if (!PyUnicode_Check(key) || (value != Py_None && !PyUnicode_Check(value)))
+            {
+                PyErr_SetString(PyExc_TypeError, "prefixes: a dict stream name -> str or None");
+                return NULL;
+            }
+            prefixStrings.push_back({pyString(key), value == Py_None ? "" : pyString(value)});
+            prefixNone.push_back(value == Py_None);
+        }
+    }
+    else if (prefixesObj != NULL)
+    {
+        int t = PyObject_IsTrue(prefixesObj);
+        if (t < 0) return NULL;
+        prefixes = t != 0;
     }
     std::vector<std::string> path, exts, libs;
     if (!stringList(rexxPath, path, "rexx_path") || !stringList(extensions, exts, "extensions") ||
@@ -1846,7 +1772,6 @@ static PyObject *interpreterNew(PyTypeObject *type, PyObject *args, PyObject *kw
     std::string address = initialAddress != NULL && initialAddress != Py_None ? pyString(initialAddress) : "";
 
     static RexxLibraryPackage library[] = {{"rexxpython", orxpy_package()}, {NULL, NULL}};
-    static RexxContextExit exits[] = {{stdioExit, RXSIO}, {NULL, RXENDLST}};
     std::vector<RexxOption> options;
     RexxOption o;
     o.optionName = EXTERNAL_CALL_PATH; o.option = pathText.c_str(); options.push_back(o);
@@ -1854,7 +1779,6 @@ static PyObject *interpreterNew(PyTypeObject *type, PyObject *args, PyObject *kw
     if (!address.empty()) { o.optionName = INITIAL_ADDRESS_ENVIRONMENT; o.option = address.c_str(); options.push_back(o); }
     for (const std::string &l : libs) { o.optionName = LOAD_REQUIRED_LIBRARY; o.option = l.c_str(); options.push_back(o); }
     o.optionName = REGISTER_LIBRARY; o.option = (POINTER)library; options.push_back(o);
-    if (stdio) { o.optionName = DIRECT_EXITS; o.option = (POINTER)exits; options.push_back(o); }
     o.optionName = NULL; options.push_back(o);
 
     Interpreter *self = (Interpreter *)((allocfunc)PyType_GetSlot(type, Py_tp_alloc))(type, 0);
@@ -1884,8 +1808,34 @@ static PyObject *interpreterNew(PyTypeObject *type, PyObject *args, PyObject *kw
             d.kwClass = (RexxClassObject)tc->RequestGlobalReference(tc->FindPackageClass(package, "PYKWARGS"));
             d.keep = (RexxDirectoryObject)tc->RequestGlobalReference(tc->NewDirectory());
             d.graveyard = graveyardOf(tc, d.pyObjectClass);
-            std::lock_guard<std::mutex> guard(instancesLock);
-            instances[inst] = d;
+            {
+                std::lock_guard<std::mutex> guard(instancesLock);
+                instances[inst] = d;
+            }
+            // standard streams through Python's: py.redirectTo (python.cls)
+            if (stdio)
+            {
+                RexxObjectPtr prefixArg = prefixes ? tc->True() : tc->False();
+                if (prefixDict)
+                {
+                    RexxStringTableObject table = tc->NewStringTable();
+                    for (size_t i = 0; i < prefixStrings.size(); i++)
+                    {
+                        RexxObjectPtr v = prefixNone[i] ? tc->Nil() : (RexxObjectPtr)tc->String(prefixStrings[i].second.c_str(), prefixStrings[i].second.size());
+                        tc->StringTablePut(table, v, prefixStrings[i].first.c_str());
+                    }
+                    prefixArg = table;
+                }
+                RexxArrayObject a = tc->NewArray(7);
+                tc->ArrayPut(a, tc->String("P"), 1);
+                tc->ArrayPut(a, prefixArg, 7);
+                RexxRoutineObject redirect = (RexxRoutineObject)tc->DirectoryAt(tc->GetPackageRoutines(package), "PY.REDIRECTTO");
+                if (redirect != NULLOBJECT) tc->CallRoutine(redirect, a);
+                if (redirect == NULLOBJECT || tc->CheckCondition())
+                {
+                    error = tc->CheckCondition() ? takeCondition(tc) : "python.cls: py.redirectTo not found";
+                }
+            }
         }
         // the creating thread stays attached (its root activity): detaching
         // it makes Terminate wait forever (ooRexx bug #2107, still there in

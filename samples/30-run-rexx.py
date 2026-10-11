@@ -23,5 +23,5 @@ with oorexx.Interpreter() as rexx:
 # 1267650600228229401496703205376
 # OLLEH
 # 42 int
-# Hello, ooRexx!
+# REXXout>Hello, ooRexx!
 # 6

@@ -72,7 +72,7 @@ The deck is generated from the samples and this README by
 | `30-run-rexx.py` | `oorexx.Interpreter`: eval, routine, run a program |
 | `31-rexx-objects.py` | Rexx objects in Python: messages, `[]`, `len`, iteration |
 | `32-address.py` | an ADDRESS environment written in Python |
-| `33-stdio.py` | SAY/PULL through Python's `sys.stdout`/`sys.stdin` |
+| `33-stdio.py` | Rexx's streams through Python's, with prefixes (`REXXout>`) |
 | `34-send-message.py` | messages by name: `sendMessage`, `sendMessage0`…`5`, `sendMessageScope` (as BSF4ooRexx) |
 
 ## Things worth knowing (they show up in the samples)

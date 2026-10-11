@@ -140,7 +140,8 @@ as a list: `.py~list(.array~of(1, 2))` is `[1, 2]`,
 `.py~tuple(.array~of("Rexx", 1979))` is `('Rexx', 1979)`.
 
 The routines `py.import`, `py.box` and `py.kw` echo BSF4ooRexx's
-`bsf.import`.
+`bsf.import`; `.py~redirectTo` and `py.redirectTo` its `bsf.redirectTo`
+(see *Standard streams*).
 
 ### Names
 
@@ -271,12 +272,47 @@ with oorexx.Interpreter(rexx_path=["/my/classes"]) as rexx:
 `extensions` (EXTERNAL_CALL_EXTENSIONS), `initial_address`
 (INITIAL_ADDRESS_ENVIRONMENT), `load_libraries` (LOAD_REQUIRED_LIBRARY),
 `command_environments={"NAME": callable}` (see *ADDRESS in Python*;
-`add_command_environment` adds one later) and `stdio`.
+`add_command_environment` adds one later), `stdio` and `prefixes` (see
+*Standard streams*).
 
-**Standard I/O goes through Python by default**: an I/O exit sends `SAY` and
-trace output to `sys.stdout` / `sys.stderr` and reads console pulls from
-`sys.stdin`, so Rexx is not mute in Jupyter or wherever Python redirects its
-output; `stdio=False` turns it off.
+### Standard streams
+
+**Rexx's standard streams go through Python's by default**, as BSF4ooRexx
+does with Java's (`bsf.redirectTo`, `BSF.InputStream`, `BSF.OutputStream`):
+when Python creates an interpreter instance, the five `.local` monitors get
+new destinations, `.input` and `.debugInput` a `.PyInputStream` reading
+`sys.stdin`, `.output` a `.PyOutputStream` writing `sys.stdout`, `.error` and
+`.traceOutput` one writing `sys.stderr`. So everything Rexx writes reaches
+Python: `SAY`, trace output, error messages, and also `.output~lineout`,
+`.error~lineout`, `.traceOutput~lineout`; console pulls and `LINEIN()` read
+Python's input. Rexx is not mute in Jupyter or wherever Python redirects its
+output (`contextlib.redirect_stdout`): the stream objects look up
+`sys.stdout`, `sys.stderr`, `sys.stdin` at every call. `stdio=False` leaves
+Rexx's own `.stdin`, `.stdout`, `.stderr`.
+
+This replaces an I/O exit (RXSIO), which only sees `SAY`, trace output and
+console pulls: what a program writes to the monitors directly bypassed it
+and went to the process's file descriptors, invisible in a notebook.
+
+**Each line carries a prefix**, BSF4ooRexx's, so that Rexx's lines stand out
+in a log or a notebook: `REXXout>`, `REXXerr>`, `REXXtrc>`; for input,
+`REXXin?>` and `REXXdbgIn?>` are written to `.output` as a prompt before
+reading. The prefix goes at the start of every line, also after each line
+feed inside a string. `prefixes=False` turns them off; a dict changes them
+(`prefixes={"output": "rexx> ", "error": None}`, names as the monitors',
+case-insensitive; `None` is no prefix). From Rexx, each stream has a
+`prefix` attribute: `.output~current~prefix = .nil`.
+
+A program started from Rexx keeps Rexx's streams; it can send them to
+Python's with `call py.redirectTo` (or `.py~redirectTo`), BSF4ooRexx's
+`bsf.redirectTo` with the same arguments: `py.redirectTo("P", input, output,
+error, debugInput, traceOutput, prefixes)`, any argument omitted taking
+Python's standard stream (or, for `debugInput` and `traceOutput`, the
+stream of `.input` and `.error`), and `"R"` going back to Rexx's own.
+
+Each line is a single `write` call, so lines from several threads do not
+mix, and the stream methods are unguarded, as `.PyObject`'s (*Threads and
+locks*, rule 5).
 
 `python.cls` is loaded into every instance, so Python objects passed to Rexx
 are `.PyObject`s and Rexx code can use `.py`.

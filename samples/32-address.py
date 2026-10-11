@@ -25,6 +25,6 @@ program()
 rexx.close()
 
 # Output:
-# 0 1024
-# 0 9
-# 1 division by zero
+# REXXout>0 1024
+# REXXout>0 9
+# REXXout>1 division by zero

@@ -62,15 +62,41 @@ check("Python callback",       r.routine("use arg f; return f~new(20) + 1")(lamb
 check("Rexx error",            raises(lambda: r.eval("1 / 0")).startswith("RexxError: Rexx error 42.3"), True)
 check("syntax error",          raises(lambda: r.routine("x = (")).startswith("RexxError: Rexx error 35.1"), True)
 
-# SAY goes through Python's sys.stdout (stdio=True)
+# Rexx's standard streams go through Python's (stdio=True), with prefixes
+buf, ebuf = io.StringIO(), io.StringIO()
+with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(ebuf):
+    r.routine("say 'hi from Rexx'; say 'line 2'")()
+    r.routine(".output~lineout('a' || '0a'x || 'b'); call charout , 'c'; call charout , 'd' || '0a'x")()
+    r.routine(".error~lineout('oops'); .traceOutput~lineout('t'); trace r; x = 1")()
+check("say -> sys.stdout",     buf.getvalue(),
+      "REXXout>hi from Rexx\nREXXout>line 2\nREXXout>a\nREXXout>b\nREXXout>cd\n")
+check(".error, trace -> sys.stderr", ebuf.getvalue().splitlines()[:3],
+      ["REXXerr>oops", "REXXtrc>t", "REXXtrc>     1 *-* x = 1"])
+old = sys.stdin
+sys.stdin = io.StringIO("typed line\nanother\n")
 buf = io.StringIO()
 with contextlib.redirect_stdout(buf):
-    r.routine("say 'hi from Rexx'; say 'line 2'")()
-check("say -> sys.stdout",     buf.getvalue(), "hi from Rexx\nline 2\n")
-old = sys.stdin
-sys.stdin = io.StringIO("typed line\n")
-check("pull <- sys.stdin",     r.routine("parse pull x; return x")(), "typed line")
+    pulled = r.routine("parse pull x; return x")()
+    read = r.routine("return linein()")()
 sys.stdin = old
+check("pull <- sys.stdin",     pulled, "typed line")
+check("linein <- sys.stdin",   read, "another")
+check("input prompt prefix",   buf.getvalue(), "REXXin?>REXXin?>")
+check("stream classes",        r.routine("return .output~current~class~id .input~current~class~id")(),
+      "PYOUTPUTSTREAM PYINPUTSTREAM")
+for kw, want in ((dict(prefixes=False), "x\n"), (dict(prefixes={"OUTPUT": "py> "}), "py> x\n")):
+    with oorexx.Interpreter(**kw) as p:
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            p.routine("say 'x'")()
+        check("prefixes=%r" % kw["prefixes"], buf.getvalue(), want)
+with oorexx.Interpreter() as p:
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        p.routine(".output~current~prefix = .nil; say 'x'")()
+    check("prefix = .nil",         buf.getvalue(), "x\n")
+with oorexx.Interpreter(stdio=False) as p:
+    check("stdio=False",           p.routine("return .output~current~class~id")(), "Stream")
 
 # ADDRESS written in Python
 def calc(command, ctx):
