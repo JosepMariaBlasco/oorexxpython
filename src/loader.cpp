@@ -76,7 +76,11 @@ static std::string ownDirectory()
     {
         return ".";
     }
-    std::string path = info.dli_fname;
+    // through a symbolic link (an installation links the loader into ooRexx's
+    // lib directory, python.cls into its bin), the directory of the real file
+    char *real = realpath(info.dli_fname, NULL);
+    std::string path = real != NULL ? real : info.dli_fname;
+    free(real);
     size_t slash = path.rfind('/');
 #endif
     return slash == std::string::npos ? std::string(".") : path.substr(0, slash);

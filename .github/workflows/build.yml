@@ -6,7 +6,9 @@
 #
 # Each platform's build is then packaged as a zip of binaries
 # (scripts/package.sh; artifacts oorexxpython-<platform>), which is checked
-# unzipped, as a user would install it, with the system's own Python. A tag
+# unzipped, as a user would install it, with the system's own Python: first
+# with the environment variables, then installed into ooRexx by install.rex
+# (and uninstalled). A tag
 # vX.Y.Z[-suffix] (git tag v0.1.0 && git push origin v0.1.0) also makes a
 # GitHub release with the four zips; pushes to main publish nothing.
 name: build
@@ -100,6 +102,16 @@ jobs:
           PY=$(command -v python3); [ "$RUNNER_OS" = Linux ] && PY=/usr/bin/python3
           "$PY" -c "import sys, sysconfig; print(sys.version, sysconfig.get_config_var('LDLIBRARY'))"
           cd .. && ORX_PYTHON=$PY rexx "$D/check.rex" && "$PY" "$D/check.py"
+      - name: The package, installed into ooRexx (rexx install), with no variables
+        run: |
+          cd "$RUNNER_TEMP/try/oorexxpython"
+          # Ubuntu's own Python: its site-packages belongs to root, so --user
+          PY=$(command -v python3); OPT=; [ "$RUNNER_OS" = Linux ] && { PY=/usr/bin/python3; OPT=--user; }
+          rexx install --python "$PY" $OPT
+          rexx install status
+          rexx install uninstall
+          ! "$PY" -c "import oorexx" 2>/dev/null
+          test ! -e "$(dirname "$(command -v rexx)")/python.cls"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -159,6 +171,14 @@ jobs:
           export PATH="$D:$PATH" REXX_PATH=$(cygpath -w "$D") PYTHONPATH=$(cygpath -w "$D")
           python -c "import sys; print(sys.version, sys.executable)"
           cd .. && rexx "$(cygpath -w "$D/check.rex")" && python "$(cygpath -w "$D/check.py")"
+      - name: The package, installed into ooRexx (rexx install), with no variables
+        run: |
+          cd "$RUNNER_TEMP/try/oorexxpython"
+          rexx install
+          rexx install status
+          rexx install uninstall
+          ! python -c "import oorexx" 2>/dev/null
+          test ! -e "$(dirname "$(command -v rexx)")/rexxpython.dll"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -199,6 +219,14 @@ jobs:
         run: scripts/build.sh
       - name: Tests (all but the concurrent ones)
         run: OUT=$RUNNER_TEMP/tests SKIP="Threads.testGroup t15_concurrent_calls.py t20_returned_objects.py" tests/run.sh
+      - name: The package, installed into ooRexx 5.2.0 (rexx install)
+        run: |
+          export UV_PYTHON_INSTALL_DIR=$(cd .. && pwd)/pythons
+          ORX_PYTHON=$(uv python find 3.14) scripts/package.sh "$RUNNER_TEMP/dist"
+          mkdir -p "$RUNNER_TEMP/try" && cd "$RUNNER_TEMP/try" && unzip -q "$RUNNER_TEMP"/dist/*.zip
+          cd oorexxpython
+          rexx install --python "$(uv python find 3.9)" --python "$(uv python find 3.14)"
+          rexx install uninstall
       - uses: actions/upload-artifact@v4
         if: always()
         with:

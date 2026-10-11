@@ -44,6 +44,10 @@ if [ "$OS" = Windows ]; then
 else
   ORX="-I$OOREXX_HOME/include -L$OOREXX_HOME/lib"
   case $OOREXX_HOME in /usr|/usr/local) ;; *) ORX="$ORX -Wl,-rpath,$OOREXX_HOME/lib" ;; esac
+  # installed (install.rex), the bridge lives in ooRexx's lib/oorexxpython/:
+  # Python, importing it, must load the ooRexx it is installed in
+  BRIDGERPATH='-Wl,-rpath,$ORIGIN/..'
+  [ "$OS" = Darwin ] && BRIDGERPATH='-Wl,-rpath,@loader_path/..'
   CXXFLAGS="-O2 -g -fPIC -Wall -Wno-unused-parameter -std=c++17 -fvisibility=hidden"
   if [ "$OS" = Darwin ]; then
     # the bridge leaves the Py* symbols to whichever Python loads it (Linux
@@ -54,7 +58,7 @@ else
     BRIDGEFLAGS="-shared"
     LOADERFLAGS="-shared -ldl"
   fi
-  "$CXX" $CXXFLAGS $BRIDGEFLAGS -DPy_LIMITED_API=0x03090000 -I"$PYINC" $ORX \
+  "$CXX" $CXXFLAGS $BRIDGEFLAGS $BRIDGERPATH -DPy_LIMITED_API=0x03090000 -I"$PYINC" $ORX \
       "$SRC/bridge.cpp" -o "$BUILD/$BRIDGE" -lrexx -lrexxapi
   "$CXX" $CXXFLAGS -I"$OOREXX_HOME/include" "$SRC/loader.cpp" $LOADERFLAGS -o "$BUILD/$LOADER"
 fi

@@ -53,8 +53,11 @@ Every push builds a zip of binaries for Linux x64, macOS arm64, macOS x64
 and Windows x64 (GitHub Actions artifacts `oorexxpython-<platform>`), checked unzipped
 with the system's own Python; tagged versions are published as GitHub
 releases. The zip's `README.md` (`dist/README.md` here) says how to install
-it: unzip, and point the library path, `REXX_PATH` and `PYTHONPATH` at the
-folder. `scripts/package.sh` makes the same zip from a local build.
+it: unzip, open a terminal in the folder and run `rexx install`, which puts
+the bridge into that ooRexx and makes it importable from the Python on the
+`PATH`, with no environment variables (or point the library path, `REXX_PATH`
+and `PYTHONPATH` at the folder). `scripts/package.sh` makes the same zip
+from a local build.
 
 ## Getting started
 

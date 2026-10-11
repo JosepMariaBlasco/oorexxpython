@@ -78,8 +78,39 @@ paths) are kept apart, in the loader and `scripts/platform.sh`.
   starts, the loader loads `python3X.dll` and `python3.dll` from the chosen
   Python's home before the bridge. Python (3.8 and later) loads an extension
   module's DLLs without searching the `PATH`, so the bridge delay-loads
-  `rexx.dll` and finds it on the `PATH` (or in `OOREXX_HOME\bin`) when it is
-  imported. `rexx_path` is separated by `;`.
+  `rexx.dll` and finds it, when it is imported, in its own folder (where
+  `install.rex` puts it), in `OOREXX_HOME\bin` or on the `PATH`. `rexx_path` is separated by `;`.
+
+## Installation
+
+The release zip works where it is unzipped, with the library path,
+`REXX_PATH` and `PYTHONPATH` pointing at it, or installed by `install.rex`
+(`rexx install` in that folder) into the ooRexx that runs it, with no
+variables at all. Installing means putting the three files where each side
+already looks, keeping them together: the loader finds the bridge next to
+itself, and the bridge loads `python.cls` from its own folder.
+
+- **Windows:** all three in the folder of `rexx.exe` and `rexx.dll`. That
+  folder is on the `PATH` (`::requires` finds `python.cls`), Windows looks
+  for a program's DLLs there (ooRexx finds `rexxpython.dll`), and the bridge
+  finds `rexx.dll` next to itself.
+- **Linux and macOS:** ooRexx keeps its `.cls` files in `bin` and its
+  libraries in `lib` (it looks for a package's library in `bin/../lib`), so
+  the three files go into `lib/oorexxpython/`, with symbolic links
+  `lib/librexxpython.so` (`.dylib`) and `bin/python.cls`. The loader and
+  the bridge resolve their own folder through the link (`realpath`). The
+  bridge carries a run path `$ORIGIN/..` (`@loader_path/..`), so a Python
+  that imports it loads the ooRexx it is installed in, not another one the
+  system may have.
+- **Python:** a file `oorexxpython.pth` in the Python's site-packages (or
+  user site-packages) with the folder's path, so `import oorexx` finds the
+  bridge. Nothing is copied into Python, any version from 3.9 takes it, and
+  each Python that should see the bridge gets its own `.pth`.
+
+What was installed is listed in `oorexxpython-installed.txt` in that folder;
+`rexx install uninstall` removes exactly what it lists. The ooRexx is the one
+running `install.rex` (`.RexxInfo~executable`, `.RexxInfo~libraryPath`), so a
+portable ooRexx is installed into in the same way as a system one.
 
 ## ooRexx → Python
 

@@ -5,7 +5,7 @@
 #   oorexxpython-VERSION-PLATFORM.zip, one folder oorexxpython/: the bridge
 #   (oorexx.abi3.so / oorexx.pyd), the ooRexx package (librexxpython.so /
 #   .dylib, rexxpython.dll), both stripped, python.cls, README.md (dist/README.md: how to
-#   install), check.rex and check.py, the samples (with their md2slides deck,
+#   install), install.rex, check.rex and check.py, the samples (with their md2slides deck,
 #   samples/slides/) and the licence.
 #
 # VERSION: ORXPY_VERSION, else YYYYMMDD-COMMIT.  PLATFORM: linux-x64,
@@ -42,7 +42,7 @@ case $OS in
   Linux)  strip --strip-unneeded "$STAGE/$BRIDGE" "$STAGE/$LOADER" ;;
   Darwin) strip -x "$STAGE/$BRIDGE" "$STAGE/$LOADER" ;;
 esac
-cp "$ROOT/dist/README.md" "$ROOT/dist/check.rex" "$ROOT/dist/check.py" "$ROOT/LICENSE" "$STAGE/"
+cp "$ROOT/dist/README.md" "$ROOT/dist/install.rex" "$ROOT/dist/check.rex" "$ROOT/dist/check.py" "$ROOT/LICENSE" "$STAGE/"
 cp "$ROOT"/samples/*.rex "$ROOT"/samples/*.py "$ROOT/samples/README.md" "$STAGE/samples/"
 cp "$ROOT"/samples/slides/samples.md "$ROOT"/samples/slides/skin-default.css "$STAGE/samples/slides/"
 

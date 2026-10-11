@@ -1668,7 +1668,11 @@ static std::string bridgeDirectory()
 #else
     Dl_info info;
     if (dladdr((void *)&bridgeDirectory, &info) == 0 || info.dli_fname == NULL) return ".";
-    std::string path = info.dli_fname;
+    // through a symbolic link (an installation links the loader into ooRexx's
+    // lib directory, python.cls into its bin), the directory of the real file
+    char *real = realpath(info.dli_fname, NULL);
+    std::string path = real != NULL ? real : info.dli_fname;
+    free(real);
     size_t slash = path.rfind('/');
 #endif
     return slash == std::string::npos ? std::string(".") : path.substr(0, slash);
@@ -3070,14 +3074,18 @@ static struct PyModuleDef moduleDef =
 /*
  * Windows: rexx.dll is delay-loaded (build.sh), because Python (3.8 and
  * later) loads an extension module's DLLs without searching the PATH, where
- * ooRexx's bin directory is.  Before the first call into it, find it there
- * ourselves: once loaded, the delay-load helper finds it by name.
+ * ooRexx's bin directory is.  Before the first call into it, find it
+ * ourselves (the bridge's directory, OOREXX_HOME, the PATH): once loaded, the
+ * delay-load helper finds it by name.
  */
 static bool preloadRexx()
 {
     if (GetModuleHandleA("rexx.dll") != NULL) return true;
+    // first the bridge's own directory: installed (install.rex), it sits in
+    // ooRexx's own, next to the rexx.dll it belongs with
     const char *home = getenv("OOREXX_HOME");
-    std::string dirs = home != NULL ? std::string(home) + "\\bin;" : "";
+    std::string dirs = bridgeDirectory() + ";";
+    if (home != NULL) dirs += std::string(home) + "\\bin;";
     const char *path = getenv("PATH");
     if (path != NULL) dirs += path;
     size_t start = 0;

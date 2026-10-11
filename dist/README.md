@@ -25,8 +25,37 @@ Source, documentation and design: https://github.com/JosepMariaBlasco/oorexxpyth
 
 ## Install
 
-Unzip anywhere. The folder `oorexxpython` holds everything; tell ooRexx and
-Python where it is. With the folder at `/path/to/oorexxpython`:
+Unzip anywhere, open a terminal in the folder `oorexxpython`, and run
+
+```
+rexx install
+```
+
+It installs the bridge into the ooRexx that runs it and makes it importable
+from the Python that ooRexx will use (`ORX_PYTHON`, else the `python3` on the
+`PATH`; Windows: `python`), then checks both directions from another folder
+with no environment variables. Nothing else to set: Rexx programs find
+`python.cls`, Python programs `import oorexx`.
+
+- **Windows**: the bridge goes into ooRexx's folder (next to `rexx.exe`). In
+  `C:\Program Files\ooRexx`, run it from a terminal opened *as
+  administrator*.
+- **Linux and macOS**: the bridge goes into ooRexx's `lib/oorexxpython/`,
+  with links in its `lib` and `bin`. An ooRexx in `/usr` or `/usr/local`
+  needs `sudo rexx install`; `sudo` may find another `python3` than yours, so
+  name it: `sudo rexx install --python $(which python3)`.
+- **Other Pythons**: `rexx install --python /path/to/python` (as many
+  `--python` as you like; again later adds them). `--user` puts the link in
+  the Pythons' user site-packages instead (no administrator needed for that
+  part).
+- `rexx install status` shows what is installed and where;
+  `rexx install uninstall` removes exactly that. To update, run the new
+  version's `rexx install`.
+
+### Without installing
+
+The folder `oorexxpython` holds everything; tell ooRexx and Python where it
+is. With the folder at `/path/to/oorexxpython`:
 
 **Linux**
 
@@ -61,7 +90,8 @@ rexx check.rex       ooRexx -> Python
 python check.py      Python -> ooRexx (python3 on Linux and macOS)
 ```
 
-Both end with `ooRexx/Python: OK`. A check that ends with `NOT ON PYTHONPATH`
+(Not needed after `rexx install`, which runs its own checks.) Both end
+with `ooRexx/Python: OK`. A check that ends with `NOT ON PYTHONPATH`
 or `NOT ON REXX_PATH` found the bridge only because it sits next to it, and
 other programs (the samples, yours) would not: it shows the `set` (or
 `export`) that is missing.
