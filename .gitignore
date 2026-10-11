@@ -6,3 +6,4 @@ build/
 pythons/
 oorexxunit/
 *.png
+!samples/slides/img/*.png

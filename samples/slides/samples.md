@@ -24,7 +24,7 @@ Short programs, each showing one thing
 - A Rexx program needs `::requires "python.cls"`; a Python program,
   `import oorexx`.
 
-# ooRexx using Python {.section}
+# ooRexx using Python {.section .logo-oorexx}
 
 # `.py~import`, calling a module's functions; big ints {#ex01-hello kicker="01-hello.rex"}
 
@@ -410,7 +410,7 @@ with ThreadPoolExecutor(4) as ex:
 ```
 
 
-# The Python standard library, from ooRexx {.section}
+# The Python standard library, from ooRexx {.section .logo-oorexx}
 
 # `json`: dumps, loads {#ex10-json kicker="10-json.rex"}
 
@@ -804,7 +804,7 @@ https://rexxla.org
 ```
 
 
-# Data science {.section}
+# Data science {.section .logo-oorexx}
 
 # Numpy arrays with Rexx operators, boolean masks, matrices {#ex20-numpy kicker="20-numpy.rex"}
 
@@ -993,7 +993,7 @@ best: Reus total: 800
 :::
 :::
 
-# Python using ooRexx {.section}
+# Python using ooRexx {.section .logo-python}
 
 # `oorexx.Interpreter`: eval, routine, run a program {#ex30-run-rexx kicker="30-run-rexx.py"}
 
@@ -1182,7 +1182,7 @@ ooRexx 1
 ```
 
 
-# Things worth knowing
+# Things worth knowing {.logo-oorexx}
 
 ::: {.contents scale=0.8}
 

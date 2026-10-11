@@ -22,8 +22,9 @@ PYTHONPATH=/path/to/bridge python3 30-run-rexx.py
 `slides/samples.md` is every sample as one slide deck for
 [md2slides](https://rexx.epbcn.com/rexx-parser/doc/utilities/md2slides/),
 the Rexx Parser's slide tool: each sample's code, the Python it replaces and
-its output. `md2slides slides/samples.md` makes one HTML file (with
-`slides/skin-default.css`, a plain skin; `-s` and `-mp` choose your own).
+its output. `md2slides samples.md`, in `slides/`, makes one HTML file in
+the RexxLA skin (`skin-default.css`, `master-default.css` and the logos in
+`img/`, credited in `img/README.md`); `-s` and `-mp` choose your own.
 The deck is generated from the samples and this README by
 `scripts/samples-deck.rex`: edit those, not the deck.
 

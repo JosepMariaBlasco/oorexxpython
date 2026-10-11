@@ -1,6 +1,42 @@
-/* A plain skin for samples.md, so that "md2slides samples.md" works as it
- * is.  Any other skin will do: md2slides -s your-skin.css samples.md
- * (scripts/samples-deck.rex lays the slides out for this body size). */
-:root {
-  --skin-body-size: 30px;
+/* The RexxLA skin: the identity of the Rexx Language Association's decks,
+ * for "md2slides samples.md" (with master-default.css beside it).  Sober:
+ * dark titles on white, the association's red as the one accent (a rule
+ * under the title), IBM Plex.  The logos and where they go are the master's.
+ * scripts/samples-deck.rex lays the slides out for this body size. */
+:root{
+  --skin-bg:        #ffffff;
+  --skin-fg:        #1a1a1a;
+  --skin-accent:    #c8102e;        /* RexxLA red, a shade darker than the logo's */
+  --skin-deep:      #8a0b20;
+  --skin-rule:      #c8102e;
+  --skin-muted:     #6b6b6b;
+
+  --skin-font-title: "IBM Plex Sans", system-ui, sans-serif;
+  --skin-font-prose: "IBM Plex Sans", system-ui, sans-serif;
+  --skin-font-mono:  "IBM Plex Mono", ui-monospace, monospace;
+  --skin-inline-mono-scale: 0.9;
+  --skin-title-weight: 600;
+
+  --skin-footer-muted: #6b6b6b;
+  --skin-footer-height: 64px;
+
+  /* page number bottom-left, presenter in the centre; the RexxLA mark sits
+     bottom-right (the master) */
+  --skin-header-left:   "";
+  --skin-header-center: "";
+  --skin-header-right:  "";
+  --skin-footer-left:   "{page}";
+  --skin-footer-center: "[{presenter}]";
+  --skin-footer-right:  "";
+  --skin-header-height: 0px;
+
+  --skin-output-bg:    #f3f0f0;
+  --skin-othercode-bg: #f6f8fa;
+
+  --skin-title-size: 29px;
+  --skin-body-size:  30px;
+
+  --skin-pad-top: 6px;
+  --skin-pad-x:   64px;
 }
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap");

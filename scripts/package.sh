@@ -30,7 +30,7 @@ NAME=oorexxpython-$VERSION-$PLAT
 
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
 STAGE=$TMP/oorexxpython
-mkdir -p "$STAGE/samples/slides" "$TMP/elsewhere"
+mkdir -p "$STAGE/samples/slides/img" "$TMP/elsewhere"
 for f in "$BRIDGE" "$LOADER" python.cls; do
   [ -f "$BUILD/$f" ] || { echo "package.sh: no $BUILD/$f (run build.sh)" >&2; exit 2; }
   cp "$BUILD/$f" "$STAGE/"
@@ -44,7 +44,8 @@ case $OS in
 esac
 cp "$ROOT/dist/README.md" "$ROOT/dist/install.rex" "$ROOT/dist/check.rex" "$ROOT/dist/check.py" "$ROOT/LICENSE" "$STAGE/"
 cp "$ROOT"/samples/*.rex "$ROOT"/samples/*.py "$ROOT/samples/README.md" "$STAGE/samples/"
-cp "$ROOT"/samples/slides/samples.md "$ROOT"/samples/slides/skin-default.css "$STAGE/samples/slides/"
+cp "$ROOT"/samples/slides/samples.md "$ROOT"/samples/slides/skin-default.css "$ROOT"/samples/slides/master-default.css "$STAGE/samples/slides/"
+cp "$ROOT"/samples/slides/img/* "$STAGE/samples/slides/img/"
 
 # the check, as a user would run it: from another directory
 DIR=$(native_path "$STAGE")

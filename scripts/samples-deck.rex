@@ -12,7 +12,9 @@
 /* that the deck is up to date).                                              */
 /*                                                                            */
 /* OUT defaults to samples/slides/samples.md.  Build the slides with          */
-/*   md2slides [-s skin.css] [-mp master.css] samples.md                      */
+/*   md2slides samples.md                                                     */
+/* in samples/slides, where the RexxLA skin is (skin-default.css,             */
+/* master-default.css, img/); -s and -mp choose another.                     */
 /*                                                                            */
 /* Licensed under the Apache License, Version 2.0.                            */
 /*----------------------------------------------------------------------------*/
@@ -67,8 +69,10 @@
     parse var line "| `" file "` | " shows " |"
     if file~right(4) \== ".rex" & file~right(3) \== ".py" then iterate
     if section \== "" then do
+      -- the section's logo: ooRexx's or Python's, after its samples' language
+      logo = (file~right(3) == ".py")~?("logo-python", "logo-oorexx")
       deck~append("")
-      deck~append("#" section "{.section}")
+      deck~append("#" section "{.section ."logo"}")
       section = ""
     end
     deck~appendAll(slide(dir || sep || file, file, shows))
@@ -76,7 +80,7 @@
 
   -- "Things worth knowing", as it is in the README
   deck~append("")
-  deck~append("# Things worth knowing")
+  deck~append("# Things worth knowing {.logo-oorexx}")
   deck~append("")
   deck~append("::: {.contents scale=0.8}")
   do i = i + 1 to readme~items

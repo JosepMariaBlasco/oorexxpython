@@ -1,0 +1,110 @@
+/* The RexxLA master: where things go on the RexxLA skin's slides
+ * (skin-default.css), adapted from md2slides' sober sample master.
+ *
+ *   - a title band of fixed height with a red rule under it;
+ *   - top right, the logo of what the slide is about, chosen by the slide
+ *     (or once, with "logo:" in the front matter):
+ *       .logo-rexx  .logo-oorexx  .logo-bsf4oorexx  .logo-oorexx4ooo
+ *       .logo-python  .logo-rexxla  (.logo-none: none)
+ *     Another bridge's logo is one more line below, its picture in img/;
+ *   - bottom right, the RexxLA mark; on the cover, larger, under the title.
+ *
+ * Pictures (img/, embedded at build time; credits in img/README.md): the Rexx
+ * family's artwork by Graham Wilson, donated for free use in the Rexx
+ * projects; RexxLA's logo; the Python logo, a trademark of the Python
+ * Software Foundation, used to refer to Python. */
+
+/* Title band: fixed height, the rule its bottom edge (it does not move with
+   the title's length), reaching the slide's edges. */
+.slide .title{
+  box-sizing: border-box;
+  height: var(--skin-title-band, 114px);
+  display: flex;
+  align-items: flex-end;
+  font-family: var(--skin-font-title);
+  font-weight: var(--skin-title-weight);
+  font-size: var(--skin-title-size);
+  line-height: 1.14;
+  color: var(--skin-fg);
+  margin-left:  calc(-1 * var(--skin-pad-x, 64px));
+  margin-right: calc(-1 * var(--skin-pad-x, 64px));
+  padding-left:  var(--skin-pad-x, 64px);
+  padding-right: calc(var(--skin-pad-x, 64px) + 110px);   /* clear of the logo */
+  margin-bottom: 40px;
+  margin-top: 0;
+  padding-bottom: 6px;
+  border-bottom: 3px solid var(--skin-rule);
+}
+.slide .title p{ margin:0; }
+
+.slide.section .title{ --skin-title-size: 52px; font-size: 1.6em; }
+
+/* Chrome: the subject logo (::before) and the RexxLA mark (::after). */
+.slide .chrome{ position:absolute; inset:0; pointer-events:none; }
+
+.slide .chrome::before{
+  content:"";
+  position:absolute; top:12px; right:34px;
+  width:104px; height:88px;
+  background-size:contain; background-repeat:no-repeat; background-position:top right;
+}
+.slide.logo-rexx       .chrome::before{ background-image:url(img/rexx.png); }
+.slide.logo-oorexx     .chrome::before{ background-image:url(img/oorexx.png); }
+.slide.logo-bsf4oorexx .chrome::before{ background-image:url(img/bsf4oorexx.png); }
+.slide.logo-oorexx4ooo .chrome::before{ background-image:url(img/oorexx4ooo.png); }
+.slide.logo-python     .chrome::before{ background-image:url(img/python.svg); }
+.slide.logo-rexxla     .chrome::before{ background-image:url(img/rexxla.png); }
+
+.slide .chrome::after{
+  content:"";
+  background-image:url(img/rexxla.png);
+  position:absolute; right:30px; bottom:14px;
+  width:72px; height:56px;
+  background-size:contain; background-repeat:no-repeat; background-position:bottom right;
+}
+
+/* Footer: the runtime places the three boxes; here only their look. */
+.slide .margin.footer{
+  color: var(--skin-footer-muted);
+  font-family: var(--skin-font-prose);
+  font-size: 18px;
+  padding-right: 110px;                    /* clear of the RexxLA mark */
+}
+.slide.title-slide .margin.footer .m-left{ visibility: hidden; }
+
+/* Cover: title and subtitle centred; the subject logo larger, above the
+   title; the RexxLA mark under the subtitle. */
+.slide.title-slide .title{
+  position:absolute; left: var(--skin-pad-x, 64px); right: var(--skin-pad-x, 64px);
+  top:200px; height:130px;
+  margin:0; padding:0 0 12px 0;
+  justify-content:center; text-align:center;
+  --skin-title-size: 52px;
+}
+.slide.title-slide .subtitle{
+  position:absolute; left: var(--skin-pad-x, 64px); right: var(--skin-pad-x, 64px);
+  top:352px; margin:0;
+  text-align:center;
+  font-family: var(--skin-font-prose);
+  font-size:32px;
+  color: var(--skin-footer-muted);
+}
+.slide.title-slide .subtitle p{ margin:0; }
+.slide.title-slide .chrome::before{
+  top:60px; right:auto; left:50%; transform:translateX(-50%);
+  width:150px; height:120px; background-position:top center;
+}
+.slide.title-slide .chrome::after{
+  right:auto; left:50%; transform:translateX(-50%);
+  bottom:70px; width:220px; height:170px; background-position:bottom center;
+}
+.slide.title-slide{
+  --skin-cover-art-top: 430px; --skin-cover-art-height: 230px;
+}
+
+/* Kicker: over the title, in the band's upper part. */
+.slide > .kicker{ top:28px; font-size:20px; color: var(--skin-footer-muted); }
+.slide.title-slide > .kicker{ top:170px; text-align:center; }
+
+.slide .margin.header{ right: 34px; }
+.slide:not(.title-slide):has(.margin.header .m-right:not(:empty)) .chrome::before{ top: 40px; }
