@@ -135,6 +135,33 @@ return testResult
   self~assertSame("42",             b~repr(py.box(b~getattr("int"), "42")), "box a Python type")
   self~assertSame("7",              b~repr(py.box("int", "007")), "box 007 as int")
 
+-- a Rexx "1" or "0" passed to a parameter annotated bool goes as True or
+-- False; everything else follows the Values rule
+::method test_bool_parameters
+  b = .py
+  b~exec(self~py("import typing",                                                  -
+                 "bool_t = bool",                                                  -
+                 "def kinds(*vs): return ' '.join(type(v).__name__ for v in vs)", -
+                 "def f(x: int, flag: bool, alias: bool_t = None, s: str = None, *rest, k: 'bool | None' = None, o: typing.Optional[bool] = None, u: typing.Union[bool, None] = None, n=None):", -
+                 "    return kinds(x, flag, alias, s, k, o, u, n)",                -
+                 "class C:",                                                       -
+                 "    def __init__(self, on: bool = False): self.kind = type(on).__name__", -
+                 "    def m(self, on: bool = False): return type(on).__name__",    -
+                 "def plain(x, flag=False): return kinds(x, flag)"))
+  m = b~main
+  self~assertSame("int bool bool int bool bool bool int",                         -
+    m~f(1, 0, 1, 1, .py~kw("k", 1, "o", 0, "u", 1, "n", 1)), "annotated: 1/0 to bool params only")
+  self~assertSame("int bool bool int bool bool bool int",                         -
+    m~f(1, .false, .true, 1, .py~kw("k", .true, "o", .false, "u", .true, "n", 1)), ".true/.false")
+  self~assertSame("str str str str str str str str",                              -
+    m~f("a", "x", "2x", "b", .py~kw("k", "y", "o", "007", "u", "z", "n", "c")), "other strings unchanged")
+  self~assertSame("int int int int NoneType NoneType NoneType NoneType",          -
+    m~f(2, 2, -1, 0), "other numbers unchanged")
+  self~assertSame("int int", m~plain(1, 1), "no annotations: the Values rule")
+  self~assertSame("bool", m~C~new(1)~kind, "a class: __init__'s annotations")
+  self~assertSame("bool", m~C~new~m(1), "a bound method")
+  self~assertSame("[3, 2, 1]", b~sorted((1, 3, 2), .py~kw("reverse", 1))~string, "a C function: 1 as int")
+
 ::method test_routines
   self~assertSame("2", py.import("math")~floor(2.5), "py.import")
   self~assertSame("hello routine", self~makeT~hello(py.kw("who", "routine")), "py.kw")

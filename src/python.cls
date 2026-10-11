@@ -45,7 +45,8 @@
  *
  * Values: Python str, int, float, bool (1/0), bytes and None (.nil) come back
  * as Rexx strings; everything else as a .PyObject.  Rexx strings that are
- * numbers go to Python as int or float; Rexx Arrays as lists (copies).
+ * numbers go to Python as int or float (but 1/0 as True/False to a
+ * parameter annotated bool); Rexx Arrays as lists (copies).
  * The design, and the reasons: docs/design.md.
  * A Python exception is SYNTAX 98.900 "Python error: Type: message", with
  * the traceback in condition("O")~additional[2].

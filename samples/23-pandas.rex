@@ -21,7 +21,7 @@ text = "city,month,sales" || nl ||,
 df = pd~read_csv(io~StringIO(text))
 say df~shape df~columns~tolist
 df["tax"] = df["sales"] * 0.21          -- a new column; Rexx * is pandas' *
-df~drop(.py~kw("columns", "month", "inplace", py.box("bool", 1)))   -- True, not 1
+df~drop(.py~kw("columns", "month", "inplace", .true))   -- inplace: bool, so True
 say df[df["sales"] > 100]               -- a boolean mask selects rows
 by = df~groupby("city")["sales"]~sum~sort_values(.py~kw("ascending", .false))
 do city over by~index

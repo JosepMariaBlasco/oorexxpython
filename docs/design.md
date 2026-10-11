@@ -175,6 +175,18 @@ From Rexx to Python, a Rexx string becomes:
 
 Rexx Arrays go as `list`s (copies), each item under the same rule.
 
+One exception, by reflection: a `1` or `0` passed to a parameter annotated
+`bool` (also `bool | None`, `Optional[bool]`, or a name the function's
+module binds to `bool`) goes as `True` or `False`. `.true` and `.false` are
+those strings, and libraries that validate their flags (pandas' `inplace=`)
+reject an `int`. Only functions, methods and classes written in Python are
+looked at, through `inspect.signature`, cached per function; C functions
+have no annotations, and any other annotation, or none, leaves the rule
+alone. This is BSF4ooRexx's use of Java signatures, as far as Python
+allows: annotations are optional and never enforced (numpy and the
+standard library have none), so only this lossless case is taken from
+them; `py.box` covers the rest.
+
 This departs from `.JSObject`, which passes strings always: JavaScript
 coerces strings to numbers, Python never does (`np.array(["1", "2"]).mean()`
 fails, `"2" * 3` is `"222"`), so strings-always would need a wrapper on every

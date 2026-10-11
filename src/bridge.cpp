@@ -759,15 +759,147 @@ static void bridgeError(PyError &err, const std::string &message)
     err.message = message;
 }
 
-// the positional arguments as a tuple and the keywords as a dict (or NULL)
-static bool buildArgs(const Args &a, PyObject **tuple, PyObject **dict)
+/*
+ * Parameters annotated bool (docs/design.md, *Values*): a Rexx "1" or "0"
+ * passed to one goes as True or False.  The annotations are read by a small
+ * Python function, compiled once: only Python functions, methods and classes
+ * are looked at (C functions have no annotations), each annotation alone (a
+ * type, or a string under `from __future__ import annotations`; Python 3.14
+ * is asked for strings), and only `bool`, `bool | None`,
+ * `Optional[bool]` and `Union[bool, None]` count, `bool` being also any name that the function's
+ * module binds to bool (pandas 2 writes `bool_t`).  The answer is cached per function; any failure
+ * means "no bool parameters".
+ */
+static PyObject *builtinsModule();
+
+static const char *boolParamsSource =
+    "import inspect, sys, typing, types\n"
+    "_cache = {}\n"
+    "_kw = {}\n"
+    "if sys.version_info >= (3, 14):\n"
+    "    import annotationlib\n"
+    "    _kw = {'annotation_format': annotationlib.Format.STRING}\n"
+    "_unions = (typing.Union, getattr(types, 'UnionType', None))\n"
+    "def _is_bool(a, g):\n"
+    "    if a is bool:\n"
+    "        return True\n"
+    "    if isinstance(a, str):\n"
+    "        s = a.replace(' ', '').replace('typing.', '')\n"
+    "        if s.startswith('Optional[') and s.endswith(']'):\n"
+    "            s = s[9:-1]\n"
+    "        elif s.startswith('Union[') and s.endswith(']'):\n"
+    "            s = s[6:-1].replace(',', '|')\n"
+    "        rest = [p for p in s.split('|') if p not in ('None', 'NoneType')]\n"
+    "        if len(rest) != 1 or not rest[0].isidentifier():\n"
+    "            return False\n"
+    "        return rest[0] == 'bool' or g.get(rest[0]) is bool\n"
+    "    if typing.get_origin(a) in _unions:\n"
+    "        rest = [x for x in typing.get_args(a) if x is not type(None)]\n"
+    "        return rest == [bool]\n"
+    "    return False\n"
+    "def bool_params(f):\n"
+    "    if inspect.ismethod(f):\n"
+    "        key = (f.__func__, 1)\n"
+    "        code = f.__func__\n"
+    "    elif inspect.isfunction(f):\n"
+    "        key = (f, 0)\n"
+    "        code = f\n"
+    "    elif inspect.isclass(f):\n"
+    "        key = (f, 0)\n"
+    "        code = getattr(f, '__init__', None)\n"
+    "    else:\n"
+    "        return None\n"
+    "    try:\n"
+    "        return _cache[key]\n"
+    "    except (KeyError, TypeError):\n"
+    "        pass\n"
+    "    r = None\n"
+    "    try:\n"
+    "        ps = inspect.signature(f, **_kw).parameters.values()\n"
+    "        names = tuple(p.name for p in ps if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD))\n"
+    "        g = getattr(inspect.unwrap(code), '__globals__', {})\n"
+    "        bools = frozenset(p.name for p in ps if _is_bool(p.annotation, g))\n"
+    "        if bools:\n"
+    "            r = (names, bools)\n"
+    "    except Exception:\n"
+    "        pass\n"
+    "    try:\n"
+    "        if len(_cache) > 10000:\n"
+    "            _cache.clear()\n"
+    "        _cache[key] = r\n"
+    "    except TypeError:\n"
+    "        pass\n"
+    "    return r\n";
+
+// (names of the positional parameters, set of the bool ones), or NULL
+static PyObject *boolParams(PyObject *f)
 {
+    static PyObject *helper = NULL;        // with the GIL: no race
+    if (helper == NULL)
+    {
+        PyObject *b = builtinsModule();
+        PyObject *globals = PyDict_New();
+        PyObject *r = NULL;
+        if (b != NULL && globals != NULL && PyDict_SetItemString(globals, "__builtins__", b) == 0)
+            r = PyObject_CallMethod(b, "exec", "sO", boolParamsSource, globals);
+        if (r != NULL) helper = PyDict_GetItemString(globals, "bool_params");
+        Py_XINCREF(helper);
+        Py_XDECREF(r);
+        Py_XDECREF(globals);
+        Py_XDECREF(b);
+        PyErr_Clear();
+        if (helper == NULL) { helper = Py_None; Py_INCREF(helper); }   // never again
+    }
+    if (helper == Py_None) return NULL;
+    PyObject *r = PyObject_CallFunctionObjArgs(helper, f, NULL);
+    if (r == NULL) { PyErr_Clear(); return NULL; }
+    if (r == Py_None) { Py_DECREF(r); return NULL; }
+    return r;
+}
+
+static bool isRexxBool(const Val &v)
+{
+    return v.kind == Val::STR && (v.s == "1" || v.s == "0");
+}
+
+// v as Python, True/False if it is "1"/"0" going to a bool parameter
+static PyObject *argToPy(const Val &v, PyObject *bools, PyObject *name)
+{
+    if (bools != NULL && name != NULL && isRexxBool(v) && PySet_Contains(bools, name) == 1)
+    {
+        PyObject *b = v.s == "1" ? Py_True : Py_False;
+        Py_INCREF(b);
+        return b;
+    }
+    return valToPy(v);
+}
+
+// the positional arguments as a tuple and the keywords as a dict (or NULL);
+// with f, its bool parameters are honoured (boolParams)
+static bool buildArgs(const Args &a, PyObject **tuple, PyObject **dict, PyObject *f = NULL)
+{
+    PyObject *info = NULL, *names = NULL, *bools = NULL;
+    if (f != NULL)
+    {
+        bool any = false;
+        for (const Val &v : a.positional) any = any || isRexxBool(v);
+        for (const auto &kv : a.keywords) any = any || isRexxBool(kv.second);
+        if (any) info = boolParams(f);
+        if (info != NULL)
+        {
+            names = PyTuple_GetItem(info, 0);
+            bools = PyTuple_GetItem(info, 1);
+        }
+    }
+    struct Drop { PyObject *o; ~Drop() { Py_XDECREF(o); } } drop{info};
     *dict = NULL;
     *tuple = PyTuple_New((Py_ssize_t)a.positional.size());
     if (*tuple == NULL) return false;
     for (size_t i = 0; i < a.positional.size(); i++)
     {
-        PyObject *item = valToPy(a.positional[i]);
+        PyObject *name = names != NULL && (Py_ssize_t)i < PyTuple_Size(names)
+                       ? PyTuple_GetItem(names, (Py_ssize_t)i) : NULL;
+        PyObject *item = argToPy(a.positional[i], bools, name);
         if (item == NULL) { Py_CLEAR(*tuple); return false; }
         PyTuple_SetItem(*tuple, (Py_ssize_t)i, item);
     }
@@ -776,7 +908,9 @@ static bool buildArgs(const Args &a, PyObject **tuple, PyObject **dict)
         *dict = PyDict_New();
         for (const auto &kv : a.keywords)
         {
-            PyObject *value = valToPy(kv.second);
+            PyObject *name = bools != NULL ? PyUnicode_FromString(kv.first.c_str()) : NULL;
+            PyObject *value = argToPy(kv.second, bools, name);
+            Py_XDECREF(name);
             if (value == NULL || PyDict_SetItemString(*dict, kv.first.c_str(), value) < 0)
             {
                 Py_XDECREF(value);
@@ -794,7 +928,7 @@ static bool buildArgs(const Args &a, PyObject **tuple, PyObject **dict)
 static void callInto(PyObject *f, const Args &a, Val &result, PyError &err, bool keep = false)
 {
     PyObject *tuple, *dict;
-    if (!buildArgs(a, &tuple, &dict)) { captureError(err); return; }
+    if (!buildArgs(a, &tuple, &dict, f)) { captureError(err); return; }
     PyObject *r = PyObject_Call(f, tuple, dict);
     Py_DECREF(tuple);
     Py_XDECREF(dict);

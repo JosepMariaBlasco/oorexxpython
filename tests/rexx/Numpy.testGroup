@@ -78,7 +78,7 @@ return testResult
   df = pd~DataFrame(.py~dict(.py~kw("a", (1, 2, 3), "b", (4.0, .py~None, 6.0))))
   df["c"] = df["a"] * 2
   df~loc[0, "a"] = 10
-  df~fillna(0, .py~kw("inplace", py.box("bool", 1)))
+  df~fillna(0, .py~kw("inplace", .true))        -- annotated bool: goes as True
   s = pd~Series((1, 2, 3))
   s[0] = 5
   cw~invoke("__exit__", .nil, .nil, .nil)

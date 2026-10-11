@@ -942,7 +942,7 @@ text = "city,month,sales" || nl ||,
 df = pd~read_csv(io~StringIO(text))
 say df~shape df~columns~tolist
 df["tax"] = df["sales"] * 0.21          -- a new column; Rexx * is pandas' *
-df~drop(.py~kw("columns", "month", "inplace", py.box("bool", 1)))   -- True, not 1
+df~drop(.py~kw("columns", "month", "inplace", .true))   -- inplace: bool, so True
 say df[df["sales"] > 100]               -- a boolean mask selects rows
 by = df~groupby("city")["sales"]~sum~sort_values(.py~kw("ascending", .false))
 do city over by~index
@@ -1186,6 +1186,8 @@ ooRexx 1
   `~float` are Python's too, but keep the result as a Python object instead
   of a Rexx string (02).
 - `.true` and `.false` are the Rexx strings `1` and `0`, so they go to
-  Python as ints. Where a real `bool` is required (pandas' `inplace=`),
-  `py.box("bool", 1)` makes `True` (23).
+  Python as ints, except to a parameter annotated `bool`, where they go as
+  `True` and `False` (pandas' `inplace=`, 23). For a function without
+  annotations that insists on a real `bool`, `py.box("bool", 1)` makes
+  `True`.
 :::

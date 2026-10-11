@@ -88,5 +88,7 @@ The deck is generated from the samples and this README by
   `~float` are Python's too, but keep the result as a Python object instead
   of a Rexx string (02).
 - `.true` and `.false` are the Rexx strings `1` and `0`, so they go to
-  Python as ints. Where a real `bool` is required (pandas' `inplace=`),
-  `py.box("bool", 1)` makes `True` (23).
+  Python as ints, except to a parameter annotated `bool`, where they go as
+  `True` and `False` (pandas' `inplace=`, 23). For a function without
+  annotations that insists on a real `bool`, `py.box("bool", 1)` makes
+  `True`.
