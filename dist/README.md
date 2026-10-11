@@ -84,7 +84,9 @@ with oorexx.Interpreter() as rexx:
 ```
 
 The `examples` folder has short examples of every feature, each with its
-expected output (`examples/README.md`). `20-numpy.rex` and
+expected output (`examples/README.md`), and `examples/slides/examples.md`
+has them all as one [md2slides](https://rexx.epbcn.com/rexx-parser/doc/utilities/md2slides/)
+slide deck. `20-numpy.rex` and
 `21-matplotlib.rex` need `pip install numpy matplotlib` in the Python used.
 
 ## Licence
