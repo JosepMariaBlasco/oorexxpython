@@ -2556,11 +2556,20 @@ RexxMethod2(RexxObjectPtr, PyObj_SetItem, ARGLIST, all, CSELF, self)
     PyError err;
     {
         Gil gil;
+        // A Python caller of o[k] = v holds o in its frame during the call,
+        // besides the variable that names it; libraries that look at
+        // sys.getrefcount(self) to detect chained assignment (pandas) count
+        // on that, and with only the proxy's reference they take o for a
+        // temporary (pandas 2 warns; pandas 3 then looks for the caller's
+        // frame, finds none and fails).  So the call holds a reference too.
+        PyObject *o = selfObject(self);
+        Py_INCREF(o);
         PyObject *key = itemKey(keys);
         PyObject *pv = key != NULL ? valToPy(value) : NULL;
-        if (pv == NULL || PyObject_SetItem(selfObject(self), key, pv) < 0) captureError(err);
+        if (pv == NULL || PyObject_SetItem(o, key, pv) < 0) captureError(err);
         Py_XDECREF(pv);
         Py_XDECREF(key);
+        Py_DECREF(o);
     }
     return finish(side, result, err);
 }

@@ -137,6 +137,11 @@ constant is `logging~getattr("INFO")`.
   `o~new(args...)` is `o(args...)`.
 - `o[k]` is `o.__getitem__(k)`, `o[k] = v` is `__setitem__`; `o[i, j]` is
   `o[(i, j)]`. Indexes are Python's (0-based): it is Python's object.
+  During `o[k] = v` the bridge holds a reference to `o` of its own, as a
+  Python caller's frame does: pandas looks at `sys.getrefcount(self)` to
+  detect chained assignment, and with only the proxy's reference took `df`
+  for a temporary (pandas 2 warned; pandas 3 failed looking for the caller's
+  frame).
 - Slices are Python's `slice` objects: `o[.py~slice(a, b)]` is `o[a:b]`,
   `.py~slice(a, b, c)` is `a:b:c`, and `.nil` leaves a part out
   (`.py~slice(-3, .nil)` is `-3:`). No syntax of its own: `o[i, j]` must stay
