@@ -3,7 +3,9 @@
 [![build](https://github.com/JosepMariaBlasco/oorexxpython/actions/workflows/build.yml/badge.svg)](https://github.com/JosepMariaBlasco/oorexxpython/actions/workflows/build.yml)
 
 A native, bidirectional bridge between [ooRexx](https://sourceforge.net/projects/oorexx/)
-and Python 3, modelled after BSF4ooRexx.
+and Python 3, modelled after BSF4ooRexx. Binaries for Linux, macOS and
+Windows: [releases](https://github.com/JosepMariaBlasco/oorexxpython/releases)
+(see *Binaries*).
 
 - **ooRexx → Python**: a Rexx program imports Python modules (numpy,
   matplotlib, the standard library...) and uses Python objects as Rexx
@@ -50,8 +52,12 @@ still being discussed and parts of the API may change.
 
 ## Binaries
 
-Every push builds a zip of binaries for Linux x64, macOS arm64, macOS x64
-and Windows x64 (GitHub Actions artifacts `oorexxpython-<platform>`), checked unzipped
+**Download: [the releases page](https://github.com/JosepMariaBlasco/oorexxpython/releases)**,
+one zip per platform under each version (Linux x64, macOS arm64, macOS x64,
+Windows x64; the versions are previews for now).
+
+Every push builds the same zips (GitHub Actions artifacts
+`oorexxpython-<platform>`, on the run's page, for 90 days), checked unzipped
 with the system's own Python; tagged versions are published as GitHub
 releases. The zip's `README.md` (`dist/README.md` here) says how to install
 it: unzip, open a terminal in the folder and run `rexx install`, which puts
