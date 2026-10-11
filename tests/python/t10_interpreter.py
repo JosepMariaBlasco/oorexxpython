@@ -1,4 +1,7 @@
-"""t10: Python -> Rexx: oorexx.Interpreter, Rexx objects, stdio, ADDRESS, threads."""
+"""t10: Python -> Rexx: oorexx.Interpreter, Rexx objects, stdio, ADDRESS, closing.
+
+Python threads calling one interpreter at once: t15_concurrent_calls.py.
+"""
 import contextlib, io, os, sys, tempfile, threading
 import oorexx
 
@@ -94,19 +97,6 @@ check("caller's variables",    r.routine(
 check("raise_error -> ERROR",  r.routine(
     "signal on error; address calc 'fail'; return 'no'\nerror: return 'ERROR' rc")(), "ERROR 7")
 check("Python exception -> SYNTAX", raises(lambda: r.routine("address calc 'boom'")()).find("ValueError: bad command") > 0, True)
-
-# threads: Python threads calling Rexx concurrently
-square = r.routine("return arg(1) ** 2")
-results = []
-def worker():
-    acc = 0
-    for i in range(500):
-        acc += int(square(i))
-    results.append(acc)
-ts = [threading.Thread(target=worker) for _ in range(8)]
-for t in ts: t.start()
-for t in ts: t.join(60)
-check("threads",               results, [sum(i * i for i in range(500))] * 8)
 
 # options
 r2 = oorexx.Interpreter(initial_address="CALC2", command_environments={"CALC2": lambda c, ctx: len(c)})

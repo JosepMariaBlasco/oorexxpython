@@ -14,10 +14,18 @@ fix. The code marks the workarounds with the ticket number, so
 | [#2103](https://sourceforge.net/p/oorexx/bugs/2103/) | an ending thread uses its Activity after the garbage collector may have swept it: a rare crash at exit under heavy threading | r13265 | nothing in the bridge; seen only in the heavy run of `Threads.testGroup` |
 | [#2107](https://sourceforge.net/p/oorexx/bugs/2107/) | `Terminate` waits forever if the thread that created the instance called `DetachThread` | open | the creating thread stays attached until `Interpreter.close()` |
 
-The bridge works on every released ooRexx 5.x: the workarounds above stay
-right on older versions, and none of them depends on a fix being present.
-The design notes behind them are in [`../docs/design.md`](../docs/design.md),
-*Lifetime*.
+The workarounds above stay right on older versions, and none of them
+depends on a fix being present. The design notes behind them are in
+[`../docs/design.md`](../docs/design.md), *Lifetime*.
+
+ooRexx 5.2.0, the current release, is the minimum only for using an
+interpreter from one thread at a time: from several at once it crashes
+inside ooRexx (in its tables of activities, on `AttachThread` and when a
+thread waits for the kernel lock), and `Threads.testGroup`,
+`tests/python/t15_concurrent_calls.py` and
+`tests/python/t20_returned_objects.py` fail with it. 5.3.0 from r13265
+passes them; which of the fixes since 5.2.0 makes the difference has not
+been pinned down (`docs/design.md`, *ooRexx versions*).
 
 Two tickets filed for other reasons also touch the bridge:
 

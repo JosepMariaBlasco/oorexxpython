@@ -4,7 +4,8 @@
 #   Rexx starts:   tests/rexx/*.testGroup  (ooRexxUnit; scripts/setup-oorexxunit.sh)
 #   Python starts: tests/python/t*.py
 # Each test file runs in its own process, under a timeout (a deadlock is a
-# failure).  TESTS="Threads.testGroup t10_interpreter.py" to choose; TIMEOUT=
+# failure).  TESTS="Threads.testGroup t10_interpreter.py" to choose, SKIP=
+# (same form) to leave some out; TIMEOUT=
 # seconds per file (default 120); logs in OUT (default /tmp/orxpy-tests).
 set -uo pipefail
 WORK=${ORXPY_WORK:-$(cd "$(dirname "$0")/../.." && pwd)}   # the directory that contains the clone
@@ -15,6 +16,7 @@ UNIT=${OOREXXUNIT_DIR:-$WORK/oorexxunit}
 export UV_PYTHON_INSTALL_DIR=${UV_PYTHON_INSTALL_DIR:-$(native_path "$WORK/pythons")}
 PYTHONS=${PYTHONS:-3.9 3.10 3.11 3.12 3.13 3.14}
 TESTS=${TESTS:-$(cd "$HERE/rexx" && ls *.testGroup; cd "$HERE/python" && ls t*.py)}
+for s in ${SKIP:-}; do TESTS=$(printf '%s\n' $TESTS | grep -vx -- "$s"); done
 [ -f "$UNIT/testOORexx.rex" ] || { echo "ooRexxUnit missing: run scripts/setup-oorexxunit.sh"; exit 2; }
 export ORXPY_BUILD=$(native_path "$BUILD")
 export $LIBVAR="$BUILD${!LIBVAR:+:${!LIBVAR}}"

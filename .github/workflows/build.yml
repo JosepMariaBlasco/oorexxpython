@@ -1,7 +1,8 @@
 # Builds the bridge once (Stable ABI) and runs every test with every Python,
 # 3.9 to 3.14, on Linux, macOS (arm64 and x64) and Windows. ooRexx comes from its portable
 # builds on SourceForge, pinned to one revision; a newer one is taken
-# deliberately, after checking it.
+# deliberately, after checking it. One more job runs the tests on Linux with
+# ooRexx 5.2.0, the minimum.
 #
 # Each platform's build is then packaged as a zip of binaries
 # (scripts/package.sh; artifacts oorexxpython-<platform>), which is checked
@@ -162,6 +163,46 @@ jobs:
         if: always()
         with:
           name: test-logs-windows-x64
+          path: ${{ runner.temp }}/tests*
+
+  # The minimum ooRexx, 5.2.0 (the current release), with the oldest and the
+  # newest Python: every test but the three that use an interpreter from several
+  # threads at once, which crash inside ooRexx 5.2.0 and need 5.3.0
+  # (docs/design.md, "ooRexx versions")
+  oorexx-minimum:
+    name: linux-x64-oorexx-5.2.0
+    runs-on: ubuntu-24.04
+    env:
+      OOREXX_MIN: oorexx-5.2.0-13156.ubuntu2404.x86_64-portable-release
+      PYTHONS: "3.9 3.14"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: ooRexx 5.2.0 (portable)
+        run: |
+          curl -sSfL --retry 3 -o "$RUNNER_TEMP/oorexx.zip" \
+            "https://downloads.sourceforge.net/project/oorexx/oorexx/5.2.0/portable/$OOREXX_MIN.zip"
+          unzip -q "$RUNNER_TEMP/oorexx.zip" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/$OOREXX_MIN/bin" >> "$GITHUB_PATH"
+      - run: rexx -v
+      - name: Python ${{ env.PYTHONS }}, with numpy and matplotlib
+        run: |
+          scripts/setup-pythons.sh
+          export UV_PYTHON_INSTALL_DIR=$(cd .. && pwd)/pythons
+          for v in $PYTHONS; do
+            uv pip install -q --python "$(uv python find $v)" --break-system-packages numpy matplotlib
+            "$(uv python find $v)" -c "import matplotlib.pyplot"
+          done
+      - name: ooRexxUnit
+        run: scripts/setup-oorexxunit.sh
+      - name: Build
+        run: scripts/build.sh
+      - name: Tests (all but the concurrent ones)
+        run: OUT=$RUNNER_TEMP/tests SKIP="Threads.testGroup t15_concurrent_calls.py t20_returned_objects.py" tests/run.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-logs-linux-x64-oorexx-5.2.0
           path: ${{ runner.temp }}/tests*
 
   release:

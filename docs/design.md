@@ -373,6 +373,16 @@ collection on another thread cannot free it before the GIL comes back
 interpreter stays attached until `close()`: detaching it makes `Terminate`
 wait forever (ooRexx bug #2107).
 
+**ooRexx versions.** The bridge uses nothing newer than ooRexx 5.2.0's API
+(5.3.0's `oorexxapi.h` adds only the version constant), so the minimum is
+5.2.0, the current release, and CI runs the tests with it too. One thing
+needs 5.3.0 (r13265 or later): using an interpreter from several threads at
+once. On 5.2.0 that crashes inside ooRexx, in its tables of activities
+(`AttachThread`, `addWaitingActivity`), and the three concurrent tests
+(`Threads.testGroup`, `t15_concurrent_calls.py`,
+`t20_returned_objects.py`) fail; everything else passes. 5.2.0 also has
+bug #2102, which slows down programs that make many proxies.
+
 **Objects shared between interpreters.** All interpreter instances in a
 process share one object memory and one garbage collector, and `.environment`
 is common to all of them. So a Rexx object made in one instance can be used

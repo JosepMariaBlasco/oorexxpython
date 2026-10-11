@@ -41,7 +41,10 @@ with oorexx.Interpreter() as rexx:
 tests (ooRexxUnit test groups and Python checks, every nutshell sample
 included), on Linux x86_64, macOS (arm64 and x86_64) and Windows x64, with CPython
 3.9–3.14, against ooRexx 5.3.0 (trunk). Every push runs them all with every
-Python on all four (GitHub Actions: `.github/workflows/build.yml`). The design is
+Python on all four (GitHub Actions: `.github/workflows/build.yml`), and on
+Linux also with ooRexx 5.2.0, the minimum: all but the three tests that use an
+interpreter from several threads at once, which needs 5.3.0
+([`docs/design.md`](docs/design.md), *ooRexx versions*). The design is
 still being discussed and parts of the API may change.
 
 ## Binaries
@@ -59,8 +62,8 @@ Linux x86_64, macOS or Windows, with a C++ compiler (`g++`; Xcode's
 command line tools on macOS; on Windows, MSVC, with the scripts run from Git
 Bash in a developer command prompt's environment), `curl` and
 [uv](https://docs.astral.sh/uv/) (or
-`pip`, which `setup-pythons.sh` uses to install uv), and an ooRexx 5.3.0
-with its API headers: an installed ooRexx (`/usr/local`), or one of ooRexx's
+`pip`, which `setup-pythons.sh` uses to install uv), and an ooRexx 5.2.0 or later
+(5.3.0 for several threads at once) with its API headers: an installed ooRexx (`/usr/local`), or one of ooRexx's
 portable builds from
 [SourceForge](https://sourceforge.net/projects/oorexx/files/oorexx/5.3.0beta/portable/)
 with its `bin/` on the `PATH`.
