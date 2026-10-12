@@ -5,7 +5,7 @@
 A native, bidirectional bridge between [ooRexx](https://sourceforge.net/projects/oorexx/)
 and Python 3, modelled after BSF4ooRexx. Binaries for Linux, macOS and
 Windows: [releases](https://github.com/JosepMariaBlasco/oorexxpython/releases)
-(see *Binaries*).
+(see *Installing*).
 
 - **ooRexx → Python**: a Rexx program imports Python modules (numpy,
   matplotlib, the standard library...) and uses Python objects as Rexx
@@ -52,33 +52,118 @@ interpreter from several threads at once, which needs 5.3.0
 still being discussed ([the specification](docs/ooRexx-and-Python.md)) and
 parts of the API may change.
 
-## Binaries
+## Installing
 
-**Download: [the releases page](https://github.com/JosepMariaBlasco/oorexxpython/releases)**,
-one zip per platform under each version (Linux x64, macOS arm64, macOS x64,
-Windows x64; the versions are previews for now).
+You need ooRexx and Python on your computer, and the bridge's zip for your
+system. The installer puts the bridge into your ooRexx and tells your Python
+where it is: no environment variables to set.
 
-Every push builds the same zips (GitHub Actions artifacts
-`oorexxpython-<platform>`, on the run's page, for 90 days), checked unzipped
-with the system's own Python; tagged versions are published as GitHub
-releases. The zip's `README.md` (`dist/README.md` here) says how to install
-it: unzip, open a terminal in the folder and run `rexx install`, which puts
-the bridge into that ooRexx and makes it importable from the Python on the
-`PATH`, with no environment variables (or point the library path, `REXX_PATH`
-and `PYTHONPATH` at the folder). `scripts/package.sh` makes the same zip
-from a local build.
+1. **ooRexx 5.2.0 or later.** Get it from
+   [SourceForge](https://sourceforge.net/projects/oorexx/files/oorexx/) and
+   check that `rexx -v` runs in a terminal. Using the bridge from several
+   threads at once (a Python thread pool calling Rexx, say) needs ooRexx
+   5.3.0 (beta, r13265 or later): 5.2.0 crashes there.
+2. **Python 3.9 or later**, any version: the bridge is one binary for all of
+   them. If you want the samples that use numpy, matplotlib and pandas,
+   install them too: `pip install numpy matplotlib pandas`.
+3. **The bridge.** From
+   [the releases page](https://github.com/JosepMariaBlasco/oorexxpython/releases),
+   download the zip for your system under the newest version
+   (`windows-x64`, `linux-x64`, `macos-arm64` for Apple silicon,
+   `macos-x64` for Intel Macs) and unzip it anywhere.
+4. **Install.** Open a terminal in the unzipped folder `oorexxpython` and
+   run the installer, as shown below for each system. It installs, then
+   checks both directions, and ends with `ooRexx/Python: installed and OK`.
+5. **Try it.** The installer copies the samples into ooRexx's samples
+   folder, under `python`. Go there and run one: `rexx 01-hello.rex`, or
+   `python 30-run-rexx.py` (`python3` on Linux and macOS). Their
+   [README](samples/README.md) lists them all. The unzipped folder is no
+   longer needed: you can delete it.
 
-## Getting started
+### Windows
 
-Linux x86_64, macOS or Windows, with a C++ compiler (`g++`; Xcode's
-command line tools on macOS; on Windows, MSVC, with the scripts run from Git
-Bash in a developer command prompt's environment), `curl` and
-[uv](https://docs.astral.sh/uv/) (or
-`pip`, which `setup-pythons.sh` uses to install uv), and an ooRexx 5.2.0 or later
-(5.3.0 for several threads at once) with its API headers: an installed ooRexx (`/usr/local`), or one of ooRexx's
-portable builds from
-[SourceForge](https://sourceforge.net/projects/oorexx/files/oorexx/5.3.0beta/portable/)
-with its `bin/` on the `PATH`.
+- Python: the installer from [python.org](https://www.python.org/downloads/),
+  with **"Add python.exe to PATH"** ticked, so that `python` runs in a
+  terminal.
+- ooRexx in `C:\Program Files\ooRexx` (the default) needs an administrator:
+  open the terminal **as administrator** (right-click on Command Prompt or
+  Terminal, "Run as administrator"), then
+
+  ```bat
+  cd C:\path\to\oorexxpython
+  rexx install
+  ```
+
+- The samples end up in `C:\Program Files\ooRexx\samples\python`.
+
+### Linux
+
+- Python: your distribution's `python3`, with its shared library, which some
+  distributions package apart. On Debian and Ubuntu, that is
+  `libpython3.X`, X being your Python's (`python3 --version`): for
+  example, `sudo apt install libpython3.12`.
+- ooRexx installed from a package (in `/usr` or `/usr/local`) needs `sudo`,
+  and `sudo` may find another `python3` than yours, so name yours:
+
+  ```bash
+  cd /path/to/oorexxpython
+  sudo rexx install --python $(which python3)
+  ```
+
+- The samples end up in `/usr/local/share/ooRexx/samples/python` (or
+  `/usr/share/...`, where ooRexx is).
+
+### macOS
+
+- Python: the installer from [python.org](https://www.python.org/downloads/),
+  or Homebrew's (`brew install python`).
+- An ooRexx in a system folder such as `/usr/local` needs `sudo`, naming
+  your Python as on Linux:
+
+  ```bash
+  cd /path/to/oorexxpython
+  sudo rexx install --python $(which python3)
+  ```
+
+### A portable ooRexx
+
+An ooRexx unzipped from one of the portable builds, with its `bin` on the
+`PATH`, is installed into in the same way, without administrator rights:
+`rexx install` (or `rexx install --python /path/to/python`).
+
+### More
+
+- `rexx oorexxpython-uninstall status`, from any folder, shows what was
+  installed and where; `rexx oorexxpython-uninstall` removes exactly that.
+- **Updating**: run the new version's `rexx install`; it replaces the old one.
+- **Another Python**: `rexx install --python /path/to/python`, as many times
+  as you like (each Python gets its own link to the bridge); `--user` puts
+  the link in your user folder, which needs no administrator.
+- **Which Python Rexx uses**: the one you installed for, if it is the
+  `python3` on the `PATH` (`python` on Windows); otherwise set `ORX_PYTHON`
+  to its full path. Its installed packages are the ones Rexx programs see.
+- **Without installing**: the zip's own `README.md` says which environment
+  variables to set instead.
+- **The newest build**: every push to this repository builds the same zips,
+  available for 90 days as artifacts `oorexxpython-<platform>` of its
+  [Actions](https://github.com/JosepMariaBlasco/oorexxpython/actions) run
+  (you must be signed in to GitHub to download them).
+
+## Building from source
+
+To build the bridge yourself, or to work on it, you need Linux x86_64,
+macOS or Windows, with:
+
+- a C++ compiler: `g++`; Xcode's command line tools on macOS; MSVC on
+  Windows, with the scripts run from Git Bash in a developer command
+  prompt's environment;
+- `curl`, and [uv](https://docs.astral.sh/uv/) (or `pip`, which
+  `setup-pythons.sh` uses to install uv);
+- an ooRexx 5.2.0 or later (5.3.0 for several threads at once) with its API
+  headers: an installed ooRexx (`/usr/local`), or one of ooRexx's portable
+  builds from
+  [SourceForge](https://sourceforge.net/projects/oorexx/files/oorexx/5.3.0beta/portable/)
+  with its `bin/` on the `PATH`.
 
 ```bash
 git clone https://github.com/JosepMariaBlasco/oorexxpython
