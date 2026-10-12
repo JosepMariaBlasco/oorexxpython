@@ -126,7 +126,7 @@ portable ooRexx is installed into in the same way as a system one.
 
 ```rexx
 np  = .py~import("numpy")
-a   = np~array(.array~of(1, 2, 3))
+a   = np~array((1, 2, 3))
 say np~mean(a)                                   -- 2.0
 plt = .py~import("matplotlib.pyplot")
 plt~plot(a, .py~kw("color", "red"))
@@ -147,8 +147,8 @@ the result stays a `.PyObject` instead of coming back as a Rexx string
 (see *Values*).
 
 To build a list or tuple from items, pass a Rexx Array, which goes to Python
-as a list: `.py~list(.array~of(1, 2))` is `[1, 2]`,
-`.py~tuple(.array~of("Rexx", 1979))` is `('Rexx', 1979)`.
+as a list: `.py~list((1, 2))` is `[1, 2]`,
+`.py~tuple(("Rexx", 1979))` is `('Rexx', 1979)`.
 
 The routines `py.import`, `py.box` and `py.kw` echo BSF4ooRexx's
 `bsf.import`; `.py~redirectTo` and `py.redirectTo` its `bsf.redirectTo`
