@@ -761,31 +761,24 @@ WARNING demo: careful
 ```
 
 
-# `html.parser`, with the handler in Rexx {#ex19-html-parser kicker="19-html-parser.rex"}
+# `html.parser`, subclassed in Rexx (`.py~extend`) {#ex19-html-parser kicker="19-html-parser.rex"}
+
+Python's html.parser, with the handler written in Rexx. HTMLParser is used by subclassing: .py~extend makes a Python subclass of it whose handle_starttag is the Rexx method (24-subclass.rex has more).
 
 ```rexx
-nl = "0a"x
-.py~exec("from html.parser import HTMLParser"                   || nl ||,
-         "class ToRexx(HTMLParser):"                            || nl ||,
-         "    def __init__(self, handler):"                     || nl ||,
-         "        super().__init__(); self.handler = handler"   || nl ||,
-         "    def handle_starttag(self, tag, attrs):"           || nl ||,
-         "        self.handler.starttag(tag, dict(attrs))")
-parser = .py~main~ToRexx(.Links~new)
-parser~feed('<p><a href="https://rexxla.org">RexxLA</a> <a href="/x">x</a></p>')
+Links = .py~extend("html.parser.HTMLParser", .Links)
+Links~new~feed('<p><a href="https://rexxla.org">RexxLA</a> <a href="/x">x</a></p>')
 
 ::class Links
-::method starttag
-  use arg tag, attrs
-  if tag == "a" then say attrs["href"]
+::method handle_starttag
+  use arg tag, attrs, slot                    -- slot: always the last argument
+  if tag == "a" then say .py~dict(attrs)["href"]
 
 ::requires "python.cls"
 ```
 
-# `html.parser`, with the handler in Rexx {#ex19-html-parser-2 kicker="19-html-parser.rex"}
-
-Python's html.parser, with the handler written in Rexx. HTMLParser is used by subclassing; a three-line Python subclass forwards each event to a Rexx object.
-
+::: row
+::: col-9
 [Python]{.label}
 
 ```python
@@ -796,6 +789,8 @@ class Links(HTMLParser):
 Links().feed('<p><a href="https://rexxla.org">RexxLA</a> <a href="/x">x</a></p>')
 ```
 
+:::
+::: col-3
 [Output]{.label}
 
 ```output
@@ -803,6 +798,8 @@ https://rexxla.org
 /x
 ```
 
+:::
+:::
 
 # Data science {.section .logo-oorexx}
 
@@ -988,6 +985,75 @@ Reus     380
 Girona   270
 Lleida   150
 best: Reus total: 800
+```
+
+:::
+:::
+
+# Python classes in Rexx {.section .logo-oorexx}
+
+# `.py~extend`: a `threading.Thread` and a `collections.abc.Sequence` with their methods in Rexx; `.py~raise` {#ex24-subclass kicker="24-subclass.rex"}
+
+```rexx
+Worker = .py~extend("threading.Thread", .Worker)
+w = Worker~new(.py~kw("name", "worker"))
+w~start; w~join
+
+Squares = .py~extend("collections.abc.Sequence", .Squares)
+sq = Squares~new(5)
+say .py~list(sq) .py~len(sq) .py~eval("lambda s: 16 in s")~new(sq) .py~list(.py~reversed(sq))
+
+::class Worker
+::method run
+  use arg slot
+  say "hello from" slot~self~name
+
+::class Squares
+::method __init__
+  expose n
+  use arg n, slot
+  slot~super~__init__
+::method __getitem__
+  expose n
+  use arg i, slot
+  if i >= n then .py~raise(.py~IndexError, i)
+  return i * i
+::method __len__
+  expose n
+  return n
+
+::requires "python.cls"
+```
+
+# `.py~extend`: a `threading.Thread` and a `collections.abc.Sequence` with their methods in Rexx; `.py~raise` {#ex24-subclass-2 kicker="24-subclass.rex"}
+
+Python classes with methods in Rexx. .py~extend(base, .RexxClass) makes a real Python subclass of base whose methods are the Rexx class's: Python calls them (here threading.Thread's start calls run, and list(), len(), "in" and reversed() call `__getitem__` and `__len__`). Each method gets a last argument, a StringTable: SELF is the Python object, SUPER the base class (super() in Python), KWARGS the keyword arguments. .py~raise raises a Python exception: IndexError ends a sequence.
+
+::: row
+::: col-5
+[Python]{.label}
+
+```python
+class Worker(threading.Thread):
+    def run(self): print("hello from", self.name)
+w = Worker(name="worker"); w.start(); w.join()
+class Squares(collections.abc.Sequence):
+    def __init__(self, n): self.n = n
+    def __getitem__(self, i):
+        if i >= self.n: raise IndexError(i)
+        return i * i
+    def __len__(self): return self.n
+sq = Squares(5)
+print(list(sq), len(sq), 16 in sq, list(reversed(sq)))
+```
+
+:::
+::: col-7
+[Output]{.label}
+
+```output
+hello from worker
+[0, 1, 4, 9, 16] 5 1 [16, 9, 4, 1, 0]
 ```
 
 :::
@@ -1201,4 +1267,7 @@ ooRexx 1
   `True` and `False` (pandas' `inplace=`, 23). For a function without
   annotations that insists on a real `bool`, `py.box("bool", 1)` makes
   `True`.
+- A method of a class made by `.py~extend` gets one argument more than
+  Python passes, last: a StringTable with `SELF` (the Python object),
+  `SUPER` (its base class, as Python's `super()`) and `KWARGS` (19, 24).
 :::

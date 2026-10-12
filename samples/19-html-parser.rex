@@ -1,7 +1,7 @@
 /* 19-html-parser.rex: Python's html.parser, with the handler written in Rexx.
  *
- * HTMLParser is used by subclassing; a three-line Python subclass forwards
- * each event to a Rexx object.
+ * HTMLParser is used by subclassing: .py~extend makes a Python subclass of
+ * it whose handle_starttag is the Rexx method (24-subclass.rex has more).
  *
  * Python:
  *   from html.parser import HTMLParser
@@ -10,20 +10,13 @@
  *           if tag == "a": print(dict(attrs)["href"])
  *   Links().feed('<p><a href="https://rexxla.org">RexxLA</a> <a href="/x">x</a></p>')
  */
-nl = "0a"x
-.py~exec("from html.parser import HTMLParser"                   || nl ||,
-         "class ToRexx(HTMLParser):"                            || nl ||,
-         "    def __init__(self, handler):"                     || nl ||,
-         "        super().__init__(); self.handler = handler"   || nl ||,
-         "    def handle_starttag(self, tag, attrs):"           || nl ||,
-         "        self.handler.starttag(tag, dict(attrs))")
-parser = .py~main~ToRexx(.Links~new)
-parser~feed('<p><a href="https://rexxla.org">RexxLA</a> <a href="/x">x</a></p>')
+Links = .py~extend("html.parser.HTMLParser", .Links)
+Links~new~feed('<p><a href="https://rexxla.org">RexxLA</a> <a href="/x">x</a></p>')
 
 ::class Links
-::method starttag
-  use arg tag, attrs
-  if tag == "a" then say attrs["href"]
+::method handle_starttag
+  use arg tag, attrs, slot                    -- slot: always the last argument
+  if tag == "a" then say .py~dict(attrs)["href"]
 
 ::requires "python.cls"
 /* Output:

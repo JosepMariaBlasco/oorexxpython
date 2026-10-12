@@ -10,7 +10,8 @@ Windows: [releases](https://github.com/JosepMariaBlasco/oorexxpython/releases)
 - **ooRexx → Python**: a Rexx program imports Python modules (numpy,
   matplotlib, the standard library...) and uses Python objects as Rexx
   objects (`.py`, `.PyObject`), with keyword arguments, Python's operators,
-  iteration and exceptions.
+  iteration and exceptions; and subclasses any Python class with methods in
+  Rexx (`.py~extend`, as BSF4ooRexx's `bsf.createProxyClass`).
 - **Python → ooRexx**: a Python program creates ooRexx interpreters, runs
   Rexx code and uses Rexx objects as Python objects (`oorexx.Interpreter`,
   `oorexx.RexxObject`); Python functions can be `ADDRESS` environments, and
@@ -137,7 +138,7 @@ is a failure). `PYTHONS="3.9 3.13"` and `TESTS=Threads.testGroup` choose;
 - `samples/` — short "nutshell" programs, one feature each, both ways;
   each shows the Python it replaces and its exact output (see its README).
 - `tests/` — `run.sh`; `rexx/` (ooRexxUnit test groups: basics, callbacks,
-  numpy, lifetime, threads, and all the samples), `python/` (the Python
+  numpy, lifetime, threads, subclassing, and all the samples), `python/` (the Python
   side).
 - `scripts/` — `build.sh`, `setup-pythons.sh`, `setup-oorexxunit.sh`, and
   `setup-oorexx.sh` (builds ooRexx from SVN, when no build with headers is

@@ -1,0 +1,192 @@
+#!/usr/bin/env rexx
+/*----------------------------------------------------------------------------*/
+/* Subclass.testGroup: Python classes with methods in Rexx (.py~extend), and  */
+/* Python exceptions through Rexx (.py~raise, raised again as themselves).    */
+/*                                                                            */
+/* Licensed under the Apache License, Version 2.0.                            */
+/*----------------------------------------------------------------------------*/
+  parse source . . fileSpec
+
+  group = .TestGroup~new(fileSpec)
+  group~add(.Subclass.testGroup)
+
+  if group~isAutomatedTest then return group
+
+  testResult = group~suite~execute~~print
+
+return testResult
+-- End of entry point.
+
+::requires 'PyTestCase.cls'
+
+::class "Subclass.testGroup" subclass PyTestCase public
+
+::method test_thread
+  cls = .py~extend("threading.Thread", .SubWorker)
+  t = cls~new("w7")
+  t~start
+  t~join
+  self~assertSame("w7 ran", t~getattr("out"))
+  self~assertSame(1, .py~isinstance(t, .py~import("threading")~Thread))
+  self~assertSame("w7", t~name)
+
+::method test_framework_instantiates
+  -- json.dumps makes the encoder itself (cls=), with keyword arguments
+  enc = .py~extend("json.JSONEncoder", .SubEncoder)
+  out = .py~import("json")~dumps(.py~eval("{'z': complex(1, 2)}"), .py~kw("cls", enc))
+  self~assertSame('{"z": [1.0, 2.0]}', out)
+
+::method test_sequence_mixins
+  -- only __getitem__ and __len__ in Rexx; IndexError (.py~raise) ends it
+  sq = .py~extend("collections.abc.Sequence", .SubSquares)~new(5)
+  self~assertSame("[0, 1, 4, 9, 16]", .py~list(sq)~string)
+  self~assertSame(5, .py~len(sq))
+  self~assertSame(3, sq~index(9))
+  self~assertSame(1, .py~eval("lambda s: 16 in s")~new(sq))
+  self~assertSame("[16, 9, 4, 1, 0]", .py~list(.py~reversed(sq))~string)
+
+::method test_super
+  d = .py~extend("dict", .SubUpper)~new
+  d["abc"] = 1
+  self~assertSame("{'ABC': 1}", d~string)
+
+::method test_special_results
+  o = .py~extend("object", .SubThing)~new
+  self~assertSame("a thing", .py~str(o)~string)    -- not the int 42-style
+  self~assertSame(0, .py~bool(o))                  -- Rexx 0 -> False
+  self~assertSame(7, .py~len(o))                   -- Rexx "7" -> 7
+  self~assertSame("42", .py~repr(o)~string)        -- Rexx 42 -> '42'
+
+::method test_names
+  -- a base method in mixed case is found; another one is given by ::ANNOTATE
+  base = .py~exec(self~py("class SubBase:",                       -
+                          "    def doIt(self): return 'base'",       -
+                          "    def call_both(self): return self.doIt() + '/' + self.do_GET()"))
+  cls = .py~extend(.py~main~SubBase, .SubNames)
+  self~assertSame("rexx doIt/rexx do_GET", cls~new~call_both)
+  -- a name two attributes match: an error that asks for ::ANNOTATE
+  amb = .py~eval("type('Amb', (), {'foo': 1, 'FOO': 2})")
+  c = self~syntaxOf(.py, "EXTEND", amb, .SubAmbiguous)
+  self~assertTrue(c~message~pos("::annotate method foo python") > 0, c~message)
+
+::method test_kwargs_and_shared_object
+  counter = .SubCounter~new
+  cls = .py~extend("object", counter, "Shared")
+  a = cls~new
+  b = cls~new
+  a~bump
+  b~bump(.py~kw("by", 10))
+  self~assertSame(11, a~total)
+  self~assertSame(11, b~total)
+  self~assertSame("Shared", cls~getattr("__name__"))
+
+::method test_no_cycle
+  -- the Python object holds its Rexx object, not the other way round:
+  -- dropped pairs are collected (before, all of them stayed alive)
+  cls = .py~extend("object", .SubPeer)
+  .SubPeer~live = 0
+  do 3
+    do 3000
+      o = cls~new
+    end
+    drop o
+    junk = .array~new
+    do 20000; junk~append(.Object~new); end
+    drop junk
+  end
+  self~assertTrue(.SubPeer~live < 6000, "live Rexx objects:" .SubPeer~live "of 9000")
+
+::method test_python_exception_through_rexx
+  -- Python -> Rexx -> Python: the exception comes back as itself
+  .py~exec(self~py("def subTry(cb):",                                 -
+                   "    try:",                                        -
+                   "        cb()",                                    -
+                   "    except ValueError as e:",                     -
+                   "        return 'ValueError: ' + str(e)",          -
+                   "    return 'nothing'"))
+  self~assertSame("ValueError: invalid literal for int() with base 10: 'x'", -
+                  .py~main~subTry(.Routine~new("r", "return .py~int('x')")))
+  self~assertSame("ValueError: from Rexx", -
+                  .py~main~subTry(.Routine~new("r", ".py~raise(.py~ValueError, 'from Rexx')")))
+
+::method test_raise
+  c = self~syntaxOf(.py, "RAISE", .py~KeyError~new("k"))
+  self~assertSame(98.900, c~code)
+  self~assertSame("Python error: KeyError: 'k'", c~additional[1])
+  self~assertSame(1, .py~isinstance(c~additional[3], .py~KeyError))
+  c = self~syntaxOf(.py, "RAISE", "not an exception")
+  self~assertSame(93.900, c~code)
+
+::class SubWorker
+::method __init__
+  use arg name, slot
+  slot~super~__init__(.py~kw("name", name))
+::method run
+  use arg slot
+  slot~self~setattr("out", slot~self~name "ran")
+
+::class SubEncoder
+::method default
+  use arg o, slot
+  if .py~isinstance(o, .py~complex) then return .array~of(o~real, o~imag)
+  return slot~super~default(o)
+
+::class SubSquares
+::method __init__
+  expose n
+  use arg n, slot
+  slot~super~__init__
+::method __getitem__
+  expose n
+  use arg i, slot
+  if i >= n then .py~raise(.py~IndexError, i)
+  return i * i
+::method __len__
+  expose n
+  return n
+
+::class SubUpper
+::method __setitem__
+  use arg k, v, slot
+  slot~super~__setitem__(.py~str(k~upper), v)
+
+::class SubThing
+::method __str__
+  return "a thing"
+::method __bool__
+  return 0
+::method __len__
+  return "7"
+::method __repr__
+  return 42
+
+::class SubNames
+::method doit
+  return "rexx doIt"
+::method do_get
+  return "rexx do_GET"
+::annotate method do_get python "do_GET"
+
+::class SubAmbiguous
+::method foo
+
+::class SubCounter
+::method init
+  expose n
+  n = 0
+::method bump
+  expose n
+  use arg slot
+  by = slot~kwargs["by"]
+  if by == .nil then by = 1
+  n += by
+::method total
+  expose n
+  return n
+
+::class SubPeer
+::attribute live class
+::method init
+  self~class~live += 1
+::method uninit
+  self~class~live -= 1

@@ -25,11 +25,14 @@
  *               ~main                    the __main__ module
  *               ~redirectTo(...)         Rexx's standard streams to Python's
  *                                        (py.redirectTo, below)
+ *               ~extend(base, .Class)    a Python subclass of base with
+ *                                        methods in Rexx (py.extend, below)
+ *               ~raise(exc [, args])     raise a Python exception
  *             Every other name is Python's builtin, unchanged: .py~list(x) is
  *             list(x); to build a list or tuple from items, pass a Rexx Array:
  *             .py~list((1, 2)), .py~tuple(("a", 1)).
  * Routines, as BSF4ooRexx's bsf.import: py.import(name), py.box(type, x),
- * py.kw(name, value, ...), py.redirectTo(...).
+ * py.kw(name, value, ...), py.redirectTo(...), py.extend(base, rexx [, name]).
  * .PyObject   a Python object, by reference:
  *               o~name(args...)          attribute, called (names in any case)
  *               o~name                   attribute; called if a function/method
@@ -51,7 +54,8 @@
  * parameter annotated bool); Rexx Arrays as lists (copies).
  * The design, and the reasons: docs/design.md.
  * A Python exception is SYNTAX 98.900 "Python error: Type: message", with
- * the traceback in condition("O")~additional[2].
+ * the traceback in condition("O")~additional[2] and the exception in
+ * additional[3]; if it goes back to Python, it is raised again as itself.
  */
 
 .local~py = .Python~new
@@ -151,6 +155,23 @@
   return self~invoke("exec", self~str(code), self~main~getattr("__dict__"))
 ::method redirectTo unguarded            -- py.redirectTo, below
   .context~package~findRoutine("PY.REDIRECTTO")~callWith(arg(1, "A"))
+::method extend unguarded                -- py.extend, below
+  return .context~package~findRoutine("PY.EXTEND")~callWith(arg(1, "A"))
+-- raise a Python exception (an instance, or a class to call with the rest of
+-- the arguments): SYNTAX 98.900 as when Python raises it, and Python gets it
+-- as itself if the condition goes back there (a method of a class made by
+-- .py~extend: IndexError ends a sequence, StopIteration an iterator)
+::method raise unguarded
+  use strict arg exc, ...
+  if self~invoke("isinstance", exc, self~type)~string == 1 then
+    exc = exc~sendWith("NEW", arg(1, "A")~section(2))
+  if self~invoke("isinstance", exc, self~getattr("BaseException"))~string \== 1 then
+    raise syntax 93.900 array (".py~raise: not a Python exception:" exc)
+  text = self~str(exc)~string
+  name = self~type(exc)~getattr("__name__")
+  if text == "" then message = "Python error:" name
+  else message = "Python error:" name":" text
+  raise syntax 98.900 array (message, "", exc)
 
 -- BSF4ooRexx-style routines (bsf.import ...), for those who prefer them
 ::routine py.import public
@@ -160,6 +181,117 @@
   return .py~sendWith("BOX", arg(1, "A"))
 ::routine py.kw public
   return .py~sendWith("KW", arg(1, "A"))
+
+/*
+ * Python classes with methods in Rexx (docs/design.md, *Subclassing*), as
+ * BSF4ooRexx's bsf.createProxyClass does for Java:
+ *
+ *   cls = .py~extend("threading.Thread", .Worker)     -- or py.extend(...)
+ *   t = cls~new                                       -- a threading.Thread
+ *   t~start; t~join
+ *
+ *   ::class Worker
+ *   ::method run                          -- overrides Thread.run
+ *     use arg slot                        -- always the last argument
+ *     say "running in" slot~self~name     -- SELF: the Python object
+ *
+ * py.extend(base, rexx [, name]): base is a Python class, a dotted name
+ * ("http.server.BaseHTTPRequestHandler"), or an Array of them; rexx is a
+ * Rexx class (each Python object gets its own new Rexx object) or a Rexx
+ * object (shared by all).  It returns the new Python class, for Rexx
+ * (cls~new(args)) and for Python code that instantiates it itself.
+ *
+ * The Python object holds its Rexx object; the Rexx object does not hold
+ * the Python object (it gets it in each call): no cycle, each side's
+ * collector frees them.  Every public method of the Rexx class (and its
+ * superclasses but Object) becomes a Python method, except INIT, UNINIT and
+ * names with a dot; its Python name is: the ::ANNOTATE'd one
+ * (::annotate method do_get python "do_GET"), else the lowercase one for
+ * __dunder__ names, else the base classes' attribute that matches without
+ * regard to case, else the lowercase one.  Each call gets as its last
+ * argument a StringTable: SELF (the Python object), SUPER (super(cls,
+ * self): SUPER~run is the base class's run) and KWARGS (a StringTable of the
+ * keyword arguments).  The Rexx object is made first, with no arguments (its
+ * INIT is Rexx's own); then Python's __init__ runs with the constructor's
+ * arguments: a Rexx method __init__ if the class has one (it calls the
+ * base's itself, slot~super~__init__(...)), else the base's.
+ * The results of special methods are converted as Python requires
+ * (__bool__ -> bool, __len__ -> int, __str__ -> str...).
+ */
+::routine py.extend public
+  use strict arg base, rexx, name=.nil
+  if rexx~isA(.Class) then class = rexx
+  else class = rexx~class
+  if name == .nil then name = class~id
+  -- the bases, as Python classes
+  if base~isA(.Array) then bases = base
+  else bases = .array~of(base)
+  do i = 1 to bases~items
+    if bases[i]~isA(.String) then bases[i] = py.dottedName(bases[i])
+  end
+  -- the methods: "REXXNAME exactName" (exactName from ::ANNOTATE, or "")
+  specs = .array~new
+  seen = .Set~new
+  c = class
+  do while c \== .Object, c \== .nil
+    s = c~methods(c)
+    do while s~available
+      m = s~index
+      method = s~item
+      s~next
+      if seen~hasIndex(m) then iterate
+      seen~put(m)
+      if m == "INIT" | m == "UNINIT" | m~pos(".") > 0 | method~isPrivate then iterate
+      exact = method~annotation("python")
+      if exact == .nil then exact = ""
+      specs~append(m exact)
+    end
+    c = c~superClass
+  end
+  helper = py.extendHelper()
+  return helper~make(.py~tuple(bases), .py~str(name), rexx, rexx~isA(.Class), specs,-
+                     .context~package~findRoutine("PY.DISPATCH"))
+
+-- "a.b.C": the attribute C of the module a.b
+::routine py.dottedName private
+  use strict arg name
+  if name~lastPos(".") = 0 then return .py~getattr(name)    -- a builtin: object, dict
+  module = name~left(name~lastPos(".") - 1)
+  return .py~import(module)~getattr(name~substr(name~lastPos(".") + 1))
+
+-- the helper module, made once per interpreter instance
+::routine py.extendHelper private
+  helper = .local["PY.EXTENDHELPER"]
+  if helper \== .nil then return helper
+  types = .py~import("types")
+  helper = types~ModuleType~new("oorexx_extend")
+  code = .context~package~resources["EXTENDPY"]~makeString("L", "0a"x)
+  .py~invoke("exec", .py~str(code), helper~getattr("__dict__"))
+  .local["PY.EXTENDHELPER"] = helper
+  return helper
+
+-- a call from Python to a method of a class made by py.extend
+::routine py.dispatch private
+  use arg peer, name, pyArgs, self, super, kwargs
+  args = py.slotArgs(pyArgs, self, super, kwargs)
+  message = .Message~new(peer, name, "A", args)
+  message~send
+  if message~hasResult then return message~result
+  return .nil
+
+::routine py.slotArgs private
+  use arg pyArgs, self, super, kwargs
+  args = pyArgs~makeArray
+  slot = .StringTable~new
+  slot["SELF"] = self
+  slot["SUPER"] = super
+  kw = .StringTable~new
+  if kwargs \== .nil then do name over kwargs
+    kw[name] = kwargs[.py~str(name)]
+  end
+  slot["KWARGS"] = kw
+  args~append(slot)
+  return args
 
 /*
  * Rexx's standard streams through Python's (docs/design.md, *Standard
@@ -415,3 +547,76 @@
       values~append(args[i + 1])
     end
   end
+
+-- the Python half of py.extend: the class, its __init__ and its methods
+::resource extendpy
+import builtins
+
+# results of special methods, as Python requires them
+_CONVERT = {
+    '__bool__': bool, '__contains__': bool,
+    '__len__': int, '__length_hint__': int, '__hash__': int,
+    '__index__': int, '__int__': int,
+    '__float__': float, '__complex__': complex,
+    '__str__': str, '__repr__': str, '__format__': str,
+    '__bytes__': bytes,
+}
+
+def _python_name(rexx_name, exact, bases):
+    if exact:
+        return exact
+    low = rexx_name.lower()
+    if low.startswith('__') and low.endswith('__'):
+        return low
+    found = set()
+    for b in bases:
+        for n in dir(b):
+            if n.lower() == low:
+                found.add(n)
+    if len(found) > 1:
+        raise TypeError('py.extend: %s matches %s in the base classes: give the name with '
+                        '::annotate method %s python "..."' % (rexx_name, ', '.join(sorted(found)), low))
+    return found.pop() if found else low
+
+def make(bases, name, rexx, is_class, specs, dispatch):
+    ns = {}
+    cls = None
+
+    def peer_of(self):
+        try:
+            return object.__getattribute__(self, '_oorexx_peer')
+        except AttributeError:
+            raise AttributeError('%s: its Rexx object is not made yet (__init__ has not run)' % name) from None
+
+    def method(py_name, rexx_name):
+        convert = _CONVERT.get(py_name)
+        def f(self, *args, **kwargs):
+            r = dispatch(peer_of(self), rexx_name, list(args), self, super(cls, self), kwargs)
+            if convert is not None and r is not NotImplemented:
+                r = convert(r)
+            return r
+        f.__name__ = py_name
+        f.__qualname__ = name + '.' + py_name
+        return f
+
+    for spec in specs:
+        rexx_name, _, exact = spec.partition(' ')
+        py_name = _python_name(rexx_name, exact.strip(), bases)
+        ns[py_name] = method(py_name, rexx_name)
+
+    # the Rexx object first (the base's __init__ may call overridden
+    # methods: socketserver's handlers do all their work there), then
+    # Python's __init__: the Rexx one, or the base's
+    rexx_init = ns.get('__init__')
+    def __init__(self, *args, **kwargs):
+        object.__setattr__(self, '_oorexx_peer', rexx.new() if is_class else rexx)
+        if rexx_init is not None:
+            rexx_init(self, *args, **kwargs)
+        else:
+            super(cls, self).__init__(*args, **kwargs)
+    ns['__init__'] = __init__
+
+    import types
+    cls = types.new_class(name, tuple(bases), {}, lambda d: d.update(ns))
+    return cls
+::END

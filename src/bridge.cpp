@@ -177,6 +177,12 @@ struct PyError
     bool set = false;
     std::string message;                  // "ValueError: ..."
     std::string traceback;
+    PyObject *exc = NULL;                 // the exception itself (owned), for
+                                          // raising it again as itself in Python
+    PyError() {}
+    PyError(const PyError &) = delete;
+    PyError &operator=(const PyError &) = delete;
+    ~PyError();
 };
 
 // what the bridge needs from the Rexx side during one call
@@ -727,6 +733,13 @@ static void captureError(PyError &err)
     if (type == NULL) return;
     PyErr_NormalizeException(&type, &value, &tb);
     err.set = true;
+    if (value != NULL)
+    {
+        if (tb != NULL) PyException_SetTraceback(value, tb);
+        Py_XDECREF(err.exc);
+        Py_INCREF(value);
+        err.exc = value;
+    }
     PyObject *name = PyObject_GetAttrString(type, "__name__");
     std::string text = pyString(value);
     err.message = pyString(name) + (text.empty() ? "" : ": " + text);
@@ -750,6 +763,15 @@ static void captureError(PyError &err)
     Py_XDECREF(type);
     Py_XDECREF(value);
     Py_XDECREF(tb);
+}
+
+PyError::~PyError()
+{
+    if (exc != NULL)
+    {
+        Gil gil;                          // nests if this thread holds it
+        Py_DECREF(exc);
+    }
 }
 
 // a bridge error (not raised by Python code), Python-style
@@ -1089,11 +1111,24 @@ static RexxObjectPtr finish(RexxSide &side, Val &result, PyError &err)
     if (err.set)
     {
         if (result.kind != Val::NIL) { Gil gil; dropVal(result); }
-        RexxArrayObject extra = c->NewArray(2);
+        RexxArrayObject extra = c->NewArray(3);
         std::string text = "Python error: " + err.message;
         if (!text.empty() && text.back() == '.') text.pop_back();   // the message adds one
         c->ArrayPut(extra, c->String(text.c_str()), 1);
         c->ArrayPut(extra, c->String(err.traceback.c_str()), 2);
+        // the exception itself, as a .PyObject: if the condition goes back
+        // to Python, it is raised again as itself (docs/design.md,
+        // *Exceptions*)
+        if (err.exc != NULL && side.pyObjectClass != NULLOBJECT)
+        {
+            Val ev;
+            ev.kind = Val::REF;
+            ev.ref = err.exc;
+            ev.owned = true;
+            err.exc = NULL;               // the proxy takes our reference
+            RexxObjectPtr eo = valToRexx(side, ev);
+            if (eo != NULLOBJECT) c->ArrayPut(extra, eo, 3);
+        }
         c->RaiseException(Rexx_Error_Execution_user_defined, extra);
         return NULLOBJECT;
     }
@@ -1177,12 +1212,24 @@ static void rexxProxyDealloc(PyObject *self)
  * proxies may outlive them, and must not touch them.
  */
 
-// a pending Rexx condition as the text of an oorexx.RexxError (and cleared)
-static std::string takeCondition(RexxThreadContext *tc)
+// a pending Rexx condition as the text of an oorexx.RexxError (and cleared);
+// a Python exception that went through Rexx (SYNTAX 98.900 with the
+// exception as the third ADDITIONAL item: finish, .py~raise) goes into exc,
+// borrowed from its proxy, to be raised again as itself
+static std::string takeCondition(RexxThreadContext *tc, RexxSide *side = NULL, Val *exc = NULL)
 {
     RexxDirectoryObject cond = tc->GetConditionInfo();
     RexxCondition info;
     tc->DecodeConditionInfo(cond, &info);
+    if (side != NULL && exc != NULL && side->pyObjectClass != NULLOBJECT && info.code == 98900)
+    {
+        RexxObjectPtr add = tc->DirectoryAt(cond, "ADDITIONAL");
+        if (add != NULLOBJECT && tc->IsArray(add) && tc->ArrayItems((RexxArrayObject)add) >= 3)
+        {
+            RexxObjectPtr e = tc->ArrayAt((RexxArrayObject)add, 3);
+            if (e != NULLOBJECT && tc->IsInstanceOf(e, side->pyObjectClass)) rexxToVal(*side, e, *exc);
+        }
+    }
     std::string name = info.conditionName != NULLOBJECT ? tc->CString(info.conditionName) : "SYNTAX";
     std::string text = info.message != NULLOBJECT ? tc->CString(info.message) : "";
     if (text.empty() && info.errortext != NULLOBJECT) text = tc->CString(info.errortext);
@@ -1232,7 +1279,7 @@ static PyObject *intoRexx(Inst *inst, PyObject *args, Py_ssize_t skip, PyObject 
     }
 
     // without the GIL: the Rexx work
-    Val result;
+    Val result, exc;
     std::string error;
     PyThreadState *saved = PyEval_SaveThread();
     RexxThreadContext *tc;
@@ -1263,7 +1310,7 @@ static PyObject *intoRexx(Inst *inst, PyObject *args, Py_ssize_t skip, PyObject 
             if (o != NULLOBJECT) tc->ArrayPut(rargs, o, i + 1);
         }
         RexxObjectPtr r = tc->CheckCondition() ? NULLOBJECT : op(tc, side, rargs, error);
-        if (tc->CheckCondition()) error = takeCondition(tc);
+        if (tc->CheckCondition()) error = takeCondition(tc, &side, &exc);
         else if (error.empty() && r != NULLOBJECT) rexxToVal(side, r, result);   // may run Rexx code
         // The Python objects in the result are borrowed from their .PyObject
         // proxies, which only this thread context's local references keep
@@ -1271,10 +1318,11 @@ static PyObject *intoRexx(Inst *inst, PyObject *args, Py_ssize_t skip, PyObject 
         // another thread's drainGraveyard can free the objects before we take
         // the GIL back.  So take our own references now.  Waiting for the GIL
         // here is safe: between API calls this thread holds no kernel lock.
-        if (holdsBorrowed(result))
+        if (holdsBorrowed(result) || holdsBorrowed(exc))
         {
             Gil gil;
             ownBorrowed(result);
+            ownBorrowed(exc);
         }
         tc->DetachThread();
     }
@@ -1284,6 +1332,17 @@ static PyObject *intoRexx(Inst *inst, PyObject *args, Py_ssize_t skip, PyObject 
     if (!error.empty())
     {
         dropVal(result);
+        if (exc.kind == Val::REF && exc.ref != NULL &&
+            PyObject_IsInstance(exc.ref, PyExc_BaseException) == 1)
+        {
+            // a Python exception that went through Rexx: itself again
+            PyObject *type = PyObject_Type(exc.ref);
+            PyErr_SetObject(type, exc.ref);
+            Py_XDECREF(type);
+            dropVal(exc);
+            return NULL;
+        }
+        dropVal(exc);
         PyErr_SetString(rexxErrorType, error.c_str());
         return NULL;
     }

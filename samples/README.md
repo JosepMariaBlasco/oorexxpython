@@ -55,7 +55,7 @@ by `scripts/samples-deck.rex` (edit those, not the deck), and the skin
 | `16-uuid.rex` | `uuid`: uuid5, uuid4 |
 | `17-urllib.rex` | `urllib.parse`: urlparse, urlencode, quote |
 | `18-logging.rex` | `logging`: logger, handler, formatter |
-| `19-html-parser.rex` | `html.parser`, with the handler in Rexx |
+| `19-html-parser.rex` | `html.parser`, subclassed in Rexx (`.py~extend`) |
 
 ## Data science
 
@@ -65,6 +65,12 @@ by `scripts/samples-deck.rex` (edit those, not the deck), and the skin
 | `21-matplotlib.rex` | a chart saved as PNG |
 | `22-slices.rex` | slices: `o[.py~slice(start, stop, step)]` for Python's `o[start:stop:step]`, numpy's `m[0:2, 1]` |
 | `23-pandas.rex` | a pandas DataFrame from CSV text: a new column, `inplace=True`, a boolean mask, groupby |
+
+## Python classes in Rexx
+
+| File | Shows |
+|---|---|
+| `24-subclass.rex` | `.py~extend`: a `threading.Thread` and a `collections.abc.Sequence` with their methods in Rexx; `.py~raise` |
 
 ## Python using ooRexx
 
@@ -93,3 +99,6 @@ by `scripts/samples-deck.rex` (edit those, not the deck), and the skin
   `True` and `False` (pandas' `inplace=`, 23). For a function without
   annotations that insists on a real `bool`, `py.box("bool", 1)` makes
   `True`.
+- A method of a class made by `.py~extend` gets one argument more than
+  Python passes, last: a StringTable with `SELF` (the Python object),
+  `SUPER` (its base class, as Python's `super()`) and `KWARGS` (19, 24).
