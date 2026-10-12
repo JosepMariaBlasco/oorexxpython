@@ -2,6 +2,8 @@
 
 How the bridge is built and why. The code comments refer to the sections of
 this document by name (for example "docs/design.md, *Values*").
+What the bridge does, for those who use it, is specified in
+[`ooRexx-and-Python.md`](ooRexx-and-Python.md).
 
 The model is [BSF4ooRexx](https://sourceforge.net/projects/bsf4oorexx/),
 Rony G. Flatscher's bridge between ooRexx and Java, and its sister in the
