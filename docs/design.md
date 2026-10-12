@@ -169,8 +169,9 @@ be `__getitem__` (dicts, lists, numpy indexing), so the exact forms take
 Python's own names, which no ordinary Python object hides.
 
 One consequence no rule can avoid: `logging~INFO` finds the function
-`logging.info` (the lowercase candidate wins), not the constant; the
-constant is `logging~getattr("INFO")`.
+`logging.info` (the lowercase candidate wins), not the constant, and calls
+it (see *Messages, items, iteration*), which fails for want of a message;
+the constant is `logging~getattr("INFO")`.
 
 ### Messages, items, iteration
 
@@ -426,6 +427,12 @@ A Rexx object is an `oorexx.RexxObject`: `o.name(args)` sends the message
 and iteration work, `str()` is its string value. Rexx results follow the
 *Values* rule: `rexx.eval("6 * 7")` is the `int` 42 and a Rexx Array comes
 back as a `list` (a copy); other objects stay proxies.
+
+Two proxies of the same Rexx object are `==`, with the same hash (the
+object's address: ooRexx does not move live objects, and the proxy keeps
+its object alive), so either serves as a dict key; they are not `is`.
+Comparing does not call Rexx's `=`, which would enter the interpreter for
+every comparison and hash.
 
 Messages can also be sent by name, with the methods of BSF4ooRexx's
 `RexxProxy` (Java), under the same names: `o.sendMessage(name[, args])`

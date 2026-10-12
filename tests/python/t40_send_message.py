@@ -75,6 +75,14 @@ check("Rexx error",               raises(lambda: b.sendMessage("noSuchMethod")).
 check("o.sendMessage is ours",    o.sendMessage.__name__, "sendMessage")
 check("a Rexx SENDMESSAGE, by name", o.sendMessage("sendMessage"), "a Rexx method")
 
+# identity: two proxies of one Rexx object are equal, with one hash
+same = r.routine("use arg x; return x")
+t = r.eval(".directory~new")
+t2 = same(t)
+check("two proxies of one object ==", (t2 == t, t2 != t, t2 is t), (True, False, False))
+check("one dict key", len({t: 1, t2: 2}), 1)
+check("other objects !=", (t == r.eval(".directory~new"), t == "x", t != "x"), (False, False, True))
+
 r.close()
 print(f"{checks} checks, {failures} failed")
 sys.exit(1 if failures else 0)

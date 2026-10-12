@@ -1615,6 +1615,26 @@ static PyObject *rexxProxySendMessageN(PyObject *self, PyObject *args)
         });
 }
 
+// == and hash: the same Rexx object (as .PyObject's == is Python's is), so
+// two proxies of one object are equal and can be the same dict key.  ooRexx
+// does not move live objects, and the proxy keeps its object alive.
+static PyObject *rexxProxyRichCompare(PyObject *a, PyObject *b, int op)
+{
+    Inst *ia, *ib;
+    RexxObjectPtr ta, tb;
+    if ((op != Py_EQ && op != Py_NE) || !rexxProxyTarget(a, &ia, &ta) || !rexxProxyTarget(b, &ib, &tb))
+        Py_RETURN_NOTIMPLEMENTED;
+    bool same = ta == tb;
+    if ((op == Py_EQ) == same) Py_RETURN_TRUE;
+    Py_RETURN_FALSE;
+}
+
+static Py_hash_t rexxProxyHash(PyObject *self)
+{
+    Py_hash_t h = (Py_hash_t)((uintptr_t)((RexxProxy *)self)->target >> 4);
+    return h == -1 ? -2 : h;
+}
+
 static PyMethodDef rexxProxyMethods[] =
 {
     {"sendMessage", rexxProxySendMessage, METH_VARARGS,
@@ -1642,6 +1662,8 @@ static PyType_Slot rexxProxySlots[] =
     {Py_tp_repr, (void *)rexxProxyRepr},
     {Py_tp_iter, (void *)rexxProxyIter},
     {Py_mp_length, (void *)rexxProxyLen},
+    {Py_tp_richcompare, (void *)rexxProxyRichCompare},
+    {Py_tp_hash, (void *)rexxProxyHash},
     {Py_tp_doc, (void *)"A Rexx object (by reference): r(args) sends CALL, r.name(args) sends NAME."},
     {0, NULL}
 };

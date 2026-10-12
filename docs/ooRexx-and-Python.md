@@ -146,7 +146,7 @@ Rexx's results follow [Values](#values) the other way: a Rexx string that is a n
 | `o.sendMessage(name, [args])`, `o.sendMessage0(name)` … `o.sendMessage5(name, a1, …, a5)` | the message, its name a string (`"[]="`, `"||"`, or a name held in a variable) |
 | `o.sendMessageScope(name, scope, [args])` | `o~name:scope(args)`: the method search starts at the class `scope` |
 
-The `sendMessage` methods are those of BSF4ooRexx's `RexxProxy`, with the same names. A Rexx object given back to Rexx is the object itself. A Python thread that uses an interpreter attaches to it for the call.
+The `sendMessage` methods are those of BSF4ooRexx's `RexxProxy`, with the same names. Two `oorexx.RexxObject`s of the same Rexx object are `==` (not `is`), with the same hash, and a Rexx object given back to Rexx is the object itself. A Python thread that uses an interpreter attaches to it for the call.
 
 ## ADDRESS
 
@@ -191,11 +191,11 @@ Any Rexx thread may use any `.PyObject`, and any Python thread any interpreter a
 - **Positions count from 0.** `o[0]` is the first item of a Python list or tuple, and `server_address[1]` the port.
 - **Rexx methods win.** `class`, `isA`, `string`, `hasMethod` and the other methods of Rexx's Object are Rexx's: `l~class` is `.PyObject`, Python's is `l~getattr("__class__")`. `copy`, `send`, `start` and `run` are the exception (see [Messages](#messages)).
 - **Bytes are strings.** Python's `bytes` come to Rexx as Rexx strings, and a Rexx string goes as `str` (or a number): to write to a binary stream, `.py~box("bytes", text)`.
-- **Two proxies of one Rexx object are two Python objects.** In Python, the same Rexx object passed twice gives two `oorexx.RexxObject`s, which are not `==`; given back to Rexx, both are the object itself.
 
 ## Guarantees
 
 - `a == b` on two `.PyObject`s is Python's `is`: the same Python object, however it came over.
+- In Python, `a == b` on two `oorexx.RexxObject`s is true when they are the same Rexx object, and their hashes agree, so either can be a dict key.
 - A Rexx object that goes to Python and back is the object itself, and so is a Python object that goes to Rexx and back.
 - Names are looked up when the message arrives, so an attribute added later is found.
 - What Python raised is kept in `condition("O")~additional[3]`, and is raised again as itself if it goes back to Python.
