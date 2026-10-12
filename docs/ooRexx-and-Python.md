@@ -16,7 +16,7 @@ m  = np~array(((1, 2), (3, 4)))
 say m~sum m~shape                               -- 10 (2, 2)
 say .py~round(np~linalg~det(m), 2)              -- -2.0
 plt = .py~import("matplotlib.pyplot")
-plt~plot(.array~of(1, 4, 9), .py~kw("color", "red"))
+plt~plot((1, 4, 9), .py~kw("color", "red"))
 plt~savefig("plot.png")
 
 ::requires "python.cls"
@@ -87,7 +87,7 @@ A Rexx string goes as:
 - a `float` when it is any other Rexx number with a decimal point or an exponent (`3.14`, `1E3`);
 - a `str` otherwise (`"007"`, `" 5"`, `"+5"`, any text).
 
-So `np~array(.array~of(1, 2))~mean` works, as Python never turns a string into a number by itself. One exception, taken from the function's own annotations: a `1` or `0` passed to a parameter annotated `bool` goes as `True` or `False`, so `.true` works for pandas' `inplace=`. A Rexx Array goes as a `list`, item by item under the same rule, as a copy. A `.PyObject` goes as its Python object. Any other Rexx object goes by reference, as an `oorexx.RexxObject` (see [Python using Rexx](#python-using-rexx)), and comes back to Rexx as itself.
+So `np~array((1, 2))~mean` works, as Python never turns a string into a number by itself. One exception, taken from the function's own annotations: a `1` or `0` passed to a parameter annotated `bool` goes as `True` or `False`, so `.true` works for pandas' `inplace=`. A Rexx Array goes as a `list`, item by item under the same rule, as a copy. A `.PyObject` goes as its Python object. Any other Rexx object goes by reference, as an `oorexx.RexxObject` (see [Python using Rexx](#python-using-rexx)), and comes back to Rexx as itself.
 
 When the rule picks the wrong type, a type can be forced. `.py~str(x)`, `~int(x)`, `~float(x)` and `~decimal(x)` (the latter keeping all of Rexx's digits) make the Python object and keep it as a `.PyObject`, so it is not converted back. `.py~box(type, x)` makes an object of any type from `x`'s text, never through the rule: `str`, `int`, `float`, `bool`, `bytes`, `complex`, `decimal`, `fraction`, or a Python class or function. Its argument order is BSF4ooRexx's.
 
