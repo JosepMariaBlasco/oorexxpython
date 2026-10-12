@@ -212,9 +212,14 @@
  * argument a StringTable: SELF (the Python object), SUPER (super(cls,
  * self): SUPER~run is the base class's run) and KWARGS (a StringTable of the
  * keyword arguments).  The Rexx object is made first, with no arguments (its
- * INIT is Rexx's own); then Python's __init__ runs with the constructor's
- * arguments: a Rexx method __init__ if the class has one (it calls the
- * base's itself, slot~super~__init__(...)), else the base's.
+ * INIT is Rexx's own); then the Python object, with the constructor's
+ * arguments: by a Rexx method __new__ if the class has one (SELF is the
+ * class; it calls the base's itself, slot~super~__new__(slot~self, ...)),
+ * else by the base's __new__ (immutable bases, str, int, tuple, take their
+ * value there); then Python's __init__ runs with the same arguments: a Rexx
+ * method __init__ if the class has one (it calls the base's itself,
+ * slot~super~__init__(...)), else the base's.  Instances come to Rexx as
+ * .PyObjects, even those of a str or int subclass.
  * The results of special methods are converted as Python requires
  * (__bool__ -> bool, __len__ -> int, __str__ -> str...).
  */
@@ -599,22 +604,60 @@ def make(bases, name, rexx, is_class, specs, dispatch):
         f.__qualname__ = name + '.' + py_name
         return f
 
+    rexx_new = None
     for spec in specs:
         rexx_name, _, exact = spec.partition(' ')
         py_name = _python_name(rexx_name, exact.strip(), bases)
-        ns[py_name] = method(py_name, rexx_name)
+        if py_name == '__new__':
+            rexx_new = rexx_name
+        else:
+            ns[py_name] = method(py_name, rexx_name)
 
-    # the Rexx object first (the base's __init__ may call overridden
-    # methods: socketserver's handlers do all their work there), then
-    # Python's __init__: the Rexx one, or the base's
+    def new_peer():
+        return rexx.new() if is_class else rexx
+
+    # Construction.  __new__ makes the Rexx object first, then the Python
+    # object: the Rexx class's __new__ (SELF is the class, SUPER
+    # super(cls, cls): SUPER~__new__(SELF, value) is the base's), else the
+    # base's, with the constructor's arguments (immutable bases, str, int,
+    # tuple, take their value there).  __init__ then runs: the Rexx one, or
+    # the base's.  The Rexx object exists before the base's __init__ (it may
+    # call overridden methods: socketserver's handlers do all their work
+    # there), and also for objects made without __init__.
     rexx_init = ns.get('__init__')
+    def __new__(cls_, *args, **kwargs):
+        peer = new_peer()
+        base_new = super(cls, cls_).__new__
+        if rexx_new is not None:
+            obj = dispatch(peer, rexx_new, list(args), cls_, super(cls, cls_), kwargs)
+        elif base_new is object.__new__:
+            if (args or kwargs) and rexx_init is None and super(cls, cls_).__init__ is object.__init__:
+                raise TypeError('%s() takes no arguments' % name)
+            obj = object.__new__(cls_)
+        else:
+            obj = base_new(cls_, *args, **kwargs)
+        if isinstance(obj, cls):
+            try:
+                object.__getattribute__(obj, '_oorexx_peer')
+            except AttributeError:
+                object.__setattr__(obj, '_oorexx_peer', peer)
+        return obj
+    ns['__new__'] = staticmethod(__new__)
+
     def __init__(self, *args, **kwargs):
-        object.__setattr__(self, '_oorexx_peer', rexx.new() if is_class else rexx)
+        try:
+            object.__getattribute__(self, '_oorexx_peer')
+        except AttributeError:
+            object.__setattr__(self, '_oorexx_peer', new_peer())
         if rexx_init is not None:
             rexx_init(self, *args, **kwargs)
+        elif super(cls, type(self)).__init__ is object.__init__:
+            object.__init__(self)        # the arguments were __new__'s
         else:
             super(cls, self).__init__(*args, **kwargs)
     ns['__init__'] = __init__
+    # instances come to Rexx as objects, even of a str or int subclass
+    ns['_oorexx_extended'] = True
 
     import types
     cls = types.new_class(name, tuple(bases), {}, lambda d: d.update(ns))

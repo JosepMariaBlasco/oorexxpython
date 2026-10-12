@@ -204,7 +204,8 @@ From Python to Rexx: `str`, `int`, `float`, `bool` (1 / 0), `bytes` and
 `None` (`.nil`) come back as Rexx strings; everything else as a `.PyObject`,
 by reference. numpy scalars (`np.float64`, `np.int64`...) are converted with
 `item()`, subclasses of `int` give their int value, floats use the plain
-`repr`.
+`repr`. Instances of classes made by `.py~extend` are the exception: they
+come as `.PyObject`s whatever their base (see *Subclassing*).
 
 From Rexx to Python, a Rexx string becomes:
 
@@ -318,12 +319,28 @@ w~start; w~join
   `__contains__` to `bool`, `__len__`, `__hash__`, `__index__` to `int`,
   `__str__`, `__repr__`, `__format__` to `str`...).
 - **Construction**: the Rexx object is made first, with no arguments (its
-  `INIT` is Rexx's own), then Python's `__init__` runs with the constructor's
-  arguments: the Rexx class's `__init__` method, if it has one, which calls
-  the base's (`slot~super~__init__(...)`), else the base's. The Rexx object
-  exists before the base's `__init__` runs, because some bases call
-  overridden methods there (a `socketserver` handler does all its work in
-  its constructor).
+  `INIT` is Rexx's own), in the class's `__new__`. Then the Python object is
+  made: by the Rexx class's `__new__` method, if it has one, which gets the
+  constructor's arguments with the class as `SELF` and `super(cls, cls)` as
+  `SUPER` (`slot~super~__new__(slot~self, value~upper)`), else by the
+  base's `__new__` with the constructor's arguments. Immutable bases (`str`,
+  `int`, `float`, `tuple`, `bytes`) take their value there:
+  `.py~extend("str", .Tag)~new("b")` is a `str` whose value is `"b"`. Then
+  Python's `__init__` runs with the same arguments: the Rexx class's
+  `__init__` method, if it has one, which calls the base's
+  (`slot~super~__init__(...)`), else the base's (`object`'s gets none, they
+  were `__new__`'s; with `object` as the only base and neither method in
+  Rexx, arguments are an error, as in Python). The Rexx object exists before
+  the base's `__init__` runs, because some bases call overridden methods
+  there (a `socketserver` handler does all its work in its constructor), and
+  for objects made without `__init__` (`cls.__new__(cls, ...)`). It does not
+  exist yet
+  while the base's `__new__` runs: a base that calls an overridden method
+  from its `__new__` is not supported.
+- **Values**: an instance of such a class reaches Rexx as a `.PyObject`,
+  even when its base is `str`, `int`, `float` or `bytes` (not as a Rexx
+  string, see *Values*): it has methods of its own. This includes `SELF`, so
+  `slot~self~upper` is Python's `str.upper`.
 - **Lifetime**: the Python object holds its Rexx object (in an attribute,
   `_oorexx_peer`, through the usual reference of *Lifetime*); the Rexx
   object does not hold the Python object, which it gets with each call. So

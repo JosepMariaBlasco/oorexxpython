@@ -602,9 +602,22 @@ static bool isNumpyScalar(PyObject *o)
     return numpy;
 }
 
+// an instance of a class made by py.extend (python.cls) that subclasses str,
+// int, float or bytes: it has Rexx methods, so it is not a plain value
+static bool isExtendedValue(PyObject *o)
+{
+    if (PyUnicode_CheckExact(o) || PyLong_CheckExact(o) || PyFloat_CheckExact(o) ||
+        PyBytes_CheckExact(o) || PyBool_Check(o))
+        return false;
+    if (!PyUnicode_Check(o) && !PyLong_Check(o) && !PyFloat_Check(o) && !PyBytes_Check(o))
+        return false;
+    return PyObject_HasAttrString((PyObject *)Py_TYPE(o), "_oorexx_extended") == 1;
+}
+
 // Python -> Val; steals the reference to o.  keep: always a proxy.
 static void pyToVal(PyObject *o, Val &v, bool keep = false)
 {
+    if (!keep && isExtendedValue(o)) keep = true;
     if (o == Py_None && !keep)
     {
         v.kind = Val::NIL;

@@ -41,6 +41,25 @@ class Sub(Worker):                       # a Python subclass of it
 s = Sub(5); s.start(); s.join()
 check("Python subclass, super()", s.out, 26)
 
+# an immutable base: the value goes to str.__new__
+Tag = r.routine('''
+  return .py~extend("str", .Tag)
+::class Tag
+::method __new__
+  use arg value, slot
+  return slot~super~__new__(slot~self, "<" || value || ">")
+::method bare
+  use arg slot
+  return slot~self~strip("<>")
+''')()
+t = Tag("b")
+check("str subclass made in Python", (t, isinstance(t, str), t.bare()), ("<b>", True, "b"))
+check("made without __init__, it has its Rexx object", Tag.__new__(Tag, "u").bare(), "u")
+class Loud(Tag):
+    def bare(self):
+        return super().bare().upper()
+check("Python subclass of it", (Loud("i"), Loud("i").bare()), ("<i>", "I"))
+
 # several Python threads at once in Rexx: needs ooRexx 5.3.0
 if r.eval(".RexxInfo~version~left(3)") >= 5.3:
     ts = [Worker(i) for i in range(8)]

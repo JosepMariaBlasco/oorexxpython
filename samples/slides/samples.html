@@ -5123,6 +5123,88 @@ best: Reus total: 800</code></pre>
      <div class="chrome"></div>
   </section>
 
+  <section class="slide logo-oorexx" id="ex25-immutable" data-title=".py~extend on immutable bases: a str with a Rexx __new__, an int with a method">
+    <p class="kicker">25-immutable.rex</p>
+
+<div class="title">
+<p><code>.py~extend</code> on immutable bases: a <code>str</code> with a Rexx <code>__new__</code>, an <code>int</code> with a method</p>
+</div>
+<div id="rx25" class="code highlight-rexx-tokio-day rx-blockwrap">
+<pre><code><span id="rx25-1"><a href="#rx25-1" aria-hidden="true" tabindex="-1"></a><span class="rx-var">Tag</span><span class="rx-ws"> </span><span class="rx-asg">=</span><span class="rx-ws"> </span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">extend</span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">str</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-env">.Tag</span><span class="rx-spe">)</span></span>
+<span id="rx25-2"><a href="#rx25-2" aria-hidden="true" tabindex="-1"></a><span class="rx-var">b</span><span class="rx-ws"> </span><span class="rx-asg">=</span><span class="rx-ws"> </span><span class="rx-var">Tag</span><span class="rx-op">~</span><span class="rx-const rx-method">new</span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">b</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">)</span></span>
+<span id="rx25-3"><a href="#rx25-3" aria-hidden="true" tabindex="-1"></a><span class="rx-kw">say</span><span class="rx-ws"> </span><span class="rx-var">b</span><span class="rx-ws"> </span><span class="rx-op">|</span><span class="rx-op">|</span><span class="rx-ws"> </span><span class="rx-str rx-oquo">"</span><span class="rx-str">bold</span><span class="rx-str rx-cquo">"</span><span class="rx-ws"> </span><span class="rx-op">|</span><span class="rx-op">|</span><span class="rx-ws"> </span><span class="rx-var">b</span><span class="rx-op">~</span><span class="rx-const rx-method">close</span><span class="rx-op"> </span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">isinstance</span><span class="rx-spe">(</span><span class="rx-var">b</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">getattr</span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">str</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">)</span><span class="rx-spe">)</span></span>
+<span id="rx25-4"><a href="#rx25-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="rx25-5"><a href="#rx25-5" aria-hidden="true" tabindex="-1"></a><span class="rx-var">Celsius</span><span class="rx-ws"> </span><span class="rx-asg">=</span><span class="rx-ws"> </span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">extend</span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">int</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-env">.Celsius</span><span class="rx-spe">)</span></span>
+<span id="rx25-6"><a href="#rx25-6" aria-hidden="true" tabindex="-1"></a><span class="rx-kw">say</span><span class="rx-ws"> </span><span class="rx-var">Celsius</span><span class="rx-op">~</span><span class="rx-const rx-method">new</span><span class="rx-spe">(</span><span class="rx-int rx-ipart">100</span><span class="rx-spe">)</span><span class="rx-op">~</span><span class="rx-const rx-method">fahrenheit</span></span>
+<span id="rx25-7"><a href="#rx25-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="rx25-8"><a href="#rx25-8" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">class</span><span class="rx-ws"> </span><span class="rx-const rx-class">Tag</span></span>
+<span id="rx25-9"><a href="#rx25-9" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">method</span><span class="rx-ws"> </span><span class="rx-const rx-method">__new__</span></span>
+<span id="rx25-10"><a href="#rx25-10" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">use</span><span class="rx-ws"> </span><span class="rx-skw">arg</span><span class="rx-ws"> </span><span class="rx-var">name</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-var">slot</span></span>
+<span id="rx25-11"><a href="#rx25-11" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">return</span><span class="rx-ws"> </span><span class="rx-var">slot</span><span class="rx-op">~</span><span class="rx-const rx-method">super</span><span class="rx-op">~</span><span class="rx-const rx-method">__new__</span><span class="rx-spe">(</span><span class="rx-var">slot</span><span class="rx-op">~</span><span class="rx-const rx-method">self</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-str rx-oquo">"</span><span class="rx-str">&lt;</span><span class="rx-str rx-cquo">"</span><span class="rx-ws"> </span><span class="rx-op">|</span><span class="rx-op">|</span><span class="rx-ws"> </span><span class="rx-var">name</span><span class="rx-ws"> </span><span class="rx-op">|</span><span class="rx-op">|</span><span class="rx-ws"> </span><span class="rx-str rx-oquo">"</span><span class="rx-str">&gt;</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">)</span></span>
+<span id="rx25-12"><a href="#rx25-12" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">method</span><span class="rx-ws"> </span><span class="rx-const rx-method">close</span></span>
+<span id="rx25-13"><a href="#rx25-13" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">use</span><span class="rx-ws"> </span><span class="rx-skw">arg</span><span class="rx-ws"> </span><span class="rx-var">slot</span></span>
+<span id="rx25-14"><a href="#rx25-14" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">return</span><span class="rx-ws"> </span><span class="rx-str rx-oquo">"</span><span class="rx-str">&lt;/</span><span class="rx-str rx-cquo">"</span><span class="rx-ws"> </span><span class="rx-op">|</span><span class="rx-op">|</span><span class="rx-ws"> </span><span class="rx-var">slot</span><span class="rx-op">~</span><span class="rx-const rx-method">self</span><span class="rx-op">~</span><span class="rx-const rx-method">string</span><span class="rx-op">~</span><span class="rx-const rx-method">substr</span><span class="rx-spe">(</span><span class="rx-int rx-ipart">2</span><span class="rx-spe">)</span></span>
+<span id="rx25-15"><a href="#rx25-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="rx25-16"><a href="#rx25-16" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">class</span><span class="rx-ws"> </span><span class="rx-const rx-class">Celsius</span></span>
+<span id="rx25-17"><a href="#rx25-17" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">method</span><span class="rx-ws"> </span><span class="rx-const rx-method">fahrenheit</span></span>
+<span id="rx25-18"><a href="#rx25-18" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">use</span><span class="rx-ws"> </span><span class="rx-skw">arg</span><span class="rx-ws"> </span><span class="rx-var">slot</span></span>
+<span id="rx25-19"><a href="#rx25-19" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">return</span><span class="rx-ws"> </span><span class="rx-var">slot</span><span class="rx-op">~</span><span class="rx-const rx-method">self</span><span class="rx-ws"> </span><span class="rx-op">*</span><span class="rx-ws"> </span><span class="rx-int rx-ipart">9</span><span class="rx-ws"> </span><span class="rx-op">/</span><span class="rx-ws"> </span><span class="rx-int rx-ipart">5</span><span class="rx-ws"> </span><span class="rx-op">+</span><span class="rx-ws"> </span><span class="rx-int rx-ipart">32</span></span>
+<span id="rx25-20"><a href="#rx25-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="rx25-21"><a href="#rx25-21" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">requires</span><span class="rx-ws"> </span><span class="rx-const rx-requires rx-oquo">"</span><span class="rx-const rx-requires">python.cls</span><span class="rx-const rx-requires rx-cquo">"</span></span></code></pre>
+</div>
+    <div class="margin header">
+      <div class="m-left"></div>
+      <div class="m-center"></div>
+      <div class="m-right"></div>
+    </div>
+    <div class="margin footer">
+      <div class="m-left">{page}</div>
+      <div class="m-center"></div>
+      <div class="m-right"></div>
+    </div>
+     <div class="chrome"></div>
+  </section>
+
+  <section class="slide logo-oorexx" id="ex25-immutable-2" data-title=".py~extend on immutable bases: a str with a Rexx __new__, an int with a method">
+    <p class="kicker">25-immutable.rex</p>
+
+<div class="title">
+<p><code>.py~extend</code> on immutable bases: a <code>str</code> with a Rexx <code>__new__</code>, an <code>int</code> with a method</p>
+</div>
+<div class="body">
+<p>Rexx methods on a str, an int or a tuple. An immutable Python object gets its value in <strong>new</strong>, not <strong>init</strong>: .py~extend passes the constructor's arguments to the base's <strong>new</strong>, so Tag~new("b") is a str whose value is "b". A Rexx method <strong>new</strong> can change the value first: SELF is then the class, and SUPER~<strong>new</strong> is the base's. Such objects stay Python objects in Rexx, with their methods.</p>
+</div>
+<div class="row">
+<div class="col-9">
+<p class="label">Python</p>
+<div class="sourceCode" id="cb49"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb49-1"><a href="#cb49-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Tag(<span class="bu">str</span>):</span>
+<span id="cb49-2"><a href="#cb49-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__new__</span>(cls, name): <span class="cf">return</span> <span class="bu">super</span>().<span class="fu">__new__</span>(cls, <span class="st">&quot;&lt;&quot;</span> <span class="op">+</span> name <span class="op">+</span> <span class="st">&quot;&gt;&quot;</span>)</span>
+<span id="cb49-3"><a href="#cb49-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> close(<span class="va">self</span>): <span class="cf">return</span> <span class="st">&quot;&lt;/&quot;</span> <span class="op">+</span> <span class="va">self</span>[<span class="dv">1</span>:]</span>
+<span id="cb49-4"><a href="#cb49-4" aria-hidden="true" tabindex="-1"></a>b <span class="op">=</span> Tag(<span class="st">&quot;b&quot;</span>)</span>
+<span id="cb49-5"><a href="#cb49-5" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(b <span class="op">+</span> <span class="st">&quot;bold&quot;</span> <span class="op">+</span> b.close(), <span class="bu">isinstance</span>(b, <span class="bu">str</span>))</span>
+<span id="cb49-6"><a href="#cb49-6" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Celsius(<span class="bu">int</span>):</span>
+<span id="cb49-7"><a href="#cb49-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> fahrenheit(<span class="va">self</span>): <span class="cf">return</span> <span class="va">self</span> <span class="op">*</span> <span class="dv">9</span> <span class="op">//</span> <span class="dv">5</span> <span class="op">+</span> <span class="dv">32</span></span>
+<span id="cb49-8"><a href="#cb49-8" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(Celsius(<span class="dv">100</span>).fahrenheit())</span></code></pre></div>
+</div>
+<div class="col-3">
+<p class="label">Output</p>
+<pre class="output"><code>&lt;b&gt;bold&lt;/b&gt; 1
+212</code></pre>
+</div>
+</div>
+    <div class="margin header">
+      <div class="m-left"></div>
+      <div class="m-center"></div>
+      <div class="m-right"></div>
+    </div>
+    <div class="margin footer">
+      <div class="m-left">{page}</div>
+      <div class="m-center"></div>
+      <div class="m-right"></div>
+    </div>
+     <div class="chrome"></div>
+  </section>
+
   <section class="slide section logo-python" id="python-using-oorexx" data-section="Python using ooRexx">
 
 <div class="title">
@@ -5147,19 +5229,19 @@ best: Reus total: 800</code></pre>
 <div class="title">
 <p><code>oorexx.Interpreter</code>: eval, routine, run a program</p>
 </div>
-<div class="sourceCode" id="cb49"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb49-1"><a href="#cb49-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os, tempfile</span>
-<span id="cb49-2"><a href="#cb49-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> oorexx</span>
-<span id="cb49-3"><a href="#cb49-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb49-4"><a href="#cb49-4" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> oorexx.Interpreter() <span class="im">as</span> rexx:</span>
-<span id="cb49-5"><a href="#cb49-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(rexx.<span class="bu">eval</span>(<span class="st">&quot;2 ** 100&quot;</span>))              <span class="co"># Rexx&#39;s 1.26765060E+30 (9 digits): a float</span></span>
-<span id="cb49-6"><a href="#cb49-6" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(rexx.routine(<span class="st">&quot;numeric digits 40; return 2 ** 100&quot;</span>)())   <span class="co"># exact: an int</span></span>
-<span id="cb49-7"><a href="#cb49-7" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(rexx.<span class="bu">eval</span>(<span class="st">&quot;&#39;Hello&#39;~reverse~upper&quot;</span>))</span>
-<span id="cb49-8"><a href="#cb49-8" aria-hidden="true" tabindex="-1"></a>    area <span class="op">=</span> rexx.routine(<span class="st">&quot;use arg w, h; return w * h&quot;</span>)</span>
-<span id="cb49-9"><a href="#cb49-9" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(area(<span class="dv">6</span>, <span class="dv">7</span>), <span class="bu">type</span>(area(<span class="dv">6</span>, <span class="dv">7</span>)).<span class="va">__name__</span>)</span>
-<span id="cb49-10"><a href="#cb49-10" aria-hidden="true" tabindex="-1"></a>    folder <span class="op">=</span> tempfile.mkdtemp()</span>
-<span id="cb49-11"><a href="#cb49-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">with</span> <span class="bu">open</span>(os.path.join(folder, <span class="st">&quot;greet.rex&quot;</span>), <span class="st">&quot;w&quot;</span>) <span class="im">as</span> f:</span>
-<span id="cb49-12"><a href="#cb49-12" aria-hidden="true" tabindex="-1"></a>        f.write(<span class="st">&quot;parse arg who</span><span class="ch">\n</span><span class="st">say &#39;Hello,&#39; who&#39;!&#39;</span><span class="ch">\n</span><span class="st">return length(who)</span><span class="ch">\n</span><span class="st">&quot;</span>)</span>
-<span id="cb49-13"><a href="#cb49-13" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(rexx.run(os.path.join(folder, <span class="st">&quot;greet.rex&quot;</span>), <span class="st">&quot;ooRexx&quot;</span>))</span></code></pre></div>
+<div class="sourceCode" id="cb51"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb51-1"><a href="#cb51-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os, tempfile</span>
+<span id="cb51-2"><a href="#cb51-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> oorexx</span>
+<span id="cb51-3"><a href="#cb51-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb51-4"><a href="#cb51-4" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> oorexx.Interpreter() <span class="im">as</span> rexx:</span>
+<span id="cb51-5"><a href="#cb51-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(rexx.<span class="bu">eval</span>(<span class="st">&quot;2 ** 100&quot;</span>))              <span class="co"># Rexx&#39;s 1.26765060E+30 (9 digits): a float</span></span>
+<span id="cb51-6"><a href="#cb51-6" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(rexx.routine(<span class="st">&quot;numeric digits 40; return 2 ** 100&quot;</span>)())   <span class="co"># exact: an int</span></span>
+<span id="cb51-7"><a href="#cb51-7" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(rexx.<span class="bu">eval</span>(<span class="st">&quot;&#39;Hello&#39;~reverse~upper&quot;</span>))</span>
+<span id="cb51-8"><a href="#cb51-8" aria-hidden="true" tabindex="-1"></a>    area <span class="op">=</span> rexx.routine(<span class="st">&quot;use arg w, h; return w * h&quot;</span>)</span>
+<span id="cb51-9"><a href="#cb51-9" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(area(<span class="dv">6</span>, <span class="dv">7</span>), <span class="bu">type</span>(area(<span class="dv">6</span>, <span class="dv">7</span>)).<span class="va">__name__</span>)</span>
+<span id="cb51-10"><a href="#cb51-10" aria-hidden="true" tabindex="-1"></a>    folder <span class="op">=</span> tempfile.mkdtemp()</span>
+<span id="cb51-11"><a href="#cb51-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">with</span> <span class="bu">open</span>(os.path.join(folder, <span class="st">&quot;greet.rex&quot;</span>), <span class="st">&quot;w&quot;</span>) <span class="im">as</span> f:</span>
+<span id="cb51-12"><a href="#cb51-12" aria-hidden="true" tabindex="-1"></a>        f.write(<span class="st">&quot;parse arg who</span><span class="ch">\n</span><span class="st">say &#39;Hello,&#39; who&#39;!&#39;</span><span class="ch">\n</span><span class="st">return length(who)</span><span class="ch">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb51-13"><a href="#cb51-13" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(rexx.run(os.path.join(folder, <span class="st">&quot;greet.rex&quot;</span>), <span class="st">&quot;ooRexx&quot;</span>))</span></code></pre></div>
     <div class="margin header">
       <div class="m-left"></div>
       <div class="m-center"></div>
@@ -5213,19 +5295,19 @@ REXXout&gt;Hello, ooRexx!
 </div>
 <div class="row">
 <div class="col-8">
-<div class="sourceCode" id="cb51"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb51-1"><a href="#cb51-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> oorexx</span>
-<span id="cb51-2"><a href="#cb51-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb51-3"><a href="#cb51-3" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> oorexx.Interpreter() <span class="im">as</span> rexx:</span>
-<span id="cb51-4"><a href="#cb51-4" aria-hidden="true" tabindex="-1"></a>    d <span class="op">=</span> rexx.<span class="bu">eval</span>(<span class="st">&quot;.directory~new&quot;</span>)</span>
-<span id="cb51-5"><a href="#cb51-5" aria-hidden="true" tabindex="-1"></a>    d[<span class="st">&quot;NAME&quot;</span>] <span class="op">=</span> <span class="st">&quot;Ann&quot;</span></span>
-<span id="cb51-6"><a href="#cb51-6" aria-hidden="true" tabindex="-1"></a>    d[<span class="st">&quot;AGE&quot;</span>] <span class="op">=</span> <span class="dv">31</span></span>
-<span id="cb51-7"><a href="#cb51-7" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="bu">len</span>(d), d[<span class="st">&quot;NAME&quot;</span>], d.hasIndex(<span class="st">&quot;AGE&quot;</span>), <span class="bu">sorted</span>(d.allIndexes()))</span>
-<span id="cb51-8"><a href="#cb51-8" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(rexx.<span class="bu">eval</span>(<span class="st">&quot;.array~of(3, 1, 2)~sort&quot;</span>))</span>
-<span id="cb51-9"><a href="#cb51-9" aria-hidden="true" tabindex="-1"></a>    stack <span class="op">=</span> rexx.<span class="bu">eval</span>(<span class="st">&quot;.queue~new&quot;</span>)</span>
-<span id="cb51-10"><a href="#cb51-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> word <span class="kw">in</span> <span class="st">&quot;to be or not&quot;</span>.split():</span>
-<span id="cb51-11"><a href="#cb51-11" aria-hidden="true" tabindex="-1"></a>        stack.push(word)</span>
-<span id="cb51-12"><a href="#cb51-12" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>([w <span class="cf">for</span> w <span class="kw">in</span> stack])</span>
-<span id="cb51-13"><a href="#cb51-13" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="bu">str</span>(rexx.<span class="bu">eval</span>(<span class="st">&quot;.dateTime~new(2026, 10, 7)~standardDate&quot;</span>)))</span></code></pre></div>
+<div class="sourceCode" id="cb53"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb53-1"><a href="#cb53-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> oorexx</span>
+<span id="cb53-2"><a href="#cb53-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb53-3"><a href="#cb53-3" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> oorexx.Interpreter() <span class="im">as</span> rexx:</span>
+<span id="cb53-4"><a href="#cb53-4" aria-hidden="true" tabindex="-1"></a>    d <span class="op">=</span> rexx.<span class="bu">eval</span>(<span class="st">&quot;.directory~new&quot;</span>)</span>
+<span id="cb53-5"><a href="#cb53-5" aria-hidden="true" tabindex="-1"></a>    d[<span class="st">&quot;NAME&quot;</span>] <span class="op">=</span> <span class="st">&quot;Ann&quot;</span></span>
+<span id="cb53-6"><a href="#cb53-6" aria-hidden="true" tabindex="-1"></a>    d[<span class="st">&quot;AGE&quot;</span>] <span class="op">=</span> <span class="dv">31</span></span>
+<span id="cb53-7"><a href="#cb53-7" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="bu">len</span>(d), d[<span class="st">&quot;NAME&quot;</span>], d.hasIndex(<span class="st">&quot;AGE&quot;</span>), <span class="bu">sorted</span>(d.allIndexes()))</span>
+<span id="cb53-8"><a href="#cb53-8" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(rexx.<span class="bu">eval</span>(<span class="st">&quot;.array~of(3, 1, 2)~sort&quot;</span>))</span>
+<span id="cb53-9"><a href="#cb53-9" aria-hidden="true" tabindex="-1"></a>    stack <span class="op">=</span> rexx.<span class="bu">eval</span>(<span class="st">&quot;.queue~new&quot;</span>)</span>
+<span id="cb53-10"><a href="#cb53-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> word <span class="kw">in</span> <span class="st">&quot;to be or not&quot;</span>.split():</span>
+<span id="cb53-11"><a href="#cb53-11" aria-hidden="true" tabindex="-1"></a>        stack.push(word)</span>
+<span id="cb53-12"><a href="#cb53-12" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>([w <span class="cf">for</span> w <span class="kw">in</span> stack])</span>
+<span id="cb53-13"><a href="#cb53-13" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="bu">str</span>(rexx.<span class="bu">eval</span>(<span class="st">&quot;.dateTime~new(2026, 10, 7)~standardDate&quot;</span>)))</span></code></pre></div>
 </div>
 <div class="col-4">
 <p class="label">Output</p>
@@ -5254,26 +5336,26 @@ REXXout&gt;Hello, ooRexx!
 <div class="title">
 <p>An ADDRESS environment written in Python</p>
 </div>
-<div class="sourceCode" id="cb53"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb53-1"><a href="#cb53-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> oorexx</span>
-<span id="cb53-2"><a href="#cb53-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb53-3"><a href="#cb53-3" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> calc(command, ctx):</span>
-<span id="cb53-4"><a href="#cb53-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">&quot;&quot;&quot;ADDRESS CALC: evaluate a Python expression, put it in the variable RESULT.&quot;&quot;&quot;</span></span>
-<span id="cb53-5"><a href="#cb53-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">try</span>:</span>
-<span id="cb53-6"><a href="#cb53-6" aria-hidden="true" tabindex="-1"></a>        ctx.set_var(<span class="st">&quot;RESULT&quot;</span>, <span class="bu">eval</span>(command, {<span class="st">&quot;__builtins__&quot;</span>: {}, <span class="st">&quot;max&quot;</span>: <span class="bu">max</span>}))</span>
-<span id="cb53-7"><a href="#cb53-7" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="dv">0</span></span>
-<span id="cb53-8"><a href="#cb53-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">except</span> <span class="pp">Exception</span> <span class="im">as</span> e:</span>
-<span id="cb53-9"><a href="#cb53-9" aria-hidden="true" tabindex="-1"></a>        ctx.set_var(<span class="st">&quot;RESULT&quot;</span>, <span class="bu">str</span>(e))</span>
-<span id="cb53-10"><a href="#cb53-10" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="dv">1</span></span>
-<span id="cb53-11"><a href="#cb53-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb53-12"><a href="#cb53-12" aria-hidden="true" tabindex="-1"></a>rexx <span class="op">=</span> oorexx.Interpreter(command_environments<span class="op">=</span>{<span class="st">&quot;CALC&quot;</span>: calc})</span>
-<span id="cb53-13"><a href="#cb53-13" aria-hidden="true" tabindex="-1"></a>program <span class="op">=</span> rexx.routine(<span class="st">&quot;&quot;&quot;</span></span>
-<span id="cb53-14"><a href="#cb53-14" aria-hidden="true" tabindex="-1"></a><span class="st">address calc</span></span>
-<span id="cb53-15"><a href="#cb53-15" aria-hidden="true" tabindex="-1"></a><span class="st">&#39;2 ** 10&#39;;      say rc result</span></span>
-<span id="cb53-16"><a href="#cb53-16" aria-hidden="true" tabindex="-1"></a><span class="st">&#39;max(3, 9, 4)&#39;; say rc result</span></span>
-<span id="cb53-17"><a href="#cb53-17" aria-hidden="true" tabindex="-1"></a><span class="st">&#39;1 / 0&#39;;        say rc result</span></span>
-<span id="cb53-18"><a href="#cb53-18" aria-hidden="true" tabindex="-1"></a><span class="st">&quot;&quot;&quot;</span>)</span>
-<span id="cb53-19"><a href="#cb53-19" aria-hidden="true" tabindex="-1"></a>program()</span>
-<span id="cb53-20"><a href="#cb53-20" aria-hidden="true" tabindex="-1"></a>rexx.close()</span></code></pre></div>
+<div class="sourceCode" id="cb55"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb55-1"><a href="#cb55-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> oorexx</span>
+<span id="cb55-2"><a href="#cb55-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb55-3"><a href="#cb55-3" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> calc(command, ctx):</span>
+<span id="cb55-4"><a href="#cb55-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">&quot;&quot;&quot;ADDRESS CALC: evaluate a Python expression, put it in the variable RESULT.&quot;&quot;&quot;</span></span>
+<span id="cb55-5"><a href="#cb55-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">try</span>:</span>
+<span id="cb55-6"><a href="#cb55-6" aria-hidden="true" tabindex="-1"></a>        ctx.set_var(<span class="st">&quot;RESULT&quot;</span>, <span class="bu">eval</span>(command, {<span class="st">&quot;__builtins__&quot;</span>: {}, <span class="st">&quot;max&quot;</span>: <span class="bu">max</span>}))</span>
+<span id="cb55-7"><a href="#cb55-7" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="dv">0</span></span>
+<span id="cb55-8"><a href="#cb55-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">except</span> <span class="pp">Exception</span> <span class="im">as</span> e:</span>
+<span id="cb55-9"><a href="#cb55-9" aria-hidden="true" tabindex="-1"></a>        ctx.set_var(<span class="st">&quot;RESULT&quot;</span>, <span class="bu">str</span>(e))</span>
+<span id="cb55-10"><a href="#cb55-10" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="dv">1</span></span>
+<span id="cb55-11"><a href="#cb55-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb55-12"><a href="#cb55-12" aria-hidden="true" tabindex="-1"></a>rexx <span class="op">=</span> oorexx.Interpreter(command_environments<span class="op">=</span>{<span class="st">&quot;CALC&quot;</span>: calc})</span>
+<span id="cb55-13"><a href="#cb55-13" aria-hidden="true" tabindex="-1"></a>program <span class="op">=</span> rexx.routine(<span class="st">&quot;&quot;&quot;</span></span>
+<span id="cb55-14"><a href="#cb55-14" aria-hidden="true" tabindex="-1"></a><span class="st">address calc</span></span>
+<span id="cb55-15"><a href="#cb55-15" aria-hidden="true" tabindex="-1"></a><span class="st">&#39;2 ** 10&#39;;      say rc result</span></span>
+<span id="cb55-16"><a href="#cb55-16" aria-hidden="true" tabindex="-1"></a><span class="st">&#39;max(3, 9, 4)&#39;; say rc result</span></span>
+<span id="cb55-17"><a href="#cb55-17" aria-hidden="true" tabindex="-1"></a><span class="st">&#39;1 / 0&#39;;        say rc result</span></span>
+<span id="cb55-18"><a href="#cb55-18" aria-hidden="true" tabindex="-1"></a><span class="st">&quot;&quot;&quot;</span>)</span>
+<span id="cb55-19"><a href="#cb55-19" aria-hidden="true" tabindex="-1"></a>program()</span>
+<span id="cb55-20"><a href="#cb55-20" aria-hidden="true" tabindex="-1"></a>rexx.close()</span></code></pre></div>
     <div class="margin header">
       <div class="m-left"></div>
       <div class="m-center"></div>
@@ -5319,25 +5401,25 @@ REXXout&gt;1 division by zero</code></pre>
 <div class="title">
 <p>Rexx's streams through Python's, with prefixes (<code>REXXout&gt;</code>)</p>
 </div>
-<div class="sourceCode" id="cb55"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb55-1"><a href="#cb55-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> contextlib, io, sys</span>
-<span id="cb55-2"><a href="#cb55-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> oorexx</span>
-<span id="cb55-3"><a href="#cb55-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb55-4"><a href="#cb55-4" aria-hidden="true" tabindex="-1"></a>rexx <span class="op">=</span> oorexx.Interpreter()</span>
-<span id="cb55-5"><a href="#cb55-5" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">&quot;from Python&quot;</span>)</span>
-<span id="cb55-6"><a href="#cb55-6" aria-hidden="true" tabindex="-1"></a>rexx.routine(<span class="st">&quot;say &#39;from Rexx&#39;&quot;</span>)()</span>
-<span id="cb55-7"><a href="#cb55-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb55-8"><a href="#cb55-8" aria-hidden="true" tabindex="-1"></a>chatty <span class="op">=</span> rexx.routine(<span class="st">&quot;do i = 1 to 2; say &#39;line&#39; i; end; .error~lineout(&#39;a warning&#39;)&quot;</span>)</span>
-<span id="cb55-9"><a href="#cb55-9" aria-hidden="true" tabindex="-1"></a>out, err <span class="op">=</span> io.StringIO(), io.StringIO()</span>
-<span id="cb55-10"><a href="#cb55-10" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):</span>
-<span id="cb55-11"><a href="#cb55-11" aria-hidden="true" tabindex="-1"></a>    chatty()</span>
-<span id="cb55-12"><a href="#cb55-12" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">&quot;stdout:&quot;</span>, out.getvalue().splitlines())</span>
-<span id="cb55-13"><a href="#cb55-13" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">&quot;stderr:&quot;</span>, err.getvalue().splitlines())</span>
-<span id="cb55-14"><a href="#cb55-14" aria-hidden="true" tabindex="-1"></a>rexx.close()</span>
-<span id="cb55-15"><a href="#cb55-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb55-16"><a href="#cb55-16" aria-hidden="true" tabindex="-1"></a>plain <span class="op">=</span> oorexx.Interpreter(prefixes<span class="op">=</span><span class="va">False</span>)       <span class="co"># no prefixes</span></span>
-<span id="cb55-17"><a href="#cb55-17" aria-hidden="true" tabindex="-1"></a>sys.stdin <span class="op">=</span> io.StringIO(<span class="st">&quot;Josep Maria</span><span class="ch">\n</span><span class="st">&quot;</span>)</span>
-<span id="cb55-18"><a href="#cb55-18" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(plain.routine(<span class="st">&quot;say &#39;Your name?&#39;; parse pull name; return &#39;Hi,&#39; name&quot;</span>)())</span>
-<span id="cb55-19"><a href="#cb55-19" aria-hidden="true" tabindex="-1"></a>plain.close()</span></code></pre></div>
+<div class="sourceCode" id="cb57"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb57-1"><a href="#cb57-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> contextlib, io, sys</span>
+<span id="cb57-2"><a href="#cb57-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> oorexx</span>
+<span id="cb57-3"><a href="#cb57-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb57-4"><a href="#cb57-4" aria-hidden="true" tabindex="-1"></a>rexx <span class="op">=</span> oorexx.Interpreter()</span>
+<span id="cb57-5"><a href="#cb57-5" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">&quot;from Python&quot;</span>)</span>
+<span id="cb57-6"><a href="#cb57-6" aria-hidden="true" tabindex="-1"></a>rexx.routine(<span class="st">&quot;say &#39;from Rexx&#39;&quot;</span>)()</span>
+<span id="cb57-7"><a href="#cb57-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb57-8"><a href="#cb57-8" aria-hidden="true" tabindex="-1"></a>chatty <span class="op">=</span> rexx.routine(<span class="st">&quot;do i = 1 to 2; say &#39;line&#39; i; end; .error~lineout(&#39;a warning&#39;)&quot;</span>)</span>
+<span id="cb57-9"><a href="#cb57-9" aria-hidden="true" tabindex="-1"></a>out, err <span class="op">=</span> io.StringIO(), io.StringIO()</span>
+<span id="cb57-10"><a href="#cb57-10" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):</span>
+<span id="cb57-11"><a href="#cb57-11" aria-hidden="true" tabindex="-1"></a>    chatty()</span>
+<span id="cb57-12"><a href="#cb57-12" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">&quot;stdout:&quot;</span>, out.getvalue().splitlines())</span>
+<span id="cb57-13"><a href="#cb57-13" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">&quot;stderr:&quot;</span>, err.getvalue().splitlines())</span>
+<span id="cb57-14"><a href="#cb57-14" aria-hidden="true" tabindex="-1"></a>rexx.close()</span>
+<span id="cb57-15"><a href="#cb57-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb57-16"><a href="#cb57-16" aria-hidden="true" tabindex="-1"></a>plain <span class="op">=</span> oorexx.Interpreter(prefixes<span class="op">=</span><span class="va">False</span>)       <span class="co"># no prefixes</span></span>
+<span id="cb57-17"><a href="#cb57-17" aria-hidden="true" tabindex="-1"></a>sys.stdin <span class="op">=</span> io.StringIO(<span class="st">&quot;Josep Maria</span><span class="ch">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb57-18"><a href="#cb57-18" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(plain.routine(<span class="st">&quot;say &#39;Your name?&#39;; parse pull name; return &#39;Hi,&#39; name&quot;</span>)())</span>
+<span id="cb57-19"><a href="#cb57-19" aria-hidden="true" tabindex="-1"></a>plain.close()</span></code></pre></div>
     <div class="margin header">
       <div class="m-left"></div>
       <div class="m-center"></div>
@@ -5386,28 +5468,28 @@ Hi, Josep Maria</code></pre>
 <div class="title">
 <p>Messages by name: <code>sendMessage</code>, <code>sendMessage0</code>…<code>5</code>, <code>sendMessageScope</code> (as BSF4ooRexx)</p>
 </div>
-<div class="sourceCode" id="cb57"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb57-1"><a href="#cb57-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> oorexx</span>
-<span id="cb57-2"><a href="#cb57-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb57-3"><a href="#cb57-3" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> oorexx.Interpreter() <span class="im">as</span> rexx:</span>
-<span id="cb57-4"><a href="#cb57-4" aria-hidden="true" tabindex="-1"></a>    square, circle <span class="op">=</span> rexx.routine(<span class="st">&quot;&quot;&quot;</span></span>
-<span id="cb57-5"><a href="#cb57-5" aria-hidden="true" tabindex="-1"></a><span class="st">      return .Square, .Circle</span></span>
-<span id="cb57-6"><a href="#cb57-6" aria-hidden="true" tabindex="-1"></a><span class="st">      ::class Shape</span></span>
-<span id="cb57-7"><a href="#cb57-7" aria-hidden="true" tabindex="-1"></a><span class="st">      ::method describe; return &quot;a shape&quot;</span></span>
-<span id="cb57-8"><a href="#cb57-8" aria-hidden="true" tabindex="-1"></a><span class="st">      ::class Square subclass Shape</span></span>
-<span id="cb57-9"><a href="#cb57-9" aria-hidden="true" tabindex="-1"></a><span class="st">      ::method describe; return &quot;a square&quot;</span></span>
-<span id="cb57-10"><a href="#cb57-10" aria-hidden="true" tabindex="-1"></a><span class="st">      ::method area;     use arg side; return side * side</span></span>
-<span id="cb57-11"><a href="#cb57-11" aria-hidden="true" tabindex="-1"></a><span class="st">      ::class Circle subclass Shape</span></span>
-<span id="cb57-12"><a href="#cb57-12" aria-hidden="true" tabindex="-1"></a><span class="st">      ::method describe; return &quot;a circle&quot;</span></span>
-<span id="cb57-13"><a href="#cb57-13" aria-hidden="true" tabindex="-1"></a><span class="st">      ::method area;     use arg r; return 3.14159 * r * r</span></span>
-<span id="cb57-14"><a href="#cb57-14" aria-hidden="true" tabindex="-1"></a><span class="st">    &quot;&quot;&quot;</span>)()</span>
-<span id="cb57-15"><a href="#cb57-15" aria-hidden="true" tabindex="-1"></a>    s <span class="op">=</span> square.new()</span>
-<span id="cb57-16"><a href="#cb57-16" aria-hidden="true" tabindex="-1"></a>    message <span class="op">=</span> <span class="st">&quot;describe&quot;</span>                               <span class="co"># a name in a variable</span></span>
-<span id="cb57-17"><a href="#cb57-17" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(s.sendMessage(message), s.sendMessage1(<span class="st">&quot;area&quot;</span>, <span class="dv">3</span>), circle.new().sendMessage(<span class="st">&quot;area&quot;</span>, [<span class="dv">1</span>]))</span>
-<span id="cb57-18"><a href="#cb57-18" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(s.sendMessageScope(<span class="st">&quot;describe&quot;</span>, square.superclass()))     <span class="co"># Shape&#39;s describe</span></span>
-<span id="cb57-19"><a href="#cb57-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb57-20"><a href="#cb57-20" aria-hidden="true" tabindex="-1"></a>    d <span class="op">=</span> rexx.<span class="bu">eval</span>(<span class="st">&quot;.directory~new&quot;</span>)</span>
-<span id="cb57-21"><a href="#cb57-21" aria-hidden="true" tabindex="-1"></a>    d.sendMessage2(<span class="st">&quot;[]=&quot;</span>, <span class="st">&quot;ooRexx&quot;</span>, <span class="st">&quot;lang&quot;</span>)           <span class="co"># d[&quot;lang&quot;] = &quot;ooRexx&quot;</span></span>
-<span id="cb57-22"><a href="#cb57-22" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(d.sendMessage1(<span class="st">&quot;[]&quot;</span>, <span class="st">&quot;lang&quot;</span>), d.sendMessage0(<span class="st">&quot;items&quot;</span>))</span></code></pre></div>
+<div class="sourceCode" id="cb59"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb59-1"><a href="#cb59-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> oorexx</span>
+<span id="cb59-2"><a href="#cb59-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb59-3"><a href="#cb59-3" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> oorexx.Interpreter() <span class="im">as</span> rexx:</span>
+<span id="cb59-4"><a href="#cb59-4" aria-hidden="true" tabindex="-1"></a>    square, circle <span class="op">=</span> rexx.routine(<span class="st">&quot;&quot;&quot;</span></span>
+<span id="cb59-5"><a href="#cb59-5" aria-hidden="true" tabindex="-1"></a><span class="st">      return .Square, .Circle</span></span>
+<span id="cb59-6"><a href="#cb59-6" aria-hidden="true" tabindex="-1"></a><span class="st">      ::class Shape</span></span>
+<span id="cb59-7"><a href="#cb59-7" aria-hidden="true" tabindex="-1"></a><span class="st">      ::method describe; return &quot;a shape&quot;</span></span>
+<span id="cb59-8"><a href="#cb59-8" aria-hidden="true" tabindex="-1"></a><span class="st">      ::class Square subclass Shape</span></span>
+<span id="cb59-9"><a href="#cb59-9" aria-hidden="true" tabindex="-1"></a><span class="st">      ::method describe; return &quot;a square&quot;</span></span>
+<span id="cb59-10"><a href="#cb59-10" aria-hidden="true" tabindex="-1"></a><span class="st">      ::method area;     use arg side; return side * side</span></span>
+<span id="cb59-11"><a href="#cb59-11" aria-hidden="true" tabindex="-1"></a><span class="st">      ::class Circle subclass Shape</span></span>
+<span id="cb59-12"><a href="#cb59-12" aria-hidden="true" tabindex="-1"></a><span class="st">      ::method describe; return &quot;a circle&quot;</span></span>
+<span id="cb59-13"><a href="#cb59-13" aria-hidden="true" tabindex="-1"></a><span class="st">      ::method area;     use arg r; return 3.14159 * r * r</span></span>
+<span id="cb59-14"><a href="#cb59-14" aria-hidden="true" tabindex="-1"></a><span class="st">    &quot;&quot;&quot;</span>)()</span>
+<span id="cb59-15"><a href="#cb59-15" aria-hidden="true" tabindex="-1"></a>    s <span class="op">=</span> square.new()</span>
+<span id="cb59-16"><a href="#cb59-16" aria-hidden="true" tabindex="-1"></a>    message <span class="op">=</span> <span class="st">&quot;describe&quot;</span>                               <span class="co"># a name in a variable</span></span>
+<span id="cb59-17"><a href="#cb59-17" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(s.sendMessage(message), s.sendMessage1(<span class="st">&quot;area&quot;</span>, <span class="dv">3</span>), circle.new().sendMessage(<span class="st">&quot;area&quot;</span>, [<span class="dv">1</span>]))</span>
+<span id="cb59-18"><a href="#cb59-18" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(s.sendMessageScope(<span class="st">&quot;describe&quot;</span>, square.superclass()))     <span class="co"># Shape&#39;s describe</span></span>
+<span id="cb59-19"><a href="#cb59-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb59-20"><a href="#cb59-20" aria-hidden="true" tabindex="-1"></a>    d <span class="op">=</span> rexx.<span class="bu">eval</span>(<span class="st">&quot;.directory~new&quot;</span>)</span>
+<span id="cb59-21"><a href="#cb59-21" aria-hidden="true" tabindex="-1"></a>    d.sendMessage2(<span class="st">&quot;[]=&quot;</span>, <span class="st">&quot;ooRexx&quot;</span>, <span class="st">&quot;lang&quot;</span>)           <span class="co"># d[&quot;lang&quot;] = &quot;ooRexx&quot;</span></span>
+<span id="cb59-22"><a href="#cb59-22" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(d.sendMessage1(<span class="st">&quot;[]&quot;</span>, <span class="st">&quot;lang&quot;</span>), d.sendMessage0(<span class="st">&quot;items&quot;</span>))</span></code></pre></div>
     <div class="margin header">
       <div class="m-left"></div>
       <div class="m-center"></div>
@@ -5480,7 +5562,7 @@ ooRexx 1</code></pre>
   <div id="progress"></div>
 </div>
 <script type="application/json" id="build-warnings">[]</script>
-<script type="application/json" id="deck-about">{"print":false,"groups":{"deck":true,"system":true,"command":true,"links":true,"timing":true,"path":false},"deck":{"file":"samples.md","size":"31389","modified":"2026-10-12 09:43:16","built":"2026-10-12 09:43:18","seconds":"2.0","skin":"skin-default.css","masters":"master-default.css"},"system":{"os":"Linux 6.18.44-fc-v114 x86_64","oorexx":"REXX-ooRexx_5.3.0(MT)_64-bit 6.06 10 Oct 2026","pandoc":"pandoc 3.1.3","parser":"Rexx Parser beta 0.7, refresh 20261012"},"command":"md2slides samples.md","links":[["ooRexx","https://www.oorexx.org/"],["ooRexx on Wikipedia","https://en.wikipedia.org/wiki/Object_REXX"],["ooRexx sources","https://sourceforge.net/projects/oorexx/"],["Pandoc","https://pandoc.org/"],["The Rexx Parser (md2slides is part of it)","https://rexx.epbcn.com/rexx-parser/"],["The md2slides manual","https://rexx.epbcn.com/rexx-parser/doc/utilities/md2slides/"]]}</script>
+<script type="application/json" id="deck-about">{"print":false,"groups":{"deck":true,"system":true,"command":true,"links":true,"timing":true,"path":false},"deck":{"file":"samples.md","size":"32969","modified":"2026-10-12 13:40:07","built":"2026-10-12 13:40:26","seconds":"3.2","skin":"skin-default.css","masters":"master-default.css"},"system":{"os":"Linux 6.18.44-fc-v114 x86_64","oorexx":"REXX-ooRexx_5.3.0(MT)_64-bit 6.06 10 Oct 2026","pandoc":"pandoc 3.1.3","parser":"Rexx Parser beta 0.7, refresh 20261012"},"command":"md2slides samples.md","links":[["ooRexx","https://www.oorexx.org/"],["ooRexx on Wikipedia","https://en.wikipedia.org/wiki/Object_REXX"],["ooRexx sources","https://sourceforge.net/projects/oorexx/"],["Pandoc","https://pandoc.org/"],["The Rexx Parser (md2slides is part of it)","https://rexx.epbcn.com/rexx-parser/"],["The md2slides manual","https://rexx.epbcn.com/rexx-parser/doc/utilities/md2slides/"]]}</script>
 <script type="application/json" id="deck-timer">{"total":null,"warn":[300,60],"interval":10,"where":"footer","seconds":180,"sound":false,"record":false,"pauseMessage":"","countdownMessage":""}</script>
 <script type="application/json" id="deck-sources">null</script>
 <script>

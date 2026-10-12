@@ -71,6 +71,7 @@ by `scripts/samples-deck.rex` (edit those, not the deck), and the skin
 | File | Shows |
 |---|---|
 | `24-subclass.rex` | `.py~extend`: a `threading.Thread` and a `collections.abc.Sequence` with their methods in Rexx; `.py~raise` |
+| `25-immutable.rex` | `.py~extend` on immutable bases: a `str` with a Rexx `__new__`, an `int` with a method |
 
 ## Python using ooRexx
 

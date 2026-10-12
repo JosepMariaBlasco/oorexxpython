@@ -57,6 +57,33 @@ return testResult
   self~assertSame(7, .py~len(o))                   -- Rexx "7" -> 7
   self~assertSame("42", .py~repr(o)~string)        -- Rexx 42 -> '42'
 
+::method test_immutable_bases
+  -- the value goes to the base's __new__; instances stay objects in Rexx
+  s = .py~extend("str", .SubShout)~new("hey")
+  self~assertSame("HEY!", s~shout)
+  self~assertSame("hey", s~string)
+  self~assertSame(1, .py~isinstance(s, .py~getattr("str")))
+  c = .py~extend("int", .SubCelsius)~new(100)
+  self~assertSame(212, c~fahrenheit)
+  self~assertSame(101, c + 1)                      -- Python's int +
+  p = .py~extend("tuple", .SubPoint)~new(.array~of(3, 4))
+  self~assertSame("5.0", p~norm)
+  self~assertSame(4, p[1])
+
+::method test_rexx_new
+  -- a Rexx __new__: SELF is the class, SUPER~__new__ the base's
+  u = .py~extend("str", .SubUpperStr)~new("quiet")
+  self~assertSame("QUIET", u~string)
+  self~assertSame("QUIET!", u~shout)
+
+::method test_object_takes_no_arguments
+  cls = .py~extend("object", .SubPlain)
+  signal on syntax
+  cls~new(1)
+  self~fail("no error")
+syntax:
+  self~assertTrue(condition("O")~message~pos("takes no arguments") > 0)
+
 ::method test_names
   -- a base method in mixed case is found; another one is given by ::ANNOTATE
   base = .py~exec(self~py("class SubBase:",                       -
@@ -144,6 +171,28 @@ return testResult
 ::method __len__
   expose n
   return n
+
+::class SubShout
+::method shout
+  use arg slot
+  return slot~self~upper || "!"
+
+::class SubUpperStr subclass SubShout
+::method __new__
+  use arg value, slot
+  return slot~super~__new__(slot~self, value~upper)
+
+::class SubCelsius
+::method fahrenheit
+  use arg slot
+  return slot~self * 9 / 5 + 32
+
+::class SubPoint
+::method norm
+  use arg slot
+  return .py~import("math")~hypot(slot~self[0], slot~self[1])
+
+::class SubPlain
 
 ::class SubUpper
 ::method __setitem__
