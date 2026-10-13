@@ -209,6 +209,15 @@ syntax:
   drop l
   call collect
   self~assertSame(30, .SubPeer~uninits, "made by Python, then dropped")
+  -- a subclass that inherits the UNINIT and has a RUN of its own: the
+  -- inherited UNINIT runs in its own scope, and RUN is not called
+  .SubPuppy~uninits = 0                -- (a class attribute: SubPuppy's own)
+  .SubPuppy~runs = 0
+  do 50; o = .SubPuppy~new("p"); end
+  drop o
+  call collect
+  self~assertSame(50, .SubPuppy~uninits, "a subclass, its inherited UNINIT")
+  self~assertSame(0, .SubPuppy~runs, "a subclass, its RUN")
   return
 
 -- both collectors, a few rounds (a round may only arm a new sentinel)
@@ -407,3 +416,8 @@ collect: procedure
 ::method uninit                       -- counts only if it runs in its own scope
   expose tag
   if tag == "mine" then self~class~uninits += 1
+
+::class SubPuppy subclass SubPeer
+::attribute runs class
+::method run
+  self~class~runs += 1

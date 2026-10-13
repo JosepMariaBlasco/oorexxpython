@@ -70,15 +70,15 @@
 -- same proxy (e.g. a Python thread calling back Rexx code that uses .py)
 -- would wait for it: a deadlock when the first thread waits for that one.
 ::method init
-  expose cself pypair
+  expose cself pypair pyuninit
   if self~class \== .PyObject then do
     pyclass = .PyObject~"PY.EXTENSIONOF"(self~class)
     if pyclass \== .nil then do        -- .MyClass~new(args): a pair (py.extend, below)
       -- the class's UNINIT runs when the pair is over ("PY.FINAL"), not when
       -- Rexx no longer holds the object (an object's own UNINIT cannot be
       -- removed: it becomes a NOP)
-      u = self~instanceMethod("UNINIT")
-      if u \== .PyObject~method("UNINIT") then self~setMethod("PY.UNINIT", u, "OBJECT")
+      pyuninit = self~instanceMethod("UNINIT")
+      if pyuninit == .PyObject~method("UNINIT") then pyuninit = .nil
       self~setMethod("UNINIT", "nop")
       signal on syntax
       made = self~"PY.PAIRNEW"(pyclass, arg(1, "A"))  -- the Python object (__new__)
@@ -103,12 +103,18 @@ syntax: raise propagate
   pysentinel = .PyPeerSentinel~new(self, pypair, PyPair_Arm(pypair))
 -- the pair is over (the bridge): the class's UNINIT, once
 ::method "PY.FINAL" unguarded
-  expose cself pysentinel
+  expose cself pysentinel pyuninit
   drop pysentinel
   cself = .nil                         -- the Python object is gone
-  if self~hasMethod("PY.UNINIT") then do
+  if var("PYUNINIT") then if pyuninit \== .nil then do
+    u = pyuninit
+    drop pyuninit
     signal on syntax name final
-    self~"PY.UNINIT"
+    -- UNINIT sent with the class that defines it as the scope: it runs in
+    -- its own scope (its variables), also when a superclass defines it, and
+    -- skips the object's NOP (not setMethod(..., "OBJECT"), whose scope is
+    -- the object's class; not self~run(u), whose scope is none of them)
+    .Message~new(self, .array~of("UNINIT", u~scope))~send
   end
 final: return
 -- the Python class that this class (or its nearest superclass) extends
