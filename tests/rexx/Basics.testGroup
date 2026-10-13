@@ -162,6 +162,42 @@ return testResult
   self~assertSame("bool", m~C~new~m(1), "a bound method")
   self~assertSame("[3, 2, 1]", b~sorted((1, 3, 2), .py~kw("reverse", 1))~string, "a C function: 1 as int")
 
+::method test_array_proxy
+  -- o~makeArrayProxy: a sequence as a Rexx Array, from 1, through to Python
+  l = .py~eval("[10, 20, 30]")
+  a = l~makeArrayProxy
+  self~assertSame(10, a[1])
+  self~assertSame(30, a~at(3))
+  self~assertSame(3, a~items)
+  self~assertNull(a[0])
+  self~assertNull(a[4])
+  a[2] = 21
+  a~put(31, 3)
+  a[4] = 40                                         -- items + 1 appends
+  self~assertSame("[10, 21, 31, 40]", l~string)
+  self~assertSame(5, a~append(50))
+  self~assertSame(10, a~remove(1))
+  self~assertSame("[21, 31, 40, 50]", l~string)
+  s = ""
+  do x over a; s ||= x" "; end
+  self~assertSame("21 31 40 50 ", s)
+  self~assertTrue(a~makeArray~isA(.Array))
+  self~assertSame(l, a~pyObject)
+  self~assertTrue(a~hasIndex(4))
+  self~assertFalse(a~hasIndex(5))
+  self~expectSyntax(93.900)
+  a[9] = 1                                          -- not items + 1
+
+::method test_array_proxy_others
+  t = .py~eval("('a', 'b')")~makeArrayProxy
+  self~assertSame("b", t[2])
+  v = .py~import("numpy")~arange(5)~makeArrayProxy
+  self~assertSame(4, v[5])
+  v[1] = 9
+  self~assertSame("[9 1 2 3 4]", v~pyObject~string)
+  c = self~syntaxOf(t, "[]=", "z", 1)               -- a tuple cannot change
+  self~assertTrue(c~message~pos("does not support item assignment") > 0, c~message)
+
 ::method test_routines
   self~assertSame("2", py.import("math")~floor(2.5), "py.import")
   self~assertSame("hello routine", self~makeT~hello(py.kw("who", "routine")), "py.kw")

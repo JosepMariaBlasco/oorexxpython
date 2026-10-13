@@ -46,6 +46,7 @@
  *                                        exact names, when two differ only in
  *                                        case: logging~getattr("INFO") is the
  *                                        constant, logging~info the function
+ *               o~makeArrayProxy         a sequence as a Rexx Array, from 1
  *               do x over o              iter(o)
  *               say o                    str(o)
  *
@@ -204,6 +205,10 @@ final: return
   if arg() = 0, self~"PY.HAS"("REQUEST") then forward message "UNKNOWN" arguments (.array~of("REQUEST", .array~new))
   forward class (super)
 ::method "PY.HAS" unguarded     external "LIBRARY rexxpython PyObj_Has"
+-- a Python sequence (a list, a tuple, a 1-D numpy array...) as a Rexx Array,
+-- counting from 1 (BSF4ooRexx's BSF_Array_Reference): .PyArrayProxy, below
+::method makeArrayProxy unguarded
+  return .PyArrayProxy~new(self)
 
 -- held only by a pair's Rexx object, and holding it: its UNINIT runs when Rexx
 -- no longer holds that object.  Like .PyObject's, it only queues (no native
@@ -600,6 +605,101 @@ final: return
 ::method string unguarded
   expose stream prefix
   return "a PyInputStream ("stream~string", "py.describe(prefix)")"
+
+/*
+ * A Python sequence seen as a Rexx Array, counting from 1, as BSF4ooRexx's
+ * BSF_Array_Reference does for a Java array (docs/design.md, *Messages*):
+ *
+ *   a = .py~eval("[10, 20, 30]")~makeArrayProxy
+ *   say a[1] a~items                     -- 10 3
+ *   a[2] = 21; a~append(40)              -- the Python list changes
+ *   do x over a; say x; end
+ *
+ * It holds the Python object (~pyObject) and reads and writes through it:
+ * nothing is copied.  Positions go from 1 to ~items; at/[] outside them give
+ * .nil, as a Rexx Array's do; put/[]= at ~items + 1 appends.
+ */
+::class PyArrayProxy public
+::attribute pyObject get unguarded
+::method init
+  expose pyObject
+  use strict arg pyObject
+::method items unguarded
+  expose pyObject
+  return .py~len(pyObject)
+::method size unguarded
+  return self~items
+::method dimension unguarded
+  use strict arg n = 0
+  if arg(1, "E") then do
+    if n = 1 then return self~items
+    return 0
+  end
+  return 1
+::method isEmpty unguarded
+  return self~items = 0
+::method position private unguarded     -- a position (1..items), or .nil
+  use strict arg i, extra = 0
+  if \datatype(i, "W") then
+    raise syntax 93.900 array ("PyArrayProxy: the position must be a whole number, not" i)
+  if i < 1 | i > self~items + extra then return .nil
+  return i
+::method "[]" unguarded
+  expose pyObject
+  use strict arg i
+  if self~position(i) == .nil then return .nil
+  return pyObject[i - 1]
+::method at unguarded
+  forward message "[]"
+::method "[]=" unguarded
+  expose pyObject
+  use strict arg value, i
+  if self~position(i, 1) == .nil then
+    raise syntax 93.900 array ("PyArrayProxy: position" i "is outside 1 to" self~items + 1)
+  if i = self~items + 1 then pyObject~append(value)
+  else pyObject[i - 1] = value
+::method put unguarded
+  forward message "[]="
+::method hasIndex unguarded
+  use strict arg i
+  return datatype(i, "W") & i >= 1 & i <= self~items
+::method append unguarded
+  expose pyObject
+  use strict arg value
+  pyObject~append(value)
+  return self~items
+::method remove unguarded               -- the item, or .nil
+  expose pyObject
+  use strict arg i
+  if \self~hasIndex(i) then return .nil
+  return pyObject~pop(i - 1)
+::method delete unguarded
+  forward message "REMOVE"
+::method first unguarded
+  if self~items = 0 then return .nil
+  return 1
+::method last unguarded
+  n = self~items
+  if n = 0 then return .nil
+  return n
+::method firstItem unguarded
+  return self[1]
+::method lastItem unguarded
+  return self[self~items]
+::method makeArray unguarded            -- a Rexx Array of the items (a copy)
+  expose pyObject
+  return pyObject~makeArray
+::method allItems unguarded
+  return self~makeArray
+::method allIndexes unguarded
+  a = .array~new
+  do i = 1 to self~items; a~append(i); end
+  return a
+::method supplier unguarded
+  return .supplier~new(self~makeArray, self~allIndexes)
+::method string unguarded
+  expose pyObject
+  return "a PyArrayProxy" pyObject
 
 ::class PyKwArgs public                -- what .py~kw makes (and what Python's keyword arguments are for an override)
 ::attribute names get

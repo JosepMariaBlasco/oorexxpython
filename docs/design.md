@@ -191,6 +191,14 @@ the constant is `logging~getattr("INFO")`.
   (`.py~slice(-3, .nil)` is `-3:`). No syntax of its own: `o[i, j]` must stay
   the tuple numpy needs (`m[.py~slice(0, 2), 1]` is `m[0:2, 1]`).
 - `do x over o` iterates `iter(o)`; `say o` shows `str(o)`.
+- `o~makeArrayProxy` is a `.PyArrayProxy`: the sequence `o` as a Rexx
+  Array, counting from 1 (BSF4ooRexx's `BSF_Array_Reference`): `[]`, `at`,
+  `[]=`, `put` (at `items + 1`, an append), `items`, `size`, `append`,
+  `remove`, `hasIndex`, `first`, `last`, `makeArray`, `supplier`. Written in
+  Rexx on top of the `.PyObject` (`len`, `o[i - 1]`, `append`, `pop`): it
+  copies nothing, so changes go both ways. `o[i]` itself stays Python's, from
+  0: Python's indexing is more than positions (keys, tuples, slices, masks,
+  negative positions), and one object has one rule.
 - `copy`, `send`, `start` and `run`, which ooRexx's Object already
   understands, go to the Python object when it has an attribute of that name,
   and to Object's method otherwise; so does `request` with no arguments

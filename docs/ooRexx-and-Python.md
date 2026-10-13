@@ -65,6 +65,8 @@ ooRexx uppercases message names, so they are resolved case-insensitively against
 
 `o[k]` and `o[k] = v` are Python's indexing: `d["key"]`, `m[0, 1]` (the tuple `(0, 1)`, as numpy wants it). Positions count from 0, as in Python: it is Python's object. `.py~slice(a, b [, step])` is `a:b:step`, with `.nil` leaving a part out: `x[.py~slice(-3, .nil)]` is `x[-3:]`.
 
+`o~makeArrayProxy` gives a sequence (a list, a tuple, a 1-D numpy array) as an object that behaves as a Rexx Array, counting from 1, as BSF4ooRexx's `BSF_Array_Reference`: `a[1]` is the first item, `a~items` the length, `a[a~items + 1] = v` and `a~append(v)` append, `a~remove(i)` takes one out, and `do x over a`, `a~makeArray` and `a~supplier` work. It reads and writes through to the Python object (`a~pyObject`): nothing is copied. Outside 1 to `~items`, `a[i]` is `.nil`, as in a Rexx Array.
+
 Keyword arguments go in a marker as the last argument: `plt~plot(x, y, .py~kw("color", "red", "linewidth", 2))`, or `.py~kw(directory)`. Only the marker is taken as keywords: a Directory or StringTable at the end stays a positional argument. Keys go as written, exactly.
 
 | Rexx | Python |
@@ -215,6 +217,6 @@ The design follows Rony Flatscher's BSF4ooRexx, moved from Java to Python: `.PyO
 ## Questions decided
 
 1. **Values.** Decided: a Rexx string goes to Python as a string, even when it looks like a number, unless Python's type hints for the parameter ([typeshed](https://github.com/python/typeshed)'s stubs, and the ones packages such as numpy carry) ask for a number; and a program can say, when it imports a module, what type such strings take in calls to it (`.py~import("numpy", "float")`), for the parameters whose hints do not decide. Not done yet: until then, the rule in [Values](#values) holds.
-2. **Positions.** Decided: `o[i]` stays Python's, from 0, as all of Python's indexing (dict keys, numpy's tuples, slices and masks, negative positions). A method `makeArrayProxy` (not done yet) will give a list or tuple as an object that behaves as a Rexx Array, counting from 1, as BSF4ooRexx's `BSF_Array_Reference`.
+2. **Positions.** Decided: `o[i]` stays Python's, from 0, as all of Python's indexing (dict keys, numpy's tuples, slices and masks, negative positions), and `o~makeArrayProxy` gives a sequence as a Rexx Array, counting from 1. Done: see [Messages](#messages).
 3. **Subclassing.** Decided: the bridges converge on ooRexx/.NET's and `.JSObject`'s model, in which the Rexx class itself is the subclass. Done: see [Classes](#classes).
 

@@ -72,6 +72,7 @@ by `scripts/samples-deck.rex` (edit those, not the deck), and the skin
 |---|---|
 | `24-subclass.rex` | `.py~extend`: Rexx classes that extend `threading.Thread` and `collections.abc.Sequence`; `.py~raise` |
 | `25-immutable.rex` | `.py~extend` on immutable bases: a `str` whose value INIT sets, an `int` with a method |
+| `26-array-proxy.rex` | `~makeArrayProxy`: a Python list as a Rexx Array, counting from 1 |
 
 ## Python using ooRexx
 
