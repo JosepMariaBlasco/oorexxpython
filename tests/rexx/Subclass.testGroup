@@ -398,7 +398,12 @@ collect: procedure
            "    def sound(self): return 'generic'"                  || "0a"x || -
            "    def describe(self): return self.name + ' says ' + self.sound()")
   .py~extend(self, .py~main~SubAnimal)
+::method init                         -- a variable that UNINIT must see
+  expose tag
+  tag = "mine"
+  forward class (super)
 ::method sound
   return "woof"
-::method uninit
-  self~class~uninits += 1
+::method uninit                       -- counts only if it runs in its own scope
+  expose tag
+  if tag == "mine" then self~class~uninits += 1
