@@ -55,7 +55,7 @@ by `scripts/samples-deck.rex` (edit those, not the deck), and the skin
 | `16-uuid.rex` | `uuid`: uuid5, uuid4 |
 | `17-urllib.rex` | `urllib.parse`: urlparse, urlencode, quote |
 | `18-logging.rex` | `logging`: logger, handler, formatter |
-| `19-html-parser.rex` | `html.parser`, subclassed in Rexx (`.py~extend`) |
+| `19-html-parser.rex` | `html.parser`, extended by a Rexx class (`.py~extend`) |
 
 ## Data science
 
@@ -70,8 +70,8 @@ by `scripts/samples-deck.rex` (edit those, not the deck), and the skin
 
 | File | Shows |
 |---|---|
-| `24-subclass.rex` | `.py~extend`: a `threading.Thread` and a `collections.abc.Sequence` with their methods in Rexx; `.py~raise` |
-| `25-immutable.rex` | `.py~extend` on immutable bases: a `str` with a Rexx `__new__`, an `int` with a method |
+| `24-subclass.rex` | `.py~extend`: Rexx classes that extend `threading.Thread` and `collections.abc.Sequence`; `.py~raise` |
+| `25-immutable.rex` | `.py~extend` on immutable bases: a `str` whose value INIT sets, an `int` with a method |
 
 ## Python using ooRexx
 
@@ -100,6 +100,7 @@ by `scripts/samples-deck.rex` (edit those, not the deck), and the skin
   `True` and `False` (pandas' `inplace=`, 23). For a function without
   annotations that insists on a real `bool`, `py.box("bool", 1)` makes
   `True`.
-- A method of a class made by `.py~extend` gets one argument more than
-  Python passes, last: a StringTable with `SELF` (the Python object),
-  `SUPER` (its base class, as Python's `super()`) and `KWARGS` (19, 24).
+- A Rexx class that extends a Python class is a subclass of `PyObject` that
+  calls `.py~extend(self, base)` in its `ACTIVATE` class method. Its INIT
+  passes the arguments to the base with `self~init:super(...)`, and
+  `self~name:super(...)` is the base's own member (19, 24, 25).

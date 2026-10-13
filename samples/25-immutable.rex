@@ -1,10 +1,9 @@
 /* 25-immutable.rex: Rexx methods on a str, an int or a tuple.
  *
- * An immutable Python object gets its value in __new__, not __init__:
- * .py~extend passes the constructor's arguments to the base's __new__, so
- * Tag~new("b") is a str whose value is "b".  A Rexx method __new__ can
- * change the value first: SELF is then the class, and SUPER~__new__ is the
- * base's.  Such objects stay Python objects in Rexx, with their methods.
+ * An immutable Python object gets its value when it is made, in __new__:
+ * INIT's self~init:super(...) passes it there, so Tag~new("b") can make a
+ * str whose value is "<b>".  The object is a str in Python and a Tag in
+ * Rexx, with the methods of both.
  *
  * Python:
  *   class Tag(str):
@@ -16,25 +15,25 @@
  *       def fahrenheit(self): return self * 9 // 5 + 32
  *   print(Celsius(100).fahrenheit())
  */
-Tag = .py~extend("str", .Tag)
-b = Tag~new("b")
+b = .Tag~new("b")
 say b || "bold" || b~close .py~isinstance(b, .py~getattr("str"))
 
-Celsius = .py~extend("int", .Celsius)
-say Celsius~new(100)~fahrenheit
+say .Celsius~new(100)~fahrenheit
 
-::class Tag
-::method __new__
-  use arg name, slot
-  return slot~super~__new__(slot~self, "<" || name || ">")
+::class Tag subclass PyObject
+::method activate class
+  .py~extend(self, "str")
+::method init
+  use arg name
+  self~init:super("<" || name || ">")
 ::method close
-  use arg slot
-  return "</" || slot~self~string~substr(2)
+  return "</" || self~string~substr(2)
 
-::class Celsius
+::class Celsius subclass PyObject
+::method activate class
+  .py~extend(self, "int")
 ::method fahrenheit
-  use arg slot
-  return slot~self * 9 / 5 + 32
+  return self * 9 / 5 + 32
 
 ::requires "python.cls"
 /* Output:

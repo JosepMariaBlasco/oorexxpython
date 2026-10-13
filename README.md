@@ -10,8 +10,9 @@ Windows: [releases](https://github.com/JosepMariaBlasco/oorexxpython/releases)
 - **ooRexx → Python**: a Rexx program imports Python modules (numpy,
   matplotlib, the standard library...) and uses Python objects as Rexx
   objects (`.py`, `.PyObject`), with keyword arguments, Python's operators,
-  iteration and exceptions; and subclasses any Python class with methods in
-  Rexx (`.py~extend`, as BSF4ooRexx's `bsf.createProxyClass`).
+  iteration and exceptions; and Rexx classes extend Python classes, whose
+  methods they override (`::class Worker subclass PyObject`, `.py~extend`,
+  as ooRexx/.NET's `.net~extend`).
 - **Python → ooRexx**: a Python program creates ooRexx interpreters, runs
   Rexx code and uses Rexx objects as Python objects (`oorexx.Interpreter`,
   `oorexx.RexxObject`); Python functions can be `ADDRESS` environments, and

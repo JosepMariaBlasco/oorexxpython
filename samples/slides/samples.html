@@ -1281,8 +1281,18 @@ div.sourceCode > pre { font-size: calc(var(--skin-code-size) * var(--contents-sc
   /* Its own type scale: a drawing is laid out to the slide (its boxes are  */
   /* shares of it), so its text is too -- 16px on the 1280px stage, em from */
   /* there -- whatever the skin's body size, and shrinks with the slide.    */
-  font-size: calc(16px * var(--contents-scale, 1));
+  --drawing-base: calc(16px * var(--contents-scale, 1));
+  font-size: var(--drawing-base);
 }
+/* size= on the drawing (v273): the text of every block placed in it, times */
+/* the drawing's own -- absolute, so that a box in a group of the drawing    */
+/* has it too, and not the group's times it. A block's own size wins.       */
+.slide .drawing.sized .at { font-size: calc(var(--drawing-base) * var(--drawing-size, 1)); }
+/* Its blocks and its arrows are stacked in the order they are written, as  */
+/* shapes are in Impress (v273, Rony 12-Oct): the arrows of a drawing do   */
+/* not go over everything (.arrow, z-index: 2) but where they are written.  */
+/* A block that must go elsewhere says z-index in its style=.               */
+.slide .drawing .arrow { z-index: auto; }
 .slide .drawing .at {
   position: absolute;
   box-sizing: border-box;
@@ -1316,7 +1326,8 @@ div.sourceCode > pre { font-size: calc(var(--skin-code-size) * var(--contents-sc
 .slide .box {
   --box-ground: color-mix(in srgb, var(--skin-box-bg, transparent)
                 calc(var(--skin-box-opacity, .85) * 100%), transparent);
-  border: var(--skin-box-border-width, 2px) solid var(--skin-box-border, var(--skin-accent));
+  border: var(--skin-box-border-width, 2px) solid
+          var(--drawing-border, var(--skin-box-border, var(--skin-accent)));
   border-radius: var(--skin-box-radius, .3em);
   background: var(--box-ground);
   padding: .1em .3em;
@@ -1786,6 +1797,28 @@ figure.listing.file > figcaption {
     margin-bottom: 1em;
   }
   .slide.notes-page p { margin: 0 0 .6em; }
+}
+
+/* The presenter's window (v279): a deck opened as its mirror (runtime.js,  */
+/* ?md2slides-mirror) with no slide to show -- the one after the last --    */
+/* shows nothing.                                                           */
+html.mirror-none #stage { visibility: hidden; }
+
+/* -------------------------------------------------------------------------- */
+/* A picture behind the slides, and a veil over it (v282; background:, veil:, */
+/* background-fit:, md2slides.rex Backgrounds). The picture is a background   */
+/* zone like the author's; the veil, its ::after, a colour-mix() of the       */
+/* colour and transparent that md2slides writes as --veil. On paper as on     */
+/* the screen.                                                                */
+/* -------------------------------------------------------------------------- */
+.slide .background.contain img { object-fit: contain; }
+.slide .background[style*="--veil"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--veil);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
 
 .slide .level-1.level-1 > .body, .slide .level-1.level-1 > .fragment > .body, .slide .level-1.level-1 > ul, .slide .level-1.level-1 > ol, .slide .level-1.level-1 > p, .slide .level-1.level-1 > .fragment > ul, .slide .level-1.level-1 > .fragment > ol, .slide .level-1.level-1 > .fragment > p { font-size: calc(var(--skin-body-size, 1em) * 1 * var(--contents-scale, 1)); margin-inline-start: calc(var(--skin-body-size, 1em) * 1.1 * var(--level-anchor, var(--contents-scale, 1)) - 1.1em); } 
@@ -2859,6 +2892,14 @@ html.split-dragging, html.split-dragging * { cursor: col-resize !important; user
 /* ANIMATION scaffolding, the other half of the same "screen state leaking     */
 /* into paper" bug. .static content was never a fragment, so it already        */
 /* printed -- which is why the first line of a slide often survived alone.     */
+/* Revealed, not undone (v274, Rony 11-Oct): a fragment prints with the     */
+/* transform it has when revealed on screen -- translateY(0), scale(1) --   */
+/* and not none. A transform, even a null one, makes the fragment the box   */
+/* its positioned blocks are placed in: a callout inside a fade-up block is */
+/* placed against that block, on screen and on paper alike. With none, it  */
+/* was placed against the slide on paper, at the block's numbers: in the    */
+/* top left corner. A fragment with no effect of that kind has none, as on */
+/* screen. A turn is rotate (its own property), never transform.           */
 @media print {
   .fragment {
     opacity: 1 !important;
@@ -2866,7 +2907,174 @@ html.split-dragging, html.split-dragging * { cursor: col-resize !important; user
     filter: none !important;
     transition: none !important;
   }
+  .fragment[data-anim="fade-up"], .fragment[data-anim="fade-down"] {
+    transform: translateY(0) !important;
+  }
+  .fragment[data-anim="fade-left"], .fragment[data-anim="fade-right"] {
+    transform: translateX(0) !important;
+  }
+  .fragment[data-anim="scale-in"] { transform: scale(1) !important; }
 }
+/* -------------------------------------------------------------------------- */
+/* d's editor (v280, editor.js): the bar with the tools and the line of what  */
+/* is selected, and the layer the marks and arrows are drawn on while they    */
+/* are edited. Fixed to the viewport, like d's HUD, and never printed.        */
+/* -------------------------------------------------------------------------- */
+
+#ed-bar {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 41;
+  display: none;
+  width: 380px;
+  max-width: calc(100vw - 24px);
+  font: 13px/1.4 var(--skin-font-prose, sans-serif);
+  color: #fff;
+  background: #2a2a33;
+  border-radius: 8px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+html.ed-on #ed-bar { display: block; }
+
+.ed-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  background: #34343f;
+}
+.ed-title { flex: 1; opacity: 0.85; }
+#ed-bar button {
+  border: 1px solid #4a4a58;
+  background: #3b3b47;
+  color: inherit;
+  font: inherit;
+  border-radius: 4px;
+  padding: 2px 7px;
+  cursor: pointer;
+}
+#ed-bar button:hover { background: #474756; }
+#ed-bar button.on { background: #e60; border-color: #e60; color: #fff; }
+#ed-bar .ed-tool { width: 30px; height: 28px; padding: 3px; }
+#ed-bar .ed-tool svg {
+  width: 20px; height: 20px;
+  fill: none; stroke: currentColor; stroke-width: 1.6;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+
+.ed-panel:empty { display: none; }
+.ed-panel { padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+.ed-hint { opacity: 0.8; }
+.ed-line { display: flex; align-items: flex-start; gap: 6px; }
+.ed-line code {
+  flex: 1;
+  font: 12.5px/1.35 ui-monospace, monospace;
+  background: #1d1d24;
+  padding: 4px 6px;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  user-select: all;
+}
+.ed-where { color: #ffd7a8; }
+.ed-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.ed-k { width: 64px; opacity: 0.75; }
+#ed-bar .ed-row i {
+  display: inline-block;
+  width: 9px; height: 9px;
+  margin-right: 4px;
+  border-radius: 50%;
+  vertical-align: baseline;
+}
+.ed-foot { opacity: 0.85; }
+.ed-foot:empty { display: none; }
+
+/* The layer: the whole window, under the bar, above the slide. It takes no */
+/* pointer of its own (editor.js tests what is under the pointer itself).    */
+#ed-layer {
+  position: fixed;
+  left: 0; top: 0;
+  width: 100vw; height: 100vh;
+  z-index: 39;
+  pointer-events: none;
+  overflow: visible;
+  display: none;
+}
+html.ed-on #ed-layer { display: block; }
+
+#ed-layer .ed-pic { fill: none; stroke: #e60; stroke-width: 1; stroke-dasharray: 4 4; }
+#ed-layer .ed-shape { stroke: currentColor; stroke-width: 1.5; stroke-dasharray: 5 4; fill: none; }
+#ed-layer .ed-wash { fill: currentColor; fill-opacity: 0.18; }
+#ed-layer .ed-hatch { fill-opacity: 0.6; }
+#ed-layer .ed-changed .ed-shape,
+#ed-layer .ed-sel .ed-shape { stroke-width: 3; stroke-dasharray: none; }
+#ed-layer .ed-line { stroke: currentColor; stroke-width: 1.5; stroke-dasharray: 5 4; }
+#ed-layer .ed-head { fill: currentColor; }
+#ed-layer .ed-changed .ed-line,
+#ed-layer .ed-sel .ed-line { stroke-width: 3; stroke-dasharray: none; }
+#ed-layer .ed-handle { fill: #fff; stroke: #2a7de1; stroke-width: 2; }
+#ed-layer .ed-label {
+  font: 12px ui-monospace, monospace;
+  fill: #fff;
+  paint-order: stroke;
+  stroke: #222;
+  stroke-width: 3px;
+}
+#ed-layer .ed-rubber { fill: none; stroke: #e60; stroke-width: 2; stroke-dasharray: 6 4; }
+
+/* While a mark or an arrow of the deck is being changed, the editor draws  */
+/* it; the deck's own copy keeps out of the way (a deleted one, too).       */
+.spot-mark.spot-area.ed-gone,
+.arrow.ed-gone,
+.drawing .at.ed-gone { visibility: hidden !important; }
+
+/* Pointers: a cross to draw, a hand over what can be moved. */
+html[data-ed-tool="box"].ed-on .slide.current img,
+html[data-ed-tool="ring"].ed-on .slide.current img,
+html[data-ed-tool="arrow"].ed-on .slide.current img { cursor: crosshair; touch-action: none; }
+html.ed-on.ed-over[data-ed-tool="select"] .slide.current { cursor: move; }
+html.ed-on.ed-over-handle[data-ed-tool="select"] .slide.current { cursor: nwse-resize; }
+
+/* The slide's Markdown with the changes (Shift+V, while d is on). */
+#source-pane .ed-pl { display: block; min-height: 1.35em; }
+#source-pane .ed-n {
+  display: inline-block;
+  min-width: 3.2em;
+  margin-right: 0.8em;
+  text-align: right;
+  opacity: 0.45;
+  user-select: none;
+}
+#source-pane .ed-new { background: rgba(60, 170, 80, 0.22); }
+#source-pane .ed-chg { background: rgba(230, 102, 0, 0.22); }
+#source-pane .ed-del { text-decoration: line-through; opacity: 0.55; }
+
+@media print {
+  #ed-bar, #ed-layer { display: none !important; }
+}
+
+/* Drawings (v284): their blocks, the guides and what pulls. */
+#ed-layer .ed-piece { color: #1a9; }
+#ed-layer .ed-guide { stroke: #2bd; stroke-width: 1; stroke-dasharray: 6 4; opacity: .8; }
+#ed-layer .ed-guide-handle { fill: #2bd; stroke: #fff; stroke-width: 1; }
+#ed-layer .ed-snap { stroke: #e0d; stroke-width: 1; }
+#ed-bar .ed-guides { margin-left: 6px; font-weight: 700; }
+#ed-bar input.ed-text {
+  flex: 1;
+  font: inherit;
+  color: #fff;
+  background: #1d1d24;
+  border: 1px solid #4a4a58;
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+
+/* The arrows of drawings (v285): the one selected, and where a drag ends. */
+#ed-layer .ed-linksel { fill: none; stroke: #e60; stroke-width: 7; stroke-opacity: .35;
+                        stroke-linejoin: round; stroke-linecap: round; }
+#ed-layer .ed-target { fill: rgba(238, 102, 0, .12); stroke: #e60; stroke-width: 2; }
 /* Pandoc syntax highlighting: pygments (default) */
 /* Generated for RexxPub from Pandoc's built-in pygments theme */
 
@@ -3083,6 +3291,19 @@ code > span[data-spot-beat] {
               box-shadow var(--spot-dur, .28s) ease;
 }
 
+/* A marked line is as tall as the line it stands on (v278, Rony 11-Oct:     */
+/* "a thin white line between the lines numbered 3 and 4"). Pandoc's own     */
+/* highlighting sheets give the line spans of a block that is not Rexx (an  */
+/* output, say) line-height 1.25 in a <pre> of 1.35: each line box is then   */
+/* a pixel taller than the box we paint, and a run of marked lines shows the */
+/* ground between them. Inheriting the <pre>'s value fills the line box and  */
+/* moves nothing: the strut already makes every line that tall. The second   */
+/* selector outweighs Pandoc's "pre > code.sourceCode > span".               */
+code > span[data-spot-beat],
+pre > code.sourceCode > span[data-spot-beat] {
+  line-height: inherit;
+}
+
 /* ------------------------------------------------------------------------- */
 /* The strike, and why the right-hand end is a SHADOW and not extra width.    */
 /*                                                                            */
@@ -3182,40 +3403,96 @@ code > span[data-spot-pen="4"].spot-on {
 /* md2pdf and md2epub there is no "advance", so the beats simply collapse     */
 /* into one finished picture instead of breaking.                             */
 /* ------------------------------------------------------------------------- */
+/* On paper the wash is SOLID (v274, Rony 11-Oct): the pen's colour as it  */
+/* shows over white paper, worked out from its alpha. Firefox writes a      */
+/* line's ground and its bleed shadow to the PDF as two see-through        */
+/* rectangles, and does not clip the shadow to outside the box: where they */
+/* overlap the wash came out darker, with an edge ("a vertical bar 2em     */
+/* before the end"), and lines a hair apart showed a seam between them.    */
+/* Solid, an overlap does not show. The colour is the same as on screen    */
+/* over a white ground.                                                    */
+/* No shadows on paper at all (v278): Firefox clips an outer shadow to     */
+/* outside its box with a clip path of its own, and every clip edge that   */
+/* falls between two pixels is a hairline in the PDF viewer -- the bar 2em */
+/* before the end was still there, fainter, and so were the seams. The box */
+/* itself is made wider by the shortfall instead (on paper nothing         */
+/* scrolls), and one pixel taller with the pixel given back as margin, so  */
+/* a line overlaps the next one instead of meeting it at an edge.          */
+/* The bar is not an inset shadow on paper: Firefox paints one as the box  */
+/* less a shifted box, the box's clip rounded and the other not, and the  */
+/* slivers left -- in the bar's colour, along the top, the bottom and the  */
+/* right end of every line -- were the seams and the bar. A gradient in   */
+/* the ground puts the same 3px in the same place, as a plain rectangle.   */
 @media print {
   code > span[data-spot-beat] { transition: none; }
 
   code > span[data-spot-pen="1"] {
-    background-color: var(--spot-pen-1-bg, rgba(255, 214, 0, .40));
+    --spot-paper-bg: rgb(from var(--spot-pen-1-bg, rgba(255, 214, 0, .40))
+                     calc(r * alpha + 255 * (1 - alpha))
+                     calc(g * alpha + 255 * (1 - alpha))
+                     calc(b * alpha + 255 * (1 - alpha)) / 1);
+    background-color: var(--spot-paper-bg);
     border-left-color: var(--spot-pen-1-bar, #E6B800);
-    box-shadow: inset var(--spot-bar-x, 0px) 0 0 0
-                var(--spot-pen-1-bar, #E6B800),
-                calc(var(--spot-bleed-r, 0px) + 3px) 0 0 0
-                var(--spot-pen-1-bg, rgba(255, 214, 0, .40));
+    background-image: linear-gradient(to right,
+                transparent calc(var(--spot-bar-x, 0px) - 3px),
+                var(--spot-pen-1-bar, #E6B800) calc(var(--spot-bar-x, 0px) - 3px),
+                var(--spot-pen-1-bar, #E6B800) var(--spot-bar-x, 0px),
+                transparent var(--spot-bar-x, 0px));
+    width: calc(100% + var(--spot-bleed-r, 0px) + 3px);
+    padding-bottom: 1px;
+    margin-bottom: -1px;
+    box-shadow: none;
   }
   code > span[data-spot-pen="2"] {
-    background-color: var(--spot-pen-2-bg, rgba(255, 214, 0, .40));
+    --spot-paper-bg: rgb(from var(--spot-pen-2-bg, rgba(255, 214, 0, .40))
+                     calc(r * alpha + 255 * (1 - alpha))
+                     calc(g * alpha + 255 * (1 - alpha))
+                     calc(b * alpha + 255 * (1 - alpha)) / 1);
+    background-color: var(--spot-paper-bg);
     border-left-color: var(--spot-pen-2-bar, #E6B800);
-    box-shadow: inset var(--spot-bar-x, 0px) 0 0 0
-                var(--spot-pen-2-bar, #E6B800),
-                calc(var(--spot-bleed-r, 0px) + 3px) 0 0 0
-                var(--spot-pen-2-bg, rgba(255, 214, 0, .40));
+    background-image: linear-gradient(to right,
+                transparent calc(var(--spot-bar-x, 0px) - 3px),
+                var(--spot-pen-2-bar, #E6B800) calc(var(--spot-bar-x, 0px) - 3px),
+                var(--spot-pen-2-bar, #E6B800) var(--spot-bar-x, 0px),
+                transparent var(--spot-bar-x, 0px));
+    width: calc(100% + var(--spot-bleed-r, 0px) + 3px);
+    padding-bottom: 1px;
+    margin-bottom: -1px;
+    box-shadow: none;
   }
   code > span[data-spot-pen="3"] {
-    background-color: var(--spot-pen-3-bg, rgba(255, 214, 0, .40));
+    --spot-paper-bg: rgb(from var(--spot-pen-3-bg, rgba(255, 214, 0, .40))
+                     calc(r * alpha + 255 * (1 - alpha))
+                     calc(g * alpha + 255 * (1 - alpha))
+                     calc(b * alpha + 255 * (1 - alpha)) / 1);
+    background-color: var(--spot-paper-bg);
     border-left-color: var(--spot-pen-3-bar, #E6B800);
-    box-shadow: inset var(--spot-bar-x, 0px) 0 0 0
-                var(--spot-pen-3-bar, #E6B800),
-                calc(var(--spot-bleed-r, 0px) + 3px) 0 0 0
-                var(--spot-pen-3-bg, rgba(255, 214, 0, .40));
+    background-image: linear-gradient(to right,
+                transparent calc(var(--spot-bar-x, 0px) - 3px),
+                var(--spot-pen-3-bar, #E6B800) calc(var(--spot-bar-x, 0px) - 3px),
+                var(--spot-pen-3-bar, #E6B800) var(--spot-bar-x, 0px),
+                transparent var(--spot-bar-x, 0px));
+    width: calc(100% + var(--spot-bleed-r, 0px) + 3px);
+    padding-bottom: 1px;
+    margin-bottom: -1px;
+    box-shadow: none;
   }
   code > span[data-spot-pen="4"] {
-    background-color: var(--spot-pen-4-bg, rgba(255, 214, 0, .40));
+    --spot-paper-bg: rgb(from var(--spot-pen-4-bg, rgba(255, 214, 0, .40))
+                     calc(r * alpha + 255 * (1 - alpha))
+                     calc(g * alpha + 255 * (1 - alpha))
+                     calc(b * alpha + 255 * (1 - alpha)) / 1);
+    background-color: var(--spot-paper-bg);
     border-left-color: var(--spot-pen-4-bar, #E6B800);
-    box-shadow: inset var(--spot-bar-x, 0px) 0 0 0
-                var(--spot-pen-4-bar, #E6B800),
-                calc(var(--spot-bleed-r, 0px) + 3px) 0 0 0
-                var(--spot-pen-4-bg, rgba(255, 214, 0, .40));
+    background-image: linear-gradient(to right,
+                transparent calc(var(--spot-bar-x, 0px) - 3px),
+                var(--spot-pen-4-bar, #E6B800) calc(var(--spot-bar-x, 0px) - 3px),
+                var(--spot-pen-4-bar, #E6B800) var(--spot-bar-x, 0px),
+                transparent var(--spot-bar-x, 0px));
+    width: calc(100% + var(--spot-bleed-r, 0px) + 3px);
+    padding-bottom: 1px;
+    margin-bottom: -1px;
+    box-shadow: none;
   }
 }
 
@@ -4711,41 +4988,55 @@ WARNING demo: careful</code></pre>
      <div class="chrome"></div>
   </section>
 
-  <section class="slide logo-oorexx" id="ex19-html-parser" data-title="html.parser, subclassed in Rexx (.py~extend)">
+  <section class="slide logo-oorexx" id="ex19-html-parser" data-title="html.parser, extended by a Rexx class (.py~extend)">
     <p class="kicker">19-html-parser.rex</p>
 
 <div class="title">
-<p><code>html.parser</code>, subclassed in Rexx (<code>.py~extend</code>)</p>
-</div>
-<div class="body">
-<p>Python's html.parser, with the handler written in Rexx. HTMLParser is used by subclassing: .py~extend makes a Python subclass of it whose handle_starttag is the Rexx method (24-subclass.rex has more).</p>
+<p><code>html.parser</code>, extended by a Rexx class (<code>.py~extend</code>)</p>
 </div>
 <div id="rx19" class="code highlight-rexx-tokio-day rx-blockwrap">
-<pre><code><span id="rx19-1"><a href="#rx19-1" aria-hidden="true" tabindex="-1"></a><span class="rx-var">Links</span><span class="rx-ws"> </span><span class="rx-asg">=</span><span class="rx-ws"> </span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">extend</span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">html.parser.HTMLParser</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-env">.Links</span><span class="rx-spe">)</span></span>
-<span id="rx19-2"><a href="#rx19-2" aria-hidden="true" tabindex="-1"></a><span class="rx-var">Links</span><span class="rx-op">~</span><span class="rx-const rx-method">new</span><span class="rx-op">~</span><span class="rx-const rx-method">feed</span><span class="rx-spe">(</span><span class="rx-str rx-oquo">'</span><span class="rx-str">&lt;p&gt;&lt;a href="https://rexxla.org"&gt;RexxLA&lt;/a&gt; &lt;a href="/x"&gt;x&lt;/a&gt;&lt;/p&gt;</span><span class="rx-str rx-cquo">'</span><span class="rx-spe">)</span></span>
-<span id="rx19-3"><a href="#rx19-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="rx19-4"><a href="#rx19-4" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">class</span><span class="rx-ws"> </span><span class="rx-const rx-class">Links</span></span>
-<span id="rx19-5"><a href="#rx19-5" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">method</span><span class="rx-ws"> </span><span class="rx-const rx-method">handle_starttag</span></span>
-<span id="rx19-6"><a href="#rx19-6" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">use</span><span class="rx-ws"> </span><span class="rx-skw">arg</span><span class="rx-ws"> </span><span class="rx-var">tag</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-var">attrs</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-var">slot</span><span class="rx-ws">                    </span><span class="rx-lncm">-- slot: always the last argument</span></span>
-<span id="rx19-7"><a href="#rx19-7" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">if</span><span class="rx-ws"> </span><span class="rx-var">tag</span><span class="rx-ws"> </span><span class="rx-op">=</span><span class="rx-op">=</span><span class="rx-ws"> </span><span class="rx-str rx-oquo">"</span><span class="rx-str">a</span><span class="rx-str rx-cquo">"</span><span class="rx-ws"> </span><span class="rx-kw">then</span><span class="rx-ws"> </span><span class="rx-kw">say</span><span class="rx-ws"> </span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">dict</span><span class="rx-spe">(</span><span class="rx-var">attrs</span><span class="rx-spe">)</span><span class="rx-spe">[</span><span class="rx-str rx-oquo">"</span><span class="rx-str">href</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">]</span></span>
-<span id="rx19-8"><a href="#rx19-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="rx19-9"><a href="#rx19-9" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">requires</span><span class="rx-ws"> </span><span class="rx-const rx-requires rx-oquo">"</span><span class="rx-const rx-requires">python.cls</span><span class="rx-const rx-requires rx-cquo">"</span></span></code></pre>
+<pre><code><span id="rx19-1"><a href="#rx19-1" aria-hidden="true" tabindex="-1"></a><span class="rx-env">.Links</span><span class="rx-op">~</span><span class="rx-const rx-method">new</span><span class="rx-op">~</span><span class="rx-const rx-method">feed</span><span class="rx-spe">(</span><span class="rx-str rx-oquo">'</span><span class="rx-str">&lt;p&gt;&lt;a href="https://rexxla.org"&gt;RexxLA&lt;/a&gt; &lt;a href="/x"&gt;x&lt;/a&gt;&lt;/p&gt;</span><span class="rx-str rx-cquo">'</span><span class="rx-spe">)</span></span>
+<span id="rx19-2"><a href="#rx19-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="rx19-3"><a href="#rx19-3" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">class</span><span class="rx-ws"> </span><span class="rx-const rx-class">Links</span><span class="rx-ws"> </span><span class="rx-dskw">subclass</span><span class="rx-ws"> </span><span class="rx-const rx-class">PyObject</span></span>
+<span id="rx19-4"><a href="#rx19-4" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">method</span><span class="rx-ws"> </span><span class="rx-const rx-method">activate</span><span class="rx-ws"> </span><span class="rx-dskw">class</span></span>
+<span id="rx19-5"><a href="#rx19-5" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">extend</span><span class="rx-spe">(</span><span class="rx-var">self</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-str rx-oquo">"</span><span class="rx-str">html.parser.HTMLParser</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">)</span></span>
+<span id="rx19-6"><a href="#rx19-6" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">method</span><span class="rx-ws"> </span><span class="rx-const rx-method">handle_starttag</span></span>
+<span id="rx19-7"><a href="#rx19-7" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">use</span><span class="rx-ws"> </span><span class="rx-skw">arg</span><span class="rx-ws"> </span><span class="rx-var">tag</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-var">attrs</span></span>
+<span id="rx19-8"><a href="#rx19-8" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">if</span><span class="rx-ws"> </span><span class="rx-var">tag</span><span class="rx-ws"> </span><span class="rx-op">=</span><span class="rx-op">=</span><span class="rx-ws"> </span><span class="rx-str rx-oquo">"</span><span class="rx-str">a</span><span class="rx-str rx-cquo">"</span><span class="rx-ws"> </span><span class="rx-kw">then</span><span class="rx-ws"> </span><span class="rx-kw">say</span><span class="rx-ws"> </span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">dict</span><span class="rx-spe">(</span><span class="rx-var">attrs</span><span class="rx-spe">)</span><span class="rx-spe">[</span><span class="rx-str rx-oquo">"</span><span class="rx-str">href</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">]</span></span>
+<span id="rx19-9"><a href="#rx19-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="rx19-10"><a href="#rx19-10" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">requires</span><span class="rx-ws"> </span><span class="rx-const rx-requires rx-oquo">"</span><span class="rx-const rx-requires">python.cls</span><span class="rx-const rx-requires rx-cquo">"</span></span></code></pre>
 </div>
-<div class="row">
-<div class="col-9">
+    <div class="margin header">
+      <div class="m-left"></div>
+      <div class="m-center"></div>
+      <div class="m-right"></div>
+    </div>
+    <div class="margin footer">
+      <div class="m-left">{page}</div>
+      <div class="m-center"></div>
+      <div class="m-right"></div>
+    </div>
+     <div class="chrome"></div>
+  </section>
+
+  <section class="slide logo-oorexx" id="ex19-html-parser-2" data-title="html.parser, extended by a Rexx class (.py~extend)">
+    <p class="kicker">19-html-parser.rex</p>
+
+<div class="title">
+<p><code>html.parser</code>, extended by a Rexx class (<code>.py~extend</code>)</p>
+</div>
+<div class="body">
+<p>Python's html.parser, with the handler written in Rexx. HTMLParser is used by subclassing: the Rexx class Links extends it (.py~extend), and its handle_starttag is the Rexx method (24-subclass.rex has more).</p>
+</div>
 <p class="label">Python</p>
 <div class="sourceCode" id="cb37"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> html.parser <span class="im">import</span> HTMLParser</span>
 <span id="cb37-2"><a href="#cb37-2" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Links(HTMLParser):</span>
 <span id="cb37-3"><a href="#cb37-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> handle_starttag(<span class="va">self</span>, tag, attrs):</span>
 <span id="cb37-4"><a href="#cb37-4" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> tag <span class="op">==</span> <span class="st">&quot;a&quot;</span>: <span class="bu">print</span>(<span class="bu">dict</span>(attrs)[<span class="st">&quot;href&quot;</span>])</span>
 <span id="cb37-5"><a href="#cb37-5" aria-hidden="true" tabindex="-1"></a>Links().feed(<span class="st">&#39;&lt;p&gt;&lt;a href=&quot;https://rexxla.org&quot;&gt;RexxLA&lt;/a&gt; &lt;a href=&quot;/x&quot;&gt;x&lt;/a&gt;&lt;/p&gt;&#39;</span>)</span></code></pre></div>
-</div>
-<div class="col-3">
 <p class="label">Output</p>
 <pre class="output"><code>https://rexxla.org
 /x</code></pre>
-</div>
-</div>
     <div class="margin header">
       <div class="m-left"></div>
       <div class="m-center"></div>
@@ -5031,41 +5322,42 @@ best: Reus total: 800</code></pre>
      <div class="chrome"></div>
   </section>
 
-  <section class="slide logo-oorexx" id="ex24-subclass" data-title=".py~extend: a threading.Thread and a collections.abc.Sequence with their methods in Rexx; .py~raise">
+  <section class="slide logo-oorexx" id="ex24-subclass" data-title=".py~extend: Rexx classes that extend threading.Thread and collections.abc.Sequence; .py~raise">
     <p class="kicker">24-subclass.rex</p>
 
 <div class="title">
-<p><code>.py~extend</code>: a <code>threading.Thread</code> and a <code>collections.abc.Sequence</code> with their methods in Rexx; <code>.py~raise</code></p>
+<p><code>.py~extend</code>: Rexx classes that extend <code>threading.Thread</code> and <code>collections.abc.Sequence</code>; <code>.py~raise</code></p>
 </div>
 <div id="rx24" class="code highlight-rexx-tokio-day rx-blockwrap">
-<pre><code><span id="rx24-1"><a href="#rx24-1" aria-hidden="true" tabindex="-1"></a><span class="rx-var">Worker</span><span class="rx-ws"> </span><span class="rx-asg">=</span><span class="rx-ws"> </span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">extend</span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">threading.Thread</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-env">.Worker</span><span class="rx-spe">)</span></span>
-<span id="rx24-2"><a href="#rx24-2" aria-hidden="true" tabindex="-1"></a><span class="rx-var">w</span><span class="rx-ws"> </span><span class="rx-asg">=</span><span class="rx-ws"> </span><span class="rx-var">Worker</span><span class="rx-op">~</span><span class="rx-const rx-method">new</span><span class="rx-spe">(</span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">kw</span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">name</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-str rx-oquo">"</span><span class="rx-str">worker</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">)</span><span class="rx-spe">)</span></span>
-<span id="rx24-3"><a href="#rx24-3" aria-hidden="true" tabindex="-1"></a><span class="rx-var">w</span><span class="rx-op">~</span><span class="rx-const rx-method">start</span><span class="rx-spe">;</span><span class="rx-ws"> </span><span class="rx-var">w</span><span class="rx-op">~</span><span class="rx-const rx-method">join</span></span>
-<span id="rx24-4"><a href="#rx24-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="rx24-5"><a href="#rx24-5" aria-hidden="true" tabindex="-1"></a><span class="rx-var">Squares</span><span class="rx-ws"> </span><span class="rx-asg">=</span><span class="rx-ws"> </span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">extend</span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">collections.abc.Sequence</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-env">.Squares</span><span class="rx-spe">)</span></span>
-<span id="rx24-6"><a href="#rx24-6" aria-hidden="true" tabindex="-1"></a><span class="rx-var">sq</span><span class="rx-ws"> </span><span class="rx-asg">=</span><span class="rx-ws"> </span><span class="rx-var">Squares</span><span class="rx-op">~</span><span class="rx-const rx-method">new</span><span class="rx-spe">(</span><span class="rx-int rx-ipart">5</span><span class="rx-spe">)</span></span>
-<span id="rx24-7"><a href="#rx24-7" aria-hidden="true" tabindex="-1"></a><span class="rx-kw">say</span><span class="rx-ws"> </span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">list</span><span class="rx-spe">(</span><span class="rx-var">sq</span><span class="rx-spe">)</span><span class="rx-op"> </span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">len</span><span class="rx-spe">(</span><span class="rx-var">sq</span><span class="rx-spe">)</span><span class="rx-op"> </span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">eval</span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">lambda s: 16 in s</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">)</span><span class="rx-op">~</span><span class="rx-const rx-method">new</span><span class="rx-spe">(</span><span class="rx-var">sq</span><span class="rx-spe">)</span><span class="rx-op"> </span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">list</span><span class="rx-spe">(</span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">reversed</span><span class="rx-spe">(</span><span class="rx-var">sq</span><span class="rx-spe">)</span><span class="rx-spe">)</span></span>
-<span id="rx24-8"><a href="#rx24-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="rx24-9"><a href="#rx24-9" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">class</span><span class="rx-ws"> </span><span class="rx-const rx-class">Worker</span></span>
+<pre><code><span id="rx24-1"><a href="#rx24-1" aria-hidden="true" tabindex="-1"></a><span class="rx-var">w</span><span class="rx-ws"> </span><span class="rx-asg">=</span><span class="rx-ws"> </span><span class="rx-env">.Worker</span><span class="rx-op">~</span><span class="rx-const rx-method">new</span><span class="rx-spe">(</span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">kw</span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">name</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-str rx-oquo">"</span><span class="rx-str">worker</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">)</span><span class="rx-spe">)</span></span>
+<span id="rx24-2"><a href="#rx24-2" aria-hidden="true" tabindex="-1"></a><span class="rx-var">w</span><span class="rx-op">~</span><span class="rx-const rx-method">start</span><span class="rx-spe">;</span><span class="rx-ws"> </span><span class="rx-var">w</span><span class="rx-op">~</span><span class="rx-const rx-method">join</span></span>
+<span id="rx24-3"><a href="#rx24-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="rx24-4"><a href="#rx24-4" aria-hidden="true" tabindex="-1"></a><span class="rx-var">sq</span><span class="rx-ws"> </span><span class="rx-asg">=</span><span class="rx-ws"> </span><span class="rx-env">.Squares</span><span class="rx-op">~</span><span class="rx-const rx-method">new</span><span class="rx-spe">(</span><span class="rx-int rx-ipart">5</span><span class="rx-spe">)</span></span>
+<span id="rx24-5"><a href="#rx24-5" aria-hidden="true" tabindex="-1"></a><span class="rx-kw">say</span><span class="rx-ws"> </span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">list</span><span class="rx-spe">(</span><span class="rx-var">sq</span><span class="rx-spe">)</span><span class="rx-op"> </span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">len</span><span class="rx-spe">(</span><span class="rx-var">sq</span><span class="rx-spe">)</span><span class="rx-op"> </span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">eval</span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">lambda s: 16 in s</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">)</span><span class="rx-op">~</span><span class="rx-const rx-method">new</span><span class="rx-spe">(</span><span class="rx-var">sq</span><span class="rx-spe">)</span><span class="rx-op"> </span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">list</span><span class="rx-spe">(</span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">reversed</span><span class="rx-spe">(</span><span class="rx-var">sq</span><span class="rx-spe">)</span><span class="rx-spe">)</span></span>
+<span id="rx24-6"><a href="#rx24-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="rx24-7"><a href="#rx24-7" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">class</span><span class="rx-ws"> </span><span class="rx-const rx-class">Worker</span><span class="rx-ws"> </span><span class="rx-dskw">subclass</span><span class="rx-ws"> </span><span class="rx-const rx-class">PyObject</span></span>
+<span id="rx24-8"><a href="#rx24-8" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">method</span><span class="rx-ws"> </span><span class="rx-const rx-method">activate</span><span class="rx-ws"> </span><span class="rx-dskw">class</span></span>
+<span id="rx24-9"><a href="#rx24-9" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">extend</span><span class="rx-spe">(</span><span class="rx-var">self</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-str rx-oquo">"</span><span class="rx-str">threading.Thread</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">)</span></span>
 <span id="rx24-10"><a href="#rx24-10" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">method</span><span class="rx-ws"> </span><span class="rx-const rx-method">run</span></span>
-<span id="rx24-11"><a href="#rx24-11" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">use</span><span class="rx-ws"> </span><span class="rx-skw">arg</span><span class="rx-ws"> </span><span class="rx-var">slot</span></span>
-<span id="rx24-12"><a href="#rx24-12" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">say</span><span class="rx-ws"> </span><span class="rx-str rx-oquo">"</span><span class="rx-str">hello from</span><span class="rx-str rx-cquo">"</span><span class="rx-op"> </span><span class="rx-var">slot</span><span class="rx-op">~</span><span class="rx-const rx-method">self</span><span class="rx-op">~</span><span class="rx-const rx-method">name</span></span>
-<span id="rx24-13"><a href="#rx24-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="rx24-14"><a href="#rx24-14" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">class</span><span class="rx-ws"> </span><span class="rx-const rx-class">Squares</span></span>
-<span id="rx24-15"><a href="#rx24-15" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">method</span><span class="rx-ws"> </span><span class="rx-const rx-method">__init__</span></span>
-<span id="rx24-16"><a href="#rx24-16" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">expose</span><span class="rx-ws"> </span><span class="rx-xvar">n</span></span>
-<span id="rx24-17"><a href="#rx24-17" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">use</span><span class="rx-ws"> </span><span class="rx-skw">arg</span><span class="rx-ws"> </span><span class="rx-xvar">n</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-var">slot</span></span>
-<span id="rx24-18"><a href="#rx24-18" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-var">slot</span><span class="rx-op">~</span><span class="rx-const rx-method">super</span><span class="rx-op">~</span><span class="rx-const rx-method">__init__</span></span>
-<span id="rx24-19"><a href="#rx24-19" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">method</span><span class="rx-ws"> </span><span class="rx-const rx-method">__getitem__</span></span>
-<span id="rx24-20"><a href="#rx24-20" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">expose</span><span class="rx-ws"> </span><span class="rx-xvar">n</span></span>
-<span id="rx24-21"><a href="#rx24-21" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">use</span><span class="rx-ws"> </span><span class="rx-skw">arg</span><span class="rx-ws"> </span><span class="rx-var">i</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-var">slot</span></span>
-<span id="rx24-22"><a href="#rx24-22" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">if</span><span class="rx-ws"> </span><span class="rx-var">i</span><span class="rx-ws"> </span><span class="rx-op">&gt;</span><span class="rx-op">=</span><span class="rx-ws"> </span><span class="rx-xvar">n</span><span class="rx-ws"> </span><span class="rx-kw">then</span><span class="rx-ws"> </span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">raise</span><span class="rx-spe">(</span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">IndexError</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-var">i</span><span class="rx-spe">)</span></span>
-<span id="rx24-23"><a href="#rx24-23" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">return</span><span class="rx-ws"> </span><span class="rx-var">i</span><span class="rx-ws"> </span><span class="rx-op">*</span><span class="rx-ws"> </span><span class="rx-var">i</span></span>
-<span id="rx24-24"><a href="#rx24-24" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">method</span><span class="rx-ws"> </span><span class="rx-const rx-method">__len__</span></span>
-<span id="rx24-25"><a href="#rx24-25" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">expose</span><span class="rx-ws"> </span><span class="rx-xvar">n</span></span>
-<span id="rx24-26"><a href="#rx24-26" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">return</span><span class="rx-ws"> </span><span class="rx-xvar">n</span></span>
-<span id="rx24-27"><a href="#rx24-27" aria-hidden="true" tabindex="-1"></a></span>
-<span id="rx24-28"><a href="#rx24-28" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">requires</span><span class="rx-ws"> </span><span class="rx-const rx-requires rx-oquo">"</span><span class="rx-const rx-requires">python.cls</span><span class="rx-const rx-requires rx-cquo">"</span></span></code></pre>
+<span id="rx24-11"><a href="#rx24-11" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">say</span><span class="rx-ws"> </span><span class="rx-str rx-oquo">"</span><span class="rx-str">hello from</span><span class="rx-str rx-cquo">"</span><span class="rx-op"> </span><span class="rx-var">self</span><span class="rx-op">~</span><span class="rx-const rx-method">name</span></span>
+<span id="rx24-12"><a href="#rx24-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="rx24-13"><a href="#rx24-13" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">class</span><span class="rx-ws"> </span><span class="rx-const rx-class">Squares</span><span class="rx-ws"> </span><span class="rx-dskw">subclass</span><span class="rx-ws"> </span><span class="rx-const rx-class">PyObject</span></span>
+<span id="rx24-14"><a href="#rx24-14" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">method</span><span class="rx-ws"> </span><span class="rx-const rx-method">activate</span><span class="rx-ws"> </span><span class="rx-dskw">class</span></span>
+<span id="rx24-15"><a href="#rx24-15" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">extend</span><span class="rx-spe">(</span><span class="rx-var">self</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-str rx-oquo">"</span><span class="rx-str">collections.abc.Sequence</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">)</span></span>
+<span id="rx24-16"><a href="#rx24-16" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">method</span><span class="rx-ws"> </span><span class="rx-const rx-method">init</span></span>
+<span id="rx24-17"><a href="#rx24-17" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">expose</span><span class="rx-ws"> </span><span class="rx-xvar">n</span></span>
+<span id="rx24-18"><a href="#rx24-18" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">use</span><span class="rx-ws"> </span><span class="rx-skw">arg</span><span class="rx-ws"> </span><span class="rx-xvar">n</span></span>
+<span id="rx24-19"><a href="#rx24-19" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-var">self</span><span class="rx-op">~</span><span class="rx-const rx-method">init</span><span class="rx-spe">:</span><span class="rx-var">super</span></span>
+<span id="rx24-20"><a href="#rx24-20" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">method</span><span class="rx-ws"> </span><span class="rx-const rx-method">__getitem__</span></span>
+<span id="rx24-21"><a href="#rx24-21" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">expose</span><span class="rx-ws"> </span><span class="rx-xvar">n</span></span>
+<span id="rx24-22"><a href="#rx24-22" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">use</span><span class="rx-ws"> </span><span class="rx-skw">arg</span><span class="rx-ws"> </span><span class="rx-var">i</span></span>
+<span id="rx24-23"><a href="#rx24-23" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">if</span><span class="rx-ws"> </span><span class="rx-var">i</span><span class="rx-ws"> </span><span class="rx-op">&gt;</span><span class="rx-op">=</span><span class="rx-ws"> </span><span class="rx-xvar">n</span><span class="rx-ws"> </span><span class="rx-kw">then</span><span class="rx-ws"> </span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">raise</span><span class="rx-spe">(</span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">IndexError</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-var">i</span><span class="rx-spe">)</span></span>
+<span id="rx24-24"><a href="#rx24-24" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">return</span><span class="rx-ws"> </span><span class="rx-var">i</span><span class="rx-ws"> </span><span class="rx-op">*</span><span class="rx-ws"> </span><span class="rx-var">i</span></span>
+<span id="rx24-25"><a href="#rx24-25" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">method</span><span class="rx-ws"> </span><span class="rx-const rx-method">__len__</span></span>
+<span id="rx24-26"><a href="#rx24-26" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">expose</span><span class="rx-ws"> </span><span class="rx-xvar">n</span></span>
+<span id="rx24-27"><a href="#rx24-27" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">return</span><span class="rx-ws"> </span><span class="rx-xvar">n</span></span>
+<span id="rx24-28"><a href="#rx24-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="rx24-29"><a href="#rx24-29" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">requires</span><span class="rx-ws"> </span><span class="rx-const rx-requires rx-oquo">"</span><span class="rx-const rx-requires">python.cls</span><span class="rx-const rx-requires rx-cquo">"</span></span></code></pre>
 </div>
     <div class="margin header">
       <div class="m-left"></div>
@@ -5080,14 +5372,14 @@ best: Reus total: 800</code></pre>
      <div class="chrome"></div>
   </section>
 
-  <section class="slide logo-oorexx" id="ex24-subclass-2" data-title=".py~extend: a threading.Thread and a collections.abc.Sequence with their methods in Rexx; .py~raise">
+  <section class="slide logo-oorexx" id="ex24-subclass-2" data-title=".py~extend: Rexx classes that extend threading.Thread and collections.abc.Sequence; .py~raise">
     <p class="kicker">24-subclass.rex</p>
 
 <div class="title">
-<p><code>.py~extend</code>: a <code>threading.Thread</code> and a <code>collections.abc.Sequence</code> with their methods in Rexx; <code>.py~raise</code></p>
+<p><code>.py~extend</code>: Rexx classes that extend <code>threading.Thread</code> and <code>collections.abc.Sequence</code>; <code>.py~raise</code></p>
 </div>
 <div class="body">
-<p>Python classes with methods in Rexx. .py~extend(base, .RexxClass) makes a real Python subclass of base whose methods are the Rexx class's: Python calls them (here threading.Thread's start calls run, and list(), len(), "in" and reversed() call <code>__getitem__</code> and <code>__len__</code>). Each method gets a last argument, a StringTable: SELF is the Python object, SUPER the base class (super() in Python), KWARGS the keyword arguments. .py~raise raises a Python exception: IndexError ends a sequence.</p>
+<p>Rexx classes that extend Python classes. A subclass of PyObject extends a Python class with .py~extend, once, in its ACTIVATE class method; its methods override the base's, and Python calls them (here threading.Thread's start calls run, and list(), len(), "in" and reversed() call <strong>getitem</strong> and <strong>len</strong>). INIT passes the constructor's arguments to the base with self~init:super(...); self~name:super(...) is the base's own member. .py~raise raises a Python exception: IndexError ends a sequence.</p>
 </div>
 <div class="row">
 <div class="col-5">
@@ -5123,32 +5415,32 @@ best: Reus total: 800</code></pre>
      <div class="chrome"></div>
   </section>
 
-  <section class="slide logo-oorexx" id="ex25-immutable" data-title=".py~extend on immutable bases: a str with a Rexx __new__, an int with a method">
+  <section class="slide logo-oorexx" id="ex25-immutable" data-title=".py~extend on immutable bases: a str whose value INIT sets, an int with a method">
     <p class="kicker">25-immutable.rex</p>
 
 <div class="title">
-<p><code>.py~extend</code> on immutable bases: a <code>str</code> with a Rexx <code>__new__</code>, an <code>int</code> with a method</p>
+<p><code>.py~extend</code> on immutable bases: a <code>str</code> whose value INIT sets, an <code>int</code> with a method</p>
 </div>
 <div id="rx25" class="code highlight-rexx-tokio-day rx-blockwrap">
-<pre><code><span id="rx25-1"><a href="#rx25-1" aria-hidden="true" tabindex="-1"></a><span class="rx-var">Tag</span><span class="rx-ws"> </span><span class="rx-asg">=</span><span class="rx-ws"> </span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">extend</span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">str</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-env">.Tag</span><span class="rx-spe">)</span></span>
-<span id="rx25-2"><a href="#rx25-2" aria-hidden="true" tabindex="-1"></a><span class="rx-var">b</span><span class="rx-ws"> </span><span class="rx-asg">=</span><span class="rx-ws"> </span><span class="rx-var">Tag</span><span class="rx-op">~</span><span class="rx-const rx-method">new</span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">b</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">)</span></span>
-<span id="rx25-3"><a href="#rx25-3" aria-hidden="true" tabindex="-1"></a><span class="rx-kw">say</span><span class="rx-ws"> </span><span class="rx-var">b</span><span class="rx-ws"> </span><span class="rx-op">|</span><span class="rx-op">|</span><span class="rx-ws"> </span><span class="rx-str rx-oquo">"</span><span class="rx-str">bold</span><span class="rx-str rx-cquo">"</span><span class="rx-ws"> </span><span class="rx-op">|</span><span class="rx-op">|</span><span class="rx-ws"> </span><span class="rx-var">b</span><span class="rx-op">~</span><span class="rx-const rx-method">close</span><span class="rx-op"> </span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">isinstance</span><span class="rx-spe">(</span><span class="rx-var">b</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">getattr</span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">str</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">)</span><span class="rx-spe">)</span></span>
-<span id="rx25-4"><a href="#rx25-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="rx25-5"><a href="#rx25-5" aria-hidden="true" tabindex="-1"></a><span class="rx-var">Celsius</span><span class="rx-ws"> </span><span class="rx-asg">=</span><span class="rx-ws"> </span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">extend</span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">int</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-env">.Celsius</span><span class="rx-spe">)</span></span>
-<span id="rx25-6"><a href="#rx25-6" aria-hidden="true" tabindex="-1"></a><span class="rx-kw">say</span><span class="rx-ws"> </span><span class="rx-var">Celsius</span><span class="rx-op">~</span><span class="rx-const rx-method">new</span><span class="rx-spe">(</span><span class="rx-int rx-ipart">100</span><span class="rx-spe">)</span><span class="rx-op">~</span><span class="rx-const rx-method">fahrenheit</span></span>
-<span id="rx25-7"><a href="#rx25-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="rx25-8"><a href="#rx25-8" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">class</span><span class="rx-ws"> </span><span class="rx-const rx-class">Tag</span></span>
-<span id="rx25-9"><a href="#rx25-9" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">method</span><span class="rx-ws"> </span><span class="rx-const rx-method">__new__</span></span>
-<span id="rx25-10"><a href="#rx25-10" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">use</span><span class="rx-ws"> </span><span class="rx-skw">arg</span><span class="rx-ws"> </span><span class="rx-var">name</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-var">slot</span></span>
-<span id="rx25-11"><a href="#rx25-11" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">return</span><span class="rx-ws"> </span><span class="rx-var">slot</span><span class="rx-op">~</span><span class="rx-const rx-method">super</span><span class="rx-op">~</span><span class="rx-const rx-method">__new__</span><span class="rx-spe">(</span><span class="rx-var">slot</span><span class="rx-op">~</span><span class="rx-const rx-method">self</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-str rx-oquo">"</span><span class="rx-str">&lt;</span><span class="rx-str rx-cquo">"</span><span class="rx-ws"> </span><span class="rx-op">|</span><span class="rx-op">|</span><span class="rx-ws"> </span><span class="rx-var">name</span><span class="rx-ws"> </span><span class="rx-op">|</span><span class="rx-op">|</span><span class="rx-ws"> </span><span class="rx-str rx-oquo">"</span><span class="rx-str">&gt;</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">)</span></span>
+<pre><code><span id="rx25-1"><a href="#rx25-1" aria-hidden="true" tabindex="-1"></a><span class="rx-var">b</span><span class="rx-ws"> </span><span class="rx-asg">=</span><span class="rx-ws"> </span><span class="rx-env">.Tag</span><span class="rx-op">~</span><span class="rx-const rx-method">new</span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">b</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">)</span></span>
+<span id="rx25-2"><a href="#rx25-2" aria-hidden="true" tabindex="-1"></a><span class="rx-kw">say</span><span class="rx-ws"> </span><span class="rx-var">b</span><span class="rx-ws"> </span><span class="rx-op">|</span><span class="rx-op">|</span><span class="rx-ws"> </span><span class="rx-str rx-oquo">"</span><span class="rx-str">bold</span><span class="rx-str rx-cquo">"</span><span class="rx-ws"> </span><span class="rx-op">|</span><span class="rx-op">|</span><span class="rx-ws"> </span><span class="rx-var">b</span><span class="rx-op">~</span><span class="rx-const rx-method">close</span><span class="rx-op"> </span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">isinstance</span><span class="rx-spe">(</span><span class="rx-var">b</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">getattr</span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">str</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">)</span><span class="rx-spe">)</span></span>
+<span id="rx25-3"><a href="#rx25-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="rx25-4"><a href="#rx25-4" aria-hidden="true" tabindex="-1"></a><span class="rx-kw">say</span><span class="rx-ws"> </span><span class="rx-env">.Celsius</span><span class="rx-op">~</span><span class="rx-const rx-method">new</span><span class="rx-spe">(</span><span class="rx-int rx-ipart">100</span><span class="rx-spe">)</span><span class="rx-op">~</span><span class="rx-const rx-method">fahrenheit</span></span>
+<span id="rx25-5"><a href="#rx25-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="rx25-6"><a href="#rx25-6" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">class</span><span class="rx-ws"> </span><span class="rx-const rx-class">Tag</span><span class="rx-ws"> </span><span class="rx-dskw">subclass</span><span class="rx-ws"> </span><span class="rx-const rx-class">PyObject</span></span>
+<span id="rx25-7"><a href="#rx25-7" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">method</span><span class="rx-ws"> </span><span class="rx-const rx-method">activate</span><span class="rx-ws"> </span><span class="rx-dskw">class</span></span>
+<span id="rx25-8"><a href="#rx25-8" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">extend</span><span class="rx-spe">(</span><span class="rx-var">self</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-str rx-oquo">"</span><span class="rx-str">str</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">)</span></span>
+<span id="rx25-9"><a href="#rx25-9" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">method</span><span class="rx-ws"> </span><span class="rx-const rx-method">init</span></span>
+<span id="rx25-10"><a href="#rx25-10" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">use</span><span class="rx-ws"> </span><span class="rx-skw">arg</span><span class="rx-ws"> </span><span class="rx-var">name</span></span>
+<span id="rx25-11"><a href="#rx25-11" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-var">self</span><span class="rx-op">~</span><span class="rx-const rx-method">init</span><span class="rx-spe">:</span><span class="rx-var">super</span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">&lt;</span><span class="rx-str rx-cquo">"</span><span class="rx-ws"> </span><span class="rx-op">|</span><span class="rx-op">|</span><span class="rx-ws"> </span><span class="rx-var">name</span><span class="rx-ws"> </span><span class="rx-op">|</span><span class="rx-op">|</span><span class="rx-ws"> </span><span class="rx-str rx-oquo">"</span><span class="rx-str">&gt;</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">)</span></span>
 <span id="rx25-12"><a href="#rx25-12" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">method</span><span class="rx-ws"> </span><span class="rx-const rx-method">close</span></span>
-<span id="rx25-13"><a href="#rx25-13" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">use</span><span class="rx-ws"> </span><span class="rx-skw">arg</span><span class="rx-ws"> </span><span class="rx-var">slot</span></span>
-<span id="rx25-14"><a href="#rx25-14" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">return</span><span class="rx-ws"> </span><span class="rx-str rx-oquo">"</span><span class="rx-str">&lt;/</span><span class="rx-str rx-cquo">"</span><span class="rx-ws"> </span><span class="rx-op">|</span><span class="rx-op">|</span><span class="rx-ws"> </span><span class="rx-var">slot</span><span class="rx-op">~</span><span class="rx-const rx-method">self</span><span class="rx-op">~</span><span class="rx-const rx-method">string</span><span class="rx-op">~</span><span class="rx-const rx-method">substr</span><span class="rx-spe">(</span><span class="rx-int rx-ipart">2</span><span class="rx-spe">)</span></span>
-<span id="rx25-15"><a href="#rx25-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="rx25-16"><a href="#rx25-16" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">class</span><span class="rx-ws"> </span><span class="rx-const rx-class">Celsius</span></span>
-<span id="rx25-17"><a href="#rx25-17" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">method</span><span class="rx-ws"> </span><span class="rx-const rx-method">fahrenheit</span></span>
-<span id="rx25-18"><a href="#rx25-18" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">use</span><span class="rx-ws"> </span><span class="rx-skw">arg</span><span class="rx-ws"> </span><span class="rx-var">slot</span></span>
-<span id="rx25-19"><a href="#rx25-19" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">return</span><span class="rx-ws"> </span><span class="rx-var">slot</span><span class="rx-op">~</span><span class="rx-const rx-method">self</span><span class="rx-ws"> </span><span class="rx-op">*</span><span class="rx-ws"> </span><span class="rx-int rx-ipart">9</span><span class="rx-ws"> </span><span class="rx-op">/</span><span class="rx-ws"> </span><span class="rx-int rx-ipart">5</span><span class="rx-ws"> </span><span class="rx-op">+</span><span class="rx-ws"> </span><span class="rx-int rx-ipart">32</span></span>
+<span id="rx25-13"><a href="#rx25-13" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">return</span><span class="rx-ws"> </span><span class="rx-str rx-oquo">"</span><span class="rx-str">&lt;/</span><span class="rx-str rx-cquo">"</span><span class="rx-ws"> </span><span class="rx-op">|</span><span class="rx-op">|</span><span class="rx-ws"> </span><span class="rx-var">self</span><span class="rx-op">~</span><span class="rx-const rx-method">string</span><span class="rx-op">~</span><span class="rx-const rx-method">substr</span><span class="rx-spe">(</span><span class="rx-int rx-ipart">2</span><span class="rx-spe">)</span></span>
+<span id="rx25-14"><a href="#rx25-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="rx25-15"><a href="#rx25-15" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">class</span><span class="rx-ws"> </span><span class="rx-const rx-class">Celsius</span><span class="rx-ws"> </span><span class="rx-dskw">subclass</span><span class="rx-ws"> </span><span class="rx-const rx-class">PyObject</span></span>
+<span id="rx25-16"><a href="#rx25-16" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">method</span><span class="rx-ws"> </span><span class="rx-const rx-method">activate</span><span class="rx-ws"> </span><span class="rx-dskw">class</span></span>
+<span id="rx25-17"><a href="#rx25-17" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">extend</span><span class="rx-spe">(</span><span class="rx-var">self</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-str rx-oquo">"</span><span class="rx-str">int</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">)</span></span>
+<span id="rx25-18"><a href="#rx25-18" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">method</span><span class="rx-ws"> </span><span class="rx-const rx-method">fahrenheit</span></span>
+<span id="rx25-19"><a href="#rx25-19" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">return</span><span class="rx-ws"> </span><span class="rx-var">self</span><span class="rx-ws"> </span><span class="rx-op">*</span><span class="rx-ws"> </span><span class="rx-int rx-ipart">9</span><span class="rx-ws"> </span><span class="rx-op">/</span><span class="rx-ws"> </span><span class="rx-int rx-ipart">5</span><span class="rx-ws"> </span><span class="rx-op">+</span><span class="rx-ws"> </span><span class="rx-int rx-ipart">32</span></span>
 <span id="rx25-20"><a href="#rx25-20" aria-hidden="true" tabindex="-1"></a></span>
 <span id="rx25-21"><a href="#rx25-21" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">requires</span><span class="rx-ws"> </span><span class="rx-const rx-requires rx-oquo">"</span><span class="rx-const rx-requires">python.cls</span><span class="rx-const rx-requires rx-cquo">"</span></span></code></pre>
 </div>
@@ -5165,14 +5457,14 @@ best: Reus total: 800</code></pre>
      <div class="chrome"></div>
   </section>
 
-  <section class="slide logo-oorexx" id="ex25-immutable-2" data-title=".py~extend on immutable bases: a str with a Rexx __new__, an int with a method">
+  <section class="slide logo-oorexx" id="ex25-immutable-2" data-title=".py~extend on immutable bases: a str whose value INIT sets, an int with a method">
     <p class="kicker">25-immutable.rex</p>
 
 <div class="title">
-<p><code>.py~extend</code> on immutable bases: a <code>str</code> with a Rexx <code>__new__</code>, an <code>int</code> with a method</p>
+<p><code>.py~extend</code> on immutable bases: a <code>str</code> whose value INIT sets, an <code>int</code> with a method</p>
 </div>
 <div class="body">
-<p>Rexx methods on a str, an int or a tuple. An immutable Python object gets its value in <strong>new</strong>, not <strong>init</strong>: .py~extend passes the constructor's arguments to the base's <strong>new</strong>, so Tag~new("b") is a str whose value is "b". A Rexx method <strong>new</strong> can change the value first: SELF is then the class, and SUPER~<strong>new</strong> is the base's. Such objects stay Python objects in Rexx, with their methods.</p>
+<p>Rexx methods on a str, an int or a tuple. An immutable Python object gets its value when it is made, in <strong>new</strong>: INIT's self~init:super(...) passes it there, so Tag~new("b") can make a str whose value is "<b>". The object is a str in Python and a Tag in Rexx, with the methods of both.</p>
 </div>
 <div class="row">
 <div class="col-9">
@@ -5541,7 +5833,7 @@ ooRexx 1</code></pre>
 <li>An attribute that is a function or method is called when used without arguments; a class is not: <code>io~StringIO~new</code> makes an instance (11, 18).</li>
 <li><code>.py~list(x)</code>, <code>.py~tuple(x)</code>, <code>.py~dict(...)</code>... are Python's builtins. A Rexx Array goes to Python as a list (nested Arrays as nested lists), so <code>.py~list((1, 2))</code> is <code>[1, 2]</code> (05, 13). <code>.py~str</code>, <code>~int</code>, <code>~float</code> are Python's too, but keep the result as a Python object instead of a Rexx string (02).</li>
 <li><code>.true</code> and <code>.false</code> are the Rexx strings <code>1</code> and <code>0</code>, so they go to Python as ints, except to a parameter annotated <code>bool</code>, where they go as <code>True</code> and <code>False</code> (pandas' <code>inplace=</code>, 23). For a function without annotations that insists on a real <code>bool</code>, <code>py.box("bool", 1)</code> makes <code>True</code>.</li>
-<li>A method of a class made by <code>.py~extend</code> gets one argument more than Python passes, last: a StringTable with <code>SELF</code> (the Python object), <code>SUPER</code> (its base class, as Python's <code>super()</code>) and <code>KWARGS</code> (19, 24).</li>
+<li>A Rexx class that extends a Python class is a subclass of <code>PyObject</code> that calls <code>.py~extend(self, base)</code> in its <code>ACTIVATE</code> class method. Its INIT passes the arguments to the base with <code>self~init:super(...)</code>, and <code>self~name:super(...)</code> is the base's own member (19, 24, 25).</li>
 </ul>
 </div>
 </div>
@@ -5562,8 +5854,10 @@ ooRexx 1</code></pre>
   <div id="progress"></div>
 </div>
 <script type="application/json" id="build-warnings">[]</script>
-<script type="application/json" id="deck-about">{"print":false,"groups":{"deck":true,"system":true,"command":true,"links":true,"timing":true,"path":false},"deck":{"file":"samples.md","size":"32969","modified":"2026-10-12 13:40:07","built":"2026-10-12 13:40:26","seconds":"3.2","skin":"skin-default.css","masters":"master-default.css"},"system":{"os":"Linux 6.18.44-fc-v114 x86_64","oorexx":"REXX-ooRexx_5.3.0(MT)_64-bit 6.06 10 Oct 2026","pandoc":"pandoc 3.1.3","parser":"Rexx Parser beta 0.7, refresh 20261012"},"command":"md2slides samples.md","links":[["ooRexx","https://www.oorexx.org/"],["ooRexx on Wikipedia","https://en.wikipedia.org/wiki/Object_REXX"],["ooRexx sources","https://sourceforge.net/projects/oorexx/"],["Pandoc","https://pandoc.org/"],["The Rexx Parser (md2slides is part of it)","https://rexx.epbcn.com/rexx-parser/"],["The md2slides manual","https://rexx.epbcn.com/rexx-parser/doc/utilities/md2slides/"]]}</script>
+<script type="application/json" id="deck-about">{"print":false,"groups":{"deck":true,"system":true,"command":true,"links":true,"timing":true,"path":false},"deck":{"file":"samples.md","size":"33011","modified":"2026-10-13 18:36:47","built":"2026-10-13 18:36:49","seconds":"2.3","skin":"skin-default.css","masters":"master-default.css"},"system":{"os":"Linux 6.18.44-fc-v114 x86_64","oorexx":"REXX-ooRexx_5.3.0(MT)_64-bit 6.06 10 Oct 2026","pandoc":"pandoc 3.1.3","parser":"Rexx Parser beta 0.7, refresh 20261013"},"command":"md2slides samples.md","links":[["ooRexx","https://www.oorexx.org/"],["ooRexx on Wikipedia","https://en.wikipedia.org/wiki/Object_REXX"],["ooRexx sources","https://sourceforge.net/projects/oorexx/"],["Pandoc","https://pandoc.org/"],["The Rexx Parser (md2slides is part of it)","https://rexx.epbcn.com/rexx-parser/"],["The md2slides manual","https://rexx.epbcn.com/rexx-parser/doc/utilities/md2slides/"]]}</script>
 <script type="application/json" id="deck-timer">{"total":null,"warn":[300,60],"interval":10,"where":"footer","seconds":180,"sound":false,"record":false,"pauseMessage":"","countdownMessage":""}</script>
+<script type="application/json" id="deck-edit">null</script>
+<script type="application/json" id="deck-source-lines">null</script>
 <script type="application/json" id="deck-sources">null</script>
 <script>
 /******************************************************************************/
@@ -7380,6 +7674,2057 @@ ooRexx 1</code></pre>
 <script>
 /******************************************************************************/
 /*                                                                            */
+/*  editor.js -- d's editor: marks and arrows on pictures (v280), drawings    */
+/*  (v284), the arrows of drawings and their stacking (v285)                  */
+/*                                                                            */
+/*  Rony, 12/10/2026: two things are hard to write by hand, the marks on      */
+/*  pictures and the drawings; for those, "a very (intentionally) simple,     */
+/*  interactive visual editor ... in the browser window". The scope note of   */
+/*  13/10 (md2slides-visual-editor.md) and his answers of the same day:       */
+/*                                                                            */
+/*  - it lives inside d, not on a key of its own;                             */
+/*  - stage 1 is this one: marks on pictures (rectangles, ellipses) and       */
+/*    arrows from one place of a picture to another;                          */
+/*  - the way back to the .md is, for now, the clipboard: every change gives  */
+/*    the line of the deck it makes, and where it goes. A small server        */
+/*    (md2slides --edit) will write it in place later.                        */
+/*                                                                            */
+/*  Nothing here touches the deck's file, and nothing is kept: a reload       */
+/*  forgets every change. What is drawn is shown on the slide at once, so     */
+/*  that what is copied is what was seen.                                     */
+/*                                                                            */
+/*  Where a change goes. In a deck built with view-source: yes, the deck      */
+/*  carries the Markdown of each slide and the line of the file where it      */
+/*  opens; the editor reads the slide's lines, finds the picture's line and   */
+/*  the lines of its marks and arrows, and says "line 212". It changes only   */
+/*  the words it must (the four numbers, the look, the pen, the step word):   */
+/*  comments, spacing and the order of the rest stay as they were. Without    */
+/*  the Markdown, it still draws and copies, and says where the line goes in  */
+/*  words.                                                                    */
+/*                                                                            */
+/*  The runtime hands over what it knows with MdEditor.attach(api), turns     */
+/*  the editor on and off with d, and asks it first about every pointer and   */
+/*  key while d is on.                                                        */
+/*                                                                            */
+/******************************************************************************/
+
+(function () {
+  "use strict";
+
+  var api = null;                 /* from the runtime: see attach()          */
+  var on = false;
+  var tool = "select";            /* select, box, ring, arrow, place         */
+  var models = {};                /* slide index -> what is editable on it   */
+  var sel = null;                 /* the item selected                       */
+  var drag = null;                /* the gesture under way                   */
+  var tookLast = false;           /* the last pointer down was ours          */
+  var bar = null, layer = null, loopOn = false, lastKey = "";
+  var saveTimer = null, saving = false;    /* md2slides --edit (v281)        */
+  /* The guides of the drawings (v284, Rony 13/10): three and three, at 15,  */
+  /* 50 and 85 per cent of the drawing, moved in steps of 5. Not kept.       */
+  var guides = { x: [15, 50, 85], y: [15, 50, 85] }, guidesOn = true;
+  var SNAP = 8;                                /* px: how near is near     */
+  var SVGNS = "http://www.w3.org/2000/svg";
+
+  var LOOKS = ["wash", "box", "ring", "hatch"];
+  var MARK_LOOKS = ["wash", "ink", "box", "ring", "hatch"];
+
+  /* ---------------------------------------------------------------------- */
+  /* The words of a > line                                                   */
+  /* ---------------------------------------------------------------------- */
+
+  /* A step word, as md2slides reads it (SCStepWord): click, after, with... */
+  function stepWord(w) {
+    w = (w || "").toLowerCase();
+    if (w === "click" || w === "afterclick") return "click";
+    if (w === "later") return "later";
+    if (w.length >= 5 && "afterprevious".indexOf(w) === 0) return "after";
+    if (w.length >= 4 && "withprevious".indexOf(w) === 0) return "with";
+    return "";
+  }
+
+  /* The words of a line, blanks between them, a text between quotes (the  */
+  /* same quote twice is one, as in Rexx) kept whole, with what is glued to  */
+  /* it (label="a b").                                                      */
+  function words(s) {
+    var out = [], i = 0, n = s.length;
+    while (i < n) {
+      while (i < n && /\s/.test(s.charAt(i))) i++;
+      if (i >= n) break;
+      var start = i;
+      while (i < n && !/\s/.test(s.charAt(i))) {
+        var c = s.charAt(i);
+        if (c === '"' || (c === "'" && (i === start || s.charAt(i - 1) === "="))) {
+          i++;
+          for (;;) {
+            if (i >= n) break;
+            if (s.charAt(i) === c) {
+              if (s.charAt(i + 1) === c) { i += 2; continue; }
+              i++; break;
+            }
+            i++;
+          }
+        } else i++;
+      }
+      out.push(s.slice(start, i));
+    }
+    return out;
+  }
+
+  /* A > line of ours: its indentation and its words; null if not one.     */
+  function gtLine(text) {
+    var m = /^(\s*)>\s?(.*)$/.exec(text || "");
+    if (!m) return null;
+    return { indent: m[1], words: words(m[2]) };
+  }
+
+  function joinLine(g) { return g.indent + "> " + g.words.join(" "); }
+
+  /* The keyword of a > line (mark, arrow, picture...) and where it is: the */
+  /* first word, or the second after a step word.                          */
+  function keywordAt(g, kws) {
+    for (var i = 0; i < g.words.length && i < 2; i++) {
+      var w = g.words[i].toLowerCase();
+      if (kws.indexOf(w) >= 0) return i;
+      if (!stepWord(w)) return -1;
+    }
+    return -1;
+  }
+
+  var REGION = /^-?\d+(\.\d+)?%?(,-?\d+(\.\d+)?%?){3}$/;
+  function isRegion(w) { return REGION.test(w); }
+
+  /* "#shot:20,30" -> { name: "shot", x: 20, y: 30 }, or null. */
+  function placeWord(w) {
+    var m = /^#([^:\s]+):(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$/.exec(w || "");
+    return m ? { name: m[1], x: +m[2], y: +m[3] } : null;
+  }
+
+  function fmt(n) { return String(Math.round(n)); }
+  function clamp(n) { return Math.max(0, Math.min(100, n)); }
+
+  /* ---------------------------------------------------------------------- */
+  /* What can be edited on a slide                                           */
+  /* ---------------------------------------------------------------------- */
+
+  /* The pictures of a slide, in the order they are written. The logo and  */
+  /* whatever lives in the margins are the deck's, not the slide's.        */
+  function picturesOf(slide) {
+    return Array.prototype.filter.call(slide.querySelectorAll("img"), function (img) {
+      return !img.closest(".margin, .chrome, .card, .bcard, #source-pane, .md2slides-background");
+    });
+  }
+
+  /* The name an arrow uses for a picture: its id, or that of the block    */
+  /* that holds it and nothing else (as d's places say, and as arrowEnd    */
+  /* finds them).                                                          */
+  function pictureName(img) {
+    if (img.id) return img.id;
+    var f = img.closest("figure[id], p[id], div[id]");
+    return f && f.querySelectorAll("img").length === 1 ? f.id : "";
+  }
+
+  /* The lines of the slide that hold pictures, in order: a > picture line, */
+  /* or each ![...](...) of a line of Markdown. Fenced code is skipped.     */
+  function pictureLines(lines) {
+    var out = [], fence = "";
+    lines.forEach(function (L, i) {
+      var s = L.text.trim();
+      if (fence) { if (s.slice(0, 3) === fence) fence = ""; return; }
+      if (s.slice(0, 3) === "```" || s.slice(0, 3) === "~~~") { fence = s.slice(0, 3); return; }
+      var g = gtLine(L.text);
+      if (g) {
+        for (var k = 0; k < g.words.length; k++) {
+          var w = g.words[k].toLowerCase();
+          if (w === "picture" || w === "pic") {
+            if (k + 1 < g.words.length) out.push({ line: L, kind: "pic", at: k });
+            return;
+          }
+          if (!stepWord(w) && w.indexOf("=") < 0 && w.charAt(0) !== "#") return;
+        }
+        return;
+      }
+      var re = /!\[[^\]]*\]\(/g, m, n = 0;
+      while ((m = re.exec(L.text))) out.push({ line: L, kind: "md", nth: n++ });
+    });
+    return out;
+  }
+
+  /* The > mark lines of the slide, in order, each with the name md2slides  */
+  /* gives its mark: #name or id=#name, or else mark-K, K counting all the  */
+  /* marks of the slide (SCMark).                                           */
+  function markLines(lines) {
+    var out = [], fence = "";
+    lines.forEach(function (L) {
+      var s = L.text.trim();
+      if (fence) { if (s.slice(0, 3) === fence) fence = ""; return; }
+      if (s.slice(0, 3) === "```" || s.slice(0, 3) === "~~~") { fence = s.slice(0, 3); return; }
+      var g = gtLine(L.text);
+      if (!g || keywordAt(g, ["mark"]) < 0) return;
+      var name = "";
+      g.words.forEach(function (w) {
+        if (/^#/.test(w) && !name) name = w.slice(1);
+        var m = /^id=#?(.+)$/i.exec(w);
+        if (m) name = m[1];
+      });
+      out.push({ line: L, name: name || "mark-" + (out.length + 1) });
+    });
+    return out;
+  }
+
+  function arrowLines(lines) {
+    var out = [], fence = "";
+    lines.forEach(function (L) {
+      var s = L.text.trim();
+      if (fence) { if (s.slice(0, 3) === fence) fence = ""; return; }
+      if (s.slice(0, 3) === "```" || s.slice(0, 3) === "~~~") { fence = s.slice(0, 3); return; }
+      var g = gtLine(L.text);
+      if (!g) return;
+      var k = keywordAt(g, ["arrow"]);
+      if (k < 0) return;
+      var ends = [];
+      for (var i = k + 1; i < g.words.length; i++) {
+        var p = placeWord(g.words[i]);
+        if (p) ends.push({ word: i, place: p });
+        else if (/^#/.test(g.words[i])) ends.push({ word: i, place: null, name: g.words[i].slice(1) });
+      }
+      if (ends.length === 2) out.push({ line: L, ends: ends });
+    });
+    return out;
+  }
+
+  /* How a mark looks and when it comes in, from what the deck was built    */
+  /* with, when there is no Markdown to read it from.                       */
+  function lookFromDom(slide, beat) {
+    var r = { look: "", pen: "", step: "click" };
+    var lb = beat.toLowerCase();
+    Array.prototype.forEach.call(slide.querySelectorAll("[data-spot]"), function (el) {
+      if (el.tagName === "IMG") return;
+      var w = (el.getAttribute("data-spot") || "").split(/\s+/);
+      if ((w[0] || "").toLowerCase() !== lb) return;
+      w.slice(1).forEach(function (x) {
+        if (LOOKS.indexOf(x) >= 0) r.look = x;
+        var p = /^pen=(.+)$/.exec(x);
+        if (p) r.pen = p[1];
+      });
+      if (el.classList.contains("afterPrevious")) r.step = "after";
+      else if (el.classList.contains("withPrevious")) r.step = "with";
+    });
+    return r;
+  }
+
+  function build(idx, slide) {
+    var M = { idx: idx, slide: slide, lines: null, first: 0, pics: [], items: [],
+              names: {}, added: [], newDrawings: [] };
+    var all = api.sources(), starts = api.sourceLines();
+    if (all && typeof all[idx] === "string") {
+      M.lines = all[idx].split("\n").map(function (t, i) {
+        return { text: t, orig: i, base: t, state: "same" };
+      });
+      M.first = starts && starts[idx] ? starts[idx] : 0;
+    }
+
+    var imgs = picturesOf(slide);
+    var pl = M.lines ? pictureLines(M.lines) : [];
+    var mapped = M.lines && pl.length === imgs.length;
+    M.mapped = !!mapped;
+    imgs.forEach(function (img, i) {
+      M.pics.push({ img: img, name: pictureName(img), src: mapped ? pl[i] : null,
+                    newName: "" });
+    });
+    var picOf = function (img) {
+      for (var i = 0; i < M.pics.length; i++) if (M.pics[i].img === img) return M.pics[i];
+      return null;
+    };
+
+    /* The marks: the spans the spotlight laid over the pictures. */
+    var ml = M.lines ? markLines(M.lines) : [];
+    var seen = {};
+    Array.prototype.forEach.call(slide.querySelectorAll(".spot-area"), function (span) {
+      var pic = picOf(span.spotImg);
+      if (!pic || !span.spotArea) return;
+      var beat = span.getAttribute("data-spot-beat") || "";
+      var nth = seen[beat.toLowerCase()] = (seen[beat.toLowerCase()] || 0) + 1;
+      var it = { kind: "mark", pic: pic, dom: span, name: beat,
+                 region: span.spotArea.slice(0, 4), line: null, nth: nth };
+      for (var k = 0; k < ml.length; k++) {
+        if (ml[k].name.toLowerCase() === beat.toLowerCase()) { it.line = ml[k].line; break; }
+      }
+      if (it.line) readMark(it);
+      else {
+        var d = lookFromDom(slide, beat);
+        it.look = d.look; it.pen = d.pen; it.step = d.step;
+      }
+      it.orig = { region: it.region.slice(), look: it.look, pen: it.pen, step: it.step };
+      M.items.push(it);
+    });
+
+    /* The arrows from a place of a picture to a place of a picture. */
+    var al = M.lines ? arrowLines(M.lines) : [];
+    Array.prototype.forEach.call(slide.querySelectorAll(".arrow[data-from][data-to]"), function (el) {
+      var ends = [el.getAttribute("data-from"), el.getAttribute("data-to")].map(function (a) {
+        var m = /^\s*([^@\s]+)\s*@\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*$/.exec(a || "");
+        if (!m) return null;
+        var target = api.endElement(slide, m[1]);
+        /* a place of a drawing is the drawing's, even with a picture in it */
+        if (target && target.classList.contains("drawing")) return null;
+        var img = target && (target.tagName === "IMG" ? target : target.querySelector("img"));
+        var pic = img && picOf(img);
+        return pic ? { pic: pic, name: m[1], x: +m[2], y: +m[3] } : null;
+      });
+      if (!ends[0] || !ends[1]) return;
+      var it = { kind: "arrow", dom: el, ends: ends, line: null, words: null };
+      for (var k = 0; k < al.length; k++) {
+        var a = al[k], p0 = a.ends[0].place, p1 = a.ends[1].place;
+        if (a.taken || !p0 || !p1) continue;
+        var same = function (p, e) {
+          return p.name.toLowerCase() === e.name.toLowerCase() && p.x === e.x && p.y === e.y;
+        };
+        if (same(p0, ends[0]) && same(p1, ends[1])) it.words = [a.ends[0].word, a.ends[1].word];
+        else if (same(p0, ends[1]) && same(p1, ends[0])) it.words = [a.ends[1].word, a.ends[0].word];
+        else continue;
+        a.taken = true; it.line = a.line; break;
+      }
+      it.step = "";
+      if (el.classList.contains("fragment")) it.step = "click";
+      if (el.classList.contains("afterPrevious")) it.step = "after";
+      else if (el.classList.contains("withPrevious")) it.step = "with";
+      if (it.line) {
+        var g = gtLine(it.line.base), s0 = stepWord(g.words[0]);
+        if (s0 && s0 !== "later") it.step = s0;
+      }
+      it.orig = { ends: ends.map(function (e) { return { pic: e.pic, x: e.x, y: e.y }; }),
+                  step: it.step };
+      M.items.push(it);
+    });
+    buildPieces(M, slide);
+    buildLinks(M, slide, al);
+    return M;
+  }
+
+  /* A mark's look, pen and step from its line. */
+  function readMark(it) {
+    var g = gtLine(it.line.base);
+    it.look = ""; it.pen = ""; it.step = "click";
+    var s0 = stepWord(g.words[0]);
+    if (s0 === "after" || s0 === "with") it.step = s0;
+    g.words.forEach(function (w) {
+      if (MARK_LOOKS.indexOf(w) >= 0) it.look = w;
+      var p = /^pen=(.+)$/.exec(w);
+      if (p) it.pen = p[1];
+    });
+  }
+
+  function model() {
+    var idx = api.index(), slide = api.slide();
+    if (!slide) return null;
+    var M = models[idx];
+    if (!M || M.slide !== slide) M = models[idx] = build(idx, slide);
+    return M;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Writing the lines                                                       */
+  /* ---------------------------------------------------------------------- */
+
+  /* The step word in front of a line: click is the plain line for a mark  */
+  /* (> mark comes in on a click), and the plain line is there from the    */
+  /* start for an arrow.                                                   */
+  function setStep(g, step, kind) {
+    var had = stepWord(g.words[0]) ? g.words[0] : "";
+    if (had) g.words.shift();
+    var want = step;
+    if (kind === "mark" && step === "click") want = stepWord(had) === "click" ? had : "";
+    else if (want && stepWord(had) === want) want = had;
+    if (want) g.words.unshift(want);
+  }
+
+  function markText(it, M) {
+    var region = it.region.map(fmt).join(",");
+    if (!it.line || it.isNew) {
+      var ind = it.pic.src ? (gtLine(it.pic.src.line.text) || { indent: "" }).indent : "";
+      var g = { indent: ind, words: ["mark"] };
+      if (!it.line && it.name && !/^mark-\d+$/.test(it.name)) g.words.push("id=#" + it.name);
+      g.words.push(region);
+      if (it.look && it.look !== "wash") g.words.push(it.look);
+      if (it.pen) g.words.push("pen=" + it.pen);
+      setStep(g, it.step, "mark");
+      return joinLine(g);
+    }
+    var g2 = gtLine(it.line.base);
+    var hadLook = g2.words.some(function (w) { return MARK_LOOKS.indexOf(w) >= 0; });
+    var n = 0, last = -1;
+    g2.words = g2.words.map(function (w, i) {
+      if (!isRegion(w)) return w;
+      last = i;
+      return ++n === it.nth ? region : w;
+    });
+    var keep = [];
+    var after = [];
+    if (it.look && (it.look !== "wash" || hadLook)) after.push(it.look);
+    if (it.pen) after.push("pen=" + it.pen);
+    g2.words.forEach(function (w, i) {
+      if (MARK_LOOKS.indexOf(w) >= 0 || /^pen=/.test(w)) return;
+      keep.push(w);
+      if (i === last) keep.push.apply(keep, after);
+    });
+    if (last < 0) keep.push.apply(keep, after);
+    g2.words = keep;
+    setStep(g2, it.step, "mark");
+    return joinLine(g2);
+  }
+
+  function endWord(e) {
+    return "#" + (e.pic.name || e.pic.newName) + ":" + fmt(e.x) + "," + fmt(e.y);
+  }
+
+  function arrowText(it) {
+    if (!it.line || it.isNew) {
+      var ind = it.ends[0].pic.src ? (gtLine(it.ends[0].pic.src.line.text) || { indent: "" }).indent : "";
+      var g = { indent: ind, words: ["arrow", endWord(it.ends[0]), "->", endWord(it.ends[1])] };
+      setStep(g, it.step, "arrow");
+      return joinLine(g);
+    }
+    var g2 = gtLine(it.line.base);
+    g2.words[it.words[0]] = endWord(it.ends[0]);
+    g2.words[it.words[1]] = endWord(it.ends[1]);
+    setStep(g2, it.step, "arrow");
+    return joinLine(g2);
+  }
+
+  function lineText(it, M) {
+    if (it.kind === "piece") return pieceText(it);
+    if (it.kind === "link") return linkText(it, M);
+    return it.kind === "mark" ? markText(it, M) : arrowText(it);
+  }
+
+  /* A picture that an arrow needs a name for: id=#picN on its line. */
+  function namePicture(M, pic) {
+    if (pic.name || pic.newName) return;
+    var n = 1;
+    var taken = function (name) {
+      if (document.getElementById(name)) return true;
+      for (var k in models) {
+        if (models[k].pics.some(function (p) { return p.newName === name; })) return true;
+      }
+      return false;
+    };
+    while (taken("pic" + n)) n++;
+    pic.newName = "pic" + n;
+    if (!pic.src) return;
+    var L = pic.src.line;
+    if (pic.src.kind === "pic") {
+      var g = gtLine(L.text);
+      g.words.splice(pic.src.at + 1, 0, "id=#" + pic.newName);
+      L.text = joinLine(g);
+    } else {
+      /* ![...](...) and maybe {...}: the n-th one on the line */
+      var re = /!\[[^\]]*\]\([^)]*\)(\{)?/g, m, k = 0, t = L.text;
+      while ((m = re.exec(t))) {
+        if (k++ !== pic.src.nth) continue;
+        var end = m.index + m[0].length;
+        L.text = m[1] ? t.slice(0, end) + "#" + pic.newName + " " + t.slice(end)
+                      : t.slice(0, end) + "{#" + pic.newName + "}" + t.slice(end);
+        break;
+      }
+    }
+    if (L.state === "same") L.state = "changed";
+  }
+
+  /* Where a new line goes. A mark: before the picture's line, after the   */
+  /* marks already written for it (their order is their order of coming   */
+  /* in). An arrow: after the picture's line, a paragraph of its own.      */
+  function insertLine(M, it) {
+    var lines = M.lines;
+    if (it.kind === "mark") {
+      var at = lines.indexOf(it.pic.src.line);
+      var top = at;
+      while (top > 0 && gtLine(lines[top - 1].text) && !lines[top - 1].deleted) top--;
+      var pos = top;
+      for (var i = top; i < at; i++) {
+        var g = gtLine(lines[i].text);
+        if (g && keywordAt(g, ["mark"]) >= 0) pos = i + 1;
+      }
+      var L = { text: "", orig: null, state: "new" };
+      lines.splice(pos, 0, L);
+      return L;
+    }
+    var p = lines.indexOf(it.ends[1].pic.src ? it.ends[1].pic.src.line : it.ends[0].pic.src.line);
+    var q = lines.indexOf(it.ends[0].pic.src ? it.ends[0].pic.src.line : it.ends[1].pic.src.line);
+    var after = Math.max(p, q);
+    /* past the rest of that paragraph, and the arrows already there */
+    while (after + 1 < lines.length && lines[after + 1].text.trim() !== "") after++;
+    var A = { text: "", orig: null, state: "new" };
+    var add = [{ text: "", orig: null, state: "new", blank: true }, A];
+    if (after + 1 < lines.length && lines[after + 1].text.trim() !== "")
+      add.push({ text: "", orig: null, state: "new", blank: true });
+    lines.splice.apply(lines, [after + 1, 0].concat(add));
+    A.blanks = add.filter(function (x) { return x.blank; });
+    return A;
+  }
+
+  function commit(it, M) {
+    if (it.gone) return;
+    var t = lineText(it, M);
+    it.text = t;
+    if (!it.line) return;
+    it.line.text = t;
+    if (it.line.state !== "new") it.line.state = t === it.line.base ? "same" : "changed";
+  }
+
+  /* "Line 212" of the file, or "line 4 of this slide" without its start. */
+  function lineNo(M, L) {
+    var i = L.orig;
+    if (i === null || i === undefined) return "";
+    return M.first ? "line " + (M.first + i) : "line " + (i + 1) + " of this slide's Markdown";
+  }
+
+  /* The nearest line of the file before L, for "after line N". */
+  function before(M, L) {
+    var at = M.lines.indexOf(L);
+    for (var i = at - 1; i >= 0; i--) if (M.lines[i].orig !== null && !M.lines[i].deleted) return M.lines[i];
+    return null;
+  }
+
+  function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+  /* Where the line of an item goes, in words. */
+  function where(it, M) {
+    if (it.kind === "piece" && it.gone && it.span && M.first) {
+      var a = M.first + M.lines[it.span.first].orig, b = M.first + M.lines[it.span.last].orig;
+      return a === b ? "Line " + a + ": delete it." : "Lines " + a + " to " + b + ": delete them.";
+    }
+    if (serving(M) && it.line && !saveTimer && !saving && it.line.state === "same" && !it.gone) {
+      return cap(lineNo(M, it.line)) + ".";
+    }
+    if (it.line) {
+      if (it.gone) return cap(lineNo(M, it.line)) + ": delete it.";
+      if (it.line.state === "new") {
+        var b = before(M, it.line);
+        return b ? "A new line, after " + lineNo(M, b) + "." : "A new line, at the top of the slide.";
+      }
+      if (it.line.state === "changed") return cap(lineNo(M, it.line)) + ": put this one in its place.";
+      return cap(lineNo(M, it.line)) + ", as it is.";
+    }
+    var why = M.lines ? "" : " (with view-source: yes, the editor copies the whole slide and says which lines it replaces)";
+    if (it.gone) return "Delete the line of " + (it.kind === "mark" ? "this mark" : "this arrow") + why + ".";
+    if (it.kind === "link") {
+      return it.isNew ? "Put it on a line of its own just before the drawing's > end drawing" + why + "."
+                      : "Put it in place of the line of this arrow" + why + ".";
+    }
+    if (it.kind === "mark") {
+      return it.isNew ? "Put it just above the picture's line, after its other marks" + why + "."
+                      : "Put it in place of the line of this mark" + why + ".";
+    }
+    return it.isNew ? "Put it on a line of its own after the picture's line" + why + "."
+                    : "Put it in place of the line of this arrow" + why + ".";
+  }
+
+  /* The other line an item changed: the picture that got a name. */
+  function alsoLines(it, M) {
+    if (it.kind === "link" && !it.gone) return linkAlso(it, M);
+    if (it.kind !== "arrow" || it.gone) return [];
+    var out = [];
+    it.ends.forEach(function (e) {
+      if (!e.pic.newName || out.some(function (o) { return o.pic === e.pic; })) return;
+      if (e.pic.src) {
+        out.push({ pic: e.pic, text: e.pic.src.line.text,
+                   where: cap(lineNo(M, e.pic.src.line)) + ", the picture, with its name:" });
+      } else {
+        out.push({ pic: e.pic, text: "id=#" + e.pic.newName,
+                   where: "The picture needs a name: put this on its line." });
+      }
+    });
+    return out;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Showing the changes on the slide                                        */
+  /* ---------------------------------------------------------------------- */
+
+  /* An edited mark of the deck's own moves where it now is (as the        */
+  /* spotlight's layoutArea places it), and takes its new look.            */
+  function placeSpan(it) {
+    var m = it.dom;
+    if (!m) return;
+    m.spotArea = it.region.slice();
+    m.classList.toggle("ed-gone", !!it.gone);
+    if (it.look) m.setAttribute("data-spot-style", it.look);
+    var holder = m.offsetParent, img = m.spotImg;
+    if (!holder || !holder.offsetWidth || !img.offsetWidth) return;
+    var hr = holder.getBoundingClientRect(), k = hr.width / holder.offsetWidth;
+    if (!k) return;
+    var ir = img.getBoundingClientRect();
+    var ox = (ir.left - hr.left) / k - holder.clientLeft;
+    var oy = (ir.top - hr.top) / k - holder.clientTop;
+    var w = ir.width / k, h = ir.height / k, a = it.region;
+    m.style.left   = (ox + w * a[0] / 100) + "px";
+    m.style.top    = (oy + h * a[1] / 100) + "px";
+    m.style.width  = (w * (a[2] - a[0]) / 100) + "px";
+    m.style.height = (h * (a[3] - a[1]) / 100) + "px";
+  }
+
+  function changed(it) {
+    if (it.isNew || it.gone) return true;
+    var o = it.orig;
+    if (it.kind === "piece") {
+      return !!it.newName || (it.z || "") !== (o.z || "") ||
+             o.region.some(function (v, i) { return v !== it.region[i]; });
+    }
+    if (it.kind === "link") {
+      return o.step !== it.step || o.ends.some(function (e, i) { return !sameEnd(e, it.ends[i]); });
+    }
+    if (it.kind === "mark") {
+      return o.look !== it.look || o.pen !== it.pen || o.step !== it.step ||
+             o.region.some(function (v, i) { return v !== it.region[i]; });
+    }
+    return o.step !== it.step || o.ends.some(function (e, i) {
+      return e.pic !== it.ends[i].pic || e.x !== it.ends[i].x || e.y !== it.ends[i].y;
+    });
+  }
+
+  function penColor(pen) {
+    if (!pen) return "#e60";
+    if (/^[1-4]$/.test(pen)) {
+      var p = document.getElementById("spot-palette");
+      var c = p ? getComputedStyle(p).getPropertyValue("--spot-pen-" + pen + "-bar").trim() : "";
+      return c || ["#E6B800", "#2a7de1", "#d33", "#2a2"][pen - 1];
+    }
+    return pen;
+  }
+
+  function rectOf(it) {
+    var r = it.pic.img.getBoundingClientRect(), a = it.region;
+    return { l: r.left + r.width * Math.min(a[0], a[2]) / 100,
+             t: r.top + r.height * Math.min(a[1], a[3]) / 100,
+             r: r.left + r.width * Math.max(a[0], a[2]) / 100,
+             b: r.top + r.height * Math.max(a[1], a[3]) / 100 };
+  }
+
+  function pointOf(e) {
+    var r = e.pic.img.getBoundingClientRect();
+    return { x: r.left + r.width * e.x / 100, y: r.top + r.height * e.y / 100 };
+  }
+
+  function el(name, attrs, parent) {
+    var x = document.createElementNS(SVGNS, name);
+    for (var k in attrs) x.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(x);
+    return x;
+  }
+
+  function render() {
+    if (!layer) return;
+    while (layer.firstChild) layer.removeChild(layer.firstChild);
+    var M = on ? model() : null;
+    if (!M) return;
+    var defs = el("defs", {}, layer);
+    var pat = el("pattern", { id: "ed-hatch", width: 8, height: 8, patternUnits: "userSpaceOnUse",
+                              patternTransform: "rotate(45)" }, defs);
+    el("line", { x1: 0, y1: 0, x2: 0, y2: 8, stroke: "currentColor", "stroke-width": 3 }, pat);
+
+    /* the pictures that can be drawn on: a thin frame */
+    if (tool !== "select" && tool !== "place") {
+      M.pics.forEach(function (p) {
+        var r = p.img.getBoundingClientRect();
+        el("rect", { x: r.left, y: r.top, width: r.width, height: r.height,
+                     "class": "ed-pic" }, layer);
+      });
+    }
+
+    renderDrawings(M);
+    renderLinks(M);
+
+    M.items.forEach(function (it) {
+      if (it.gone || it.kind === "piece" || it.kind === "link") return;
+      var mine = it === sel, col = it.kind === "mark" ? penColor(it.pen) : "#e60";
+      var g = el("g", { "class": "ed-item" + (mine ? " ed-sel" : "") + (changed(it) ? " ed-changed" : ""),
+                        style: "color:" + col }, layer);
+      if (it.kind === "mark") {
+        var r = rectOf(it);
+        var shape = it.look === "ring"
+          ? el("ellipse", { cx: (r.l + r.r) / 2, cy: (r.t + r.b) / 2,
+                            rx: Math.max(1, (r.r - r.l) / 2), ry: Math.max(1, (r.b - r.t) / 2) }, g)
+          : el("rect", { x: r.l, y: r.t, width: Math.max(1, r.r - r.l), height: Math.max(1, r.b - r.t),
+                         rx: 3 }, g);
+        shape.setAttribute("class", "ed-shape ed-" + (it.look || "wash"));
+        if (it.look === "hatch") shape.setAttribute("fill", "url(#ed-hatch)");
+        if (mine) {
+          corners(r).forEach(function (c) {
+            el("rect", { x: c.x - 5, y: c.y - 5, width: 10, height: 10, "class": "ed-handle" }, g);
+          });
+          label(g, r.l, r.t - 6, it.name || "new mark");
+        }
+      } else {
+        var a = pointOf(it.ends[0]), b = pointOf(it.ends[1]);
+        el("line", { x1: a.x, y1: a.y, x2: b.x, y2: b.y, "class": "ed-line" }, g);
+        var ang = Math.atan2(b.y - a.y, b.x - a.x), L = 16, W = 7;
+        el("polygon", { points: [b.x, b.y,
+          b.x - L * Math.cos(ang) + W * Math.sin(ang), b.y - L * Math.sin(ang) - W * Math.cos(ang),
+          b.x - L * Math.cos(ang) - W * Math.sin(ang), b.y - L * Math.sin(ang) + W * Math.cos(ang)].join(" "),
+          "class": "ed-head" }, g);
+        if (mine) {
+          [a, b].forEach(function (c) {
+            el("circle", { cx: c.x, cy: c.y, r: 6, "class": "ed-handle" }, g);
+          });
+        }
+      }
+    });
+
+    if (drag && drag.kind === "new-mark") {
+      var rr = rectOf(drag.it);
+      var s = drag.it.look === "ring"
+        ? el("ellipse", { cx: (rr.l + rr.r) / 2, cy: (rr.t + rr.b) / 2,
+                          rx: (rr.r - rr.l) / 2, ry: (rr.b - rr.t) / 2 }, layer)
+        : el("rect", { x: rr.l, y: rr.t, width: rr.r - rr.l, height: rr.b - rr.t }, layer);
+      s.setAttribute("class", "ed-rubber");
+    }
+    if (drag && drag.kind === "new-arrow") {
+      var p0 = pointOf(drag.it.ends[0]), p1 = pointOf(drag.it.ends[1]);
+      el("line", { x1: p0.x, y1: p0.y, x2: p1.x, y2: p1.y, "class": "ed-rubber" }, layer);
+    }
+    if (drag && drag.kind === "new-piece") {
+      var q = pieceRect(drag.it);
+      el("rect", { x: q.l, y: q.t, width: q.r - q.l, height: q.b - q.t, "class": "ed-rubber" }, layer);
+    }
+    if (drag && (drag.snapX !== undefined || drag.snapY !== undefined)) {
+      var vw = window.innerWidth, vh = window.innerHeight;
+      if (drag.snapX !== undefined) el("line", { x1: drag.snapX, y1: 0, x2: drag.snapX, y2: vh, "class": "ed-snap" }, layer);
+      if (drag.snapY !== undefined) el("line", { x1: 0, y1: drag.snapY, x2: vw, y2: drag.snapY, "class": "ed-snap" }, layer);
+    }
+  }
+
+  function label(g, x, y, text) {
+    var t = el("text", { x: x, y: Math.max(12, y), "class": "ed-label" }, g);
+    t.textContent = text;
+  }
+
+  function corners(r) {
+    return [{ x: r.l, y: r.t, c: "tl" }, { x: r.r, y: r.t, c: "tr" },
+            { x: r.l, y: r.b, c: "bl" }, { x: r.r, y: r.b, c: "br" }];
+  }
+
+  /* Hide the deck's own arrow while it is being changed: the editor draws  */
+  /* it where it now goes.                                                   */
+  function syncDom(it) {
+    if (it.kind === "piece") { placePiece(it); return; }
+    if (it.kind === "link") { setLinkDom(it); return; }
+    if (it.kind === "mark") { if (it.dom) placeSpan(it); return; }
+    if (it.dom) it.dom.classList.toggle("ed-gone", !!it.gone || changed(it));
+  }
+
+  /* The loop: the slide moves (steps, a new slide, a resize, the pane),   */
+  /* and what is drawn follows it.                                          */
+  function loop() {
+    if (!on) { loopOn = false; return; }
+    var M = model(), key = "";
+    if (M) {
+      key = api.index() + ":" + M.pics.map(function (p) { return p.img; }).concat(M.drawings).map(function (x) {
+        var r = x.getBoundingClientRect();
+        return [r.left, r.top, r.width, r.height].map(Math.round).join(",");
+      }).join(";");
+      if (sel && M.items.indexOf(sel) < 0) { sel = null; panel(); }
+    }
+    if (key !== lastKey || drag) {
+      if (M && key.split(":")[0] !== lastKey.split(":")[0]) { sel = null; panel(); }
+      lastKey = key;
+      if (M) M.items.forEach(function (it) { if (it.kind === "mark" && it.dom && changed(it)) placeSpan(it); });
+      render();
+    }
+    requestAnimationFrame(loop);
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Drawings (v284): their blocks moved and resized, new boxes, guides      */
+  /*                                                                         */
+  /* Stage 2 of the scope note: a drawing's blocks are div.at, placed by     */
+  /* left/top/width/height in per cent of what holds them (the drawing, or   */
+  /* a placed group), and written `> at=x,y,w,h` (or at="x,y,w,h" in a       */
+  /* ::: line), in the same order. The editor moves them and writes the four */
+  /* numbers back; the rest of the line stays as it is. A new box goes before */
+  /* `> end drawing`. Guides and the edges of the other blocks pull what is  */
+  /* moved, SNAP pixels away.                                               */
+  /* ---------------------------------------------------------------------- */
+
+  function round1(v) { return Math.round(v * 10) / 10; }
+  function fmt1(v) { return String(round1(v)); }
+
+  /* The at= lines of the slide, in order: { line, form, word, quoted }. */
+  function atLines(lines) {
+    var out = [], fence = "";
+    lines.forEach(function (L) {
+      var s = L.text.trim();
+      if (fence) { if (s.slice(0, 3) === fence) fence = ""; return; }
+      if (s.slice(0, 3) === "```" || s.slice(0, 3) === "~~~") { fence = s.slice(0, 3); return; }
+      var g = gtLine(L.text);
+      if (g) {
+        for (var i = 0; i < g.words.length; i++) {
+          var m = /^at=("?)([^"]*)\1$/.exec(g.words[i]);
+          if (m && isRegion(m[2])) { out.push({ line: L, form: "gt", word: i, quoted: !!m[1] }); return; }
+        }
+        return;
+      }
+      if (/^:::/.test(s)) {
+        var b = /\bat=("?)(-?[\d.]+%?(?:,-?[\d.]+%?){3})\1/.exec(L.text);
+        if (b) out.push({ line: L, form: "brace", quoted: !!b[1] });
+      }
+    });
+    return out;
+  }
+
+  /* The > drawing lines and their > end drawing, in order. */
+  function drawingLines(lines) {
+    var out = [], open = null;
+    lines.forEach(function (L) {
+      var g = gtLine(L.text);
+      if (!g) return;
+      var w0 = (g.words[0] || "").toLowerCase(), w1 = (g.words[1] || "").toLowerCase();
+      if (keywordAt(g, ["drawing"]) >= 0) { open = { line: L, end: null }; out.push(open); }
+      else if (w0 === "end" && w1 === "drawing" && open) { open.end = L; open = null; }
+    });
+    return out;
+  }
+
+  function buildPieces(M, slide) {
+    M.drawings = Array.prototype.filter.call(slide.querySelectorAll(".drawing"), function (d) {
+      return !d.parentElement.closest(".drawing");
+    });
+    var doms = Array.prototype.slice.call(slide.querySelectorAll(".drawing .at"));
+    var al = M.lines ? atLines(M.lines) : [];
+    var mapped = M.lines && al.length === doms.length;
+    var dl = M.lines ? drawingLines(M.lines) : [];
+    M.drawingSrc = M.lines && dl.length === M.drawings.length ? dl : null;
+    doms.forEach(function (d, i) {
+      var it = { kind: "piece", dom: d, frame: d.offsetParent || d.parentElement,
+                 drawing: d.closest(".drawing"), group: !!d.querySelector(".at"),
+                 region: ["left", "top", "width", "height"].map(function (k) { return parseFloat(d.style[k]) || 0; }),
+                 line: mapped ? al[i].line : null, at: mapped ? al[i] : null };
+      it.name = d.id || "";
+      it.z = d.style.zIndex || "";
+      it.orig = { region: it.region.slice(), z: it.z };
+      M.items.push(it);
+    });
+  }
+
+  /* A block's line: the four numbers of at=, and (v285) the name it took  */
+  /* for an arrow and the z-index of "To front", where they changed.       */
+  function pieceText(it) {
+    var v = it.region.map(fmt1).join(",");
+    var zChanged = (it.z || "") !== ((it.orig && it.orig.z) || "");
+    if (!it.at || it.isNew) {
+      return "> at=" + v + (it.newName ? " id=#" + it.newName : "") +
+             (it.z ? ' style="z-index: ' + it.z + '"' : "");
+    }
+    var base = it.line.base;
+    if (it.at.form === "gt") {
+      var g = gtLine(base);
+      g.words[it.at.word] = "at=" + (it.at.quoted ? '"' + v + '"' : v);
+      if (zChanged) setStyleZ(g.words, it.z);
+      if (it.newName) g.words.splice(it.at.word, 0, "id=#" + it.newName);
+      return joinLine(g);
+    }
+    var t = base.replace(/\bat=("?)(-?[\d.]+%?(?:,-?[\d.]+%?){3})\1/, function (m0, q) { return "at=" + q + v + q; });
+    if (zChanged) {
+      var sm = /\bstyle=(["'])(.*?)\1/.exec(t);
+      if (sm) {
+        var ns = zStyle(sm[2], it.z);
+        t = t.slice(0, sm.index) + (ns ? "style=" + sm[1] + ns + sm[1] : "") + t.slice(sm.index + sm[0].length);
+        t = t.replace(/\s+\}/, "}").replace(/\{\s+/, "{");
+      } else if (it.z) t = t.replace(/\}(?=[^}]*$)/, ' style="z-index: ' + it.z + '"}');
+    }
+    if (it.newName) t = t.replace(/\{/, "{#" + it.newName + " ");
+    return t;
+  }
+
+  /* A style's declarations without z-index, and with the one wanted. */
+  function zStyle(style, z) {
+    var parts = style.split(";").map(function (s) { return s.trim(); }).filter(function (s) {
+      return s && !/^z-index\s*:/i.test(s);
+    });
+    if (z) parts.push("z-index: " + z);
+    return parts.join("; ");
+  }
+
+  function setStyleZ(ws, z) {
+    for (var i = 0; i < ws.length; i++) {
+      var m = /^style=(["'])([\s\S]*)\1$/.exec(ws[i]);
+      if (!m) continue;
+      var s = zStyle(m[2], z);
+      if (s) ws[i] = "style=" + m[1] + s + m[1]; else ws.splice(i, 1);
+      return;
+    }
+    if (z) ws.push('style="z-index: ' + z + '"');
+  }
+
+  /* The box a block is placed in, in the window: its padding box. */
+  function frameRect(el) {
+    var r = el.getBoundingClientRect(), k = el.offsetWidth ? r.width / el.offsetWidth : 1;
+    return { l: r.left + el.clientLeft * k, t: r.top + el.clientTop * k,
+             w: el.clientWidth * k, h: el.clientHeight * k };
+  }
+
+  function pieceRect(it) {
+    var f = frameRect(it.frame), a = it.region;
+    return { l: f.l + f.w * a[0] / 100, t: f.t + f.h * a[1] / 100,
+             r: f.l + f.w * (a[0] + a[2]) / 100, b: f.t + f.h * (a[1] + a[3]) / 100 };
+  }
+
+  function placePiece(it) {
+    if (!it.dom) return;
+    it.dom.classList.toggle("ed-gone", !!it.gone);
+    var a = it.region;
+    it.dom.style.left = fmt1(a[0]) + "%"; it.dom.style.top = fmt1(a[1]) + "%";
+    it.dom.style.width = fmt1(a[2]) + "%"; it.dom.style.height = fmt1(a[3]) + "%";
+    it.dom.style.zIndex = it.z || "";
+  }
+
+  function drawingAt(M, x, y) {
+    for (var i = M.drawings.length - 1; i >= 0; i--) {
+      var r = M.drawings[i].getBoundingClientRect();
+      if (r.width && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return M.drawings[i];
+    }
+    return null;
+  }
+
+  /* The block under the pointer: the innermost, the last written first. */
+  function pieceAt(M, x, y) {
+    var best = null, depth = -1;
+    M.items.forEach(function (it) {
+      if (it.kind !== "piece" || it.gone) return;
+      var r = pieceRect(it);
+      if (x < r.l || x > r.r || y < r.t || y > r.b) return;
+      var d = 0, p = it.dom;
+      while (p && p !== it.drawing) { d++; p = p.parentElement; }
+      if (d >= depth) { best = it; depth = d; }
+    });
+    return best ? { it: best, part: "body" } : null;
+  }
+
+  /* A guide's handle, just outside its drawing: above it for an upright   */
+  /* guide, left of it for a level one.                                     */
+  function guideAt(M, x, y) {
+    if (!guidesOn || !M.drawings.length || (tool !== "select" && tool !== "box")) return null;
+    for (var d = 0; d < M.drawings.length; d++) {
+      var f = frameRect(M.drawings[d]);
+      for (var i = 0; i < 3; i++) {
+        var gx = f.l + f.w * guides.x[i] / 100;
+        if (Math.abs(x - gx) <= 7 && y >= f.t - 18 && y <= f.t - 2) return { guide: "x", i: i, drawing: M.drawings[d] };
+        var gy = f.t + f.h * guides.y[i] / 100;
+        if (Math.abs(y - gy) <= 7 && x >= f.l - 18 && x <= f.l - 2) return { guide: "y", i: i, drawing: M.drawings[d] };
+      }
+    }
+    return null;
+  }
+
+  /* What pulls: the guides, the edges and middles of the other blocks of  */
+  /* the drawing, and the drawing's own; in the window's pixels.            */
+  function pulls(M, it) {
+    var xs = [], ys = [];
+    var dr = it.drawing, f = frameRect(dr);
+    if (guidesOn) {
+      guides.x.forEach(function (g) { xs.push(f.l + f.w * g / 100); });
+      guides.y.forEach(function (g) { ys.push(f.t + f.h * g / 100); });
+    }
+    xs.push(f.l, f.l + f.w / 2, f.l + f.w); ys.push(f.t, f.t + f.h / 2, f.t + f.h);
+    M.items.forEach(function (o) {
+      if (o === it || o.kind !== "piece" || o.gone || o.drawing !== dr) return;
+      if (it.dom && o.dom && (it.dom.contains(o.dom) || o.dom.contains(it.dom))) return;
+      var r = pieceRect(o);
+      xs.push(r.l, (r.l + r.r) / 2, r.r); ys.push(r.t, (r.t + r.b) / 2, r.b);
+    });
+    return { xs: xs, ys: ys };
+  }
+
+  /* The nearest pull to any of the values, within SNAP: the shift to it,  */
+  /* and where it is.                                                       */
+  function nearest(vals, cands) {
+    var best = null;
+    vals.forEach(function (v) {
+      cands.forEach(function (c) {
+        var d = c - v;
+        if (Math.abs(d) <= SNAP && (!best || Math.abs(d) < Math.abs(best.d))) best = { d: d, at: c };
+      });
+    });
+    return best;
+  }
+
+  function snapPoint(M, it, x, y) {
+    var p = pulls(M, it), sx = nearest([x], p.xs), sy = nearest([y], p.ys);
+    return { x: sx ? sx.at : x, y: sy ? sy.at : y, sx: sx ? sx.at : undefined, sy: sy ? sy.at : undefined };
+  }
+
+  function movePiece(M, d, x, y) {
+    var it = d.it, f = frameRect(it.frame);
+    if (!d.region) d.region = it.region.slice();
+    var a = d.region, p = pulls(M, it);
+    var L = f.l + f.w * a[0] / 100, T = f.t + f.h * a[1] / 100;
+    var R = L + f.w * a[2] / 100, B = T + f.h * a[3] / 100;
+    var dx = x - d.x, dy = y - d.y;
+    d.snapX = undefined; d.snapY = undefined;
+    if (d.part === "body") {
+      L += dx; R += dx; T += dy; B += dy;
+      var sx = nearest([L, (L + R) / 2, R], p.xs), sy = nearest([T, (T + B) / 2, B], p.ys);
+      if (sx) { L += sx.d; R += sx.d; d.snapX = sx.at; }
+      if (sy) { T += sy.d; B += sy.d; d.snapY = sy.at; }
+    } else {
+      if (d.part.charAt(1) === "l") L += dx; else R += dx;
+      if (d.part.charAt(0) === "t") T += dy; else B += dy;
+      var ex = d.part.charAt(1) === "l" ? L : R, ey = d.part.charAt(0) === "t" ? T : B;
+      var nx = nearest([ex], p.xs), ny = nearest([ey], p.ys);
+      if (nx) { if (d.part.charAt(1) === "l") L += nx.d; else R += nx.d; d.snapX = nx.at; }
+      if (ny) { if (d.part.charAt(0) === "t") T += ny.d; else B += ny.d; d.snapY = ny.at; }
+    }
+    var l = Math.min(L, R), r = Math.max(L, R), t = Math.min(T, B), b = Math.max(T, B);
+    it.region = [(l - f.l) / f.w * 100, (t - f.t) / f.h * 100, (r - l) / f.w * 100, (b - t) / f.h * 100];
+  }
+
+  /* A new box: on the slide at once, and its lines before > end drawing. */
+  function newPiece(M, it) {
+    var d = document.createElement("div");
+    d.className = "at box";
+    var p = document.createElement("p");
+    p.textContent = it.text;
+    d.appendChild(p);
+    it.drawing.appendChild(d);
+    it.dom = d;
+    placePiece(it);
+    var k = M.drawings.indexOf(it.drawing), src = M.drawingSrc && M.drawingSrc[k];
+    if (!src || !src.end) return;
+    var at = M.lines.indexOf(src.end);
+    var add = [];
+    if (at > 0 && M.lines[at - 1].text.trim() !== "" && !gtLine(M.lines[at - 1].text)) add.push("");
+    add.push("> at=" + it.region.map(fmt1).join(","), "> box", it.text);
+    var objs = add.map(function (t) { return { text: t, orig: null, state: "new", blank: t === "" }; });
+    M.lines.splice.apply(M.lines, [at, 0].concat(objs));
+    it.lines = objs;
+    it.line = objs[objs.length - 3];
+    it.textLine = objs[objs.length - 1];
+  }
+
+  /* The lines of a block: its at= line, the > lines with it, and its text */
+  /* up to a blank line or the next > line; a group, up to its end group.  */
+  function pieceSpan(M, it) {
+    var lines = M.lines, i = lines.indexOf(it.line), first = i, last = i;
+    if (i < 0 || !it.at || it.at.form !== "gt") return null;
+    while (first > 0) {
+      var g = gtLine(lines[first - 1].text);
+      if (!g || /(^|\s)at=/.test(lines[first - 1].text)) break;
+      var w0 = (g.words[0] || "").toLowerCase();
+      if (w0 === "end" || keywordAt(g, ["drawing", "group", "grp"]) >= 0) break;
+      first--;
+    }
+    if (it.group) {
+      var depth = 0;
+      for (var j = i; j < lines.length; j++) {
+        var h = gtLine(lines[j].text);
+        if (!h) continue;
+        if (keywordAt(h, ["group", "grp"]) >= 0) depth++;
+        if ((h.words[0] || "").toLowerCase() === "end" && /^(group|grp)$/i.test(h.words[1] || "")) {
+          if (--depth === 0) { last = j; break; }
+        }
+      }
+      return { first: first, last: last };
+    }
+    while (last + 1 < lines.length && gtLine(lines[last + 1].text) &&
+           !/(^|\s)at=/.test(lines[last + 1].text) && (gtLine(lines[last + 1].text).words[0] || "").toLowerCase() !== "end") last++;
+    while (last + 1 < lines.length && lines[last + 1].text.trim() !== "" && !gtLine(lines[last + 1].text)) last++;
+    return { first: first, last: last };
+  }
+
+  function removePiece(M, it) {
+    if (it.isNew) {
+      M.items.splice(M.items.indexOf(it), 1);
+      if (it.dom) it.dom.remove();
+      (it.lines || []).forEach(function (L) {
+        var i = M.lines.indexOf(L);
+        if (i >= 0) M.lines.splice(i, 1);
+      });
+      return;
+    }
+    it.gone = true;
+    placePiece(it);
+    var span = M.lines && it.line ? pieceSpan(M, it) : null;
+    it.span = span;
+    if (span) for (var i = span.first; i <= span.last; i++) M.lines[i].deleted = true;
+    else if (it.line) it.line.deleted = true;
+    api.arrows();
+  }
+
+  /* The drawings on the editor's layer: every block, dashed; the one      */
+  /* selected, with its corners; the guides, with their handles.          */
+  function renderDrawings(M) {
+    if (!M.drawings || !M.drawings.length) return;
+    if (guidesOn && (tool === "select" || tool === "box")) {
+      M.drawings.forEach(function (dr) {
+        var f = frameRect(dr);
+        guides.x.forEach(function (g) {
+          var gx = f.l + f.w * g / 100;
+          el("line", { x1: gx, y1: f.t - 16, x2: gx, y2: f.t + f.h, "class": "ed-guide" }, layer);
+          el("rect", { x: gx - 6, y: f.t - 18, width: 12, height: 14, rx: 2, "class": "ed-guide-handle" }, layer);
+          label(layer, gx + 8, f.t - 6, g + "%");
+        });
+        guides.y.forEach(function (g) {
+          var gy = f.t + f.h * g / 100;
+          el("line", { x1: f.l - 16, y1: gy, x2: f.l + f.w, y2: gy, "class": "ed-guide" }, layer);
+          el("rect", { x: f.l - 18, y: gy - 6, width: 14, height: 12, rx: 2, "class": "ed-guide-handle" }, layer);
+        });
+      });
+    }
+    M.items.forEach(function (it) {
+      if (it.kind !== "piece" || it.gone) return;
+      var r = pieceRect(it), mine = it === sel;
+      var g = el("g", { "class": "ed-item ed-piece" + (mine ? " ed-sel" : "") + (changed(it) ? " ed-changed" : "") }, layer);
+      el("rect", { x: r.l, y: r.t, width: Math.max(1, r.r - r.l), height: Math.max(1, r.b - r.t), "class": "ed-shape" }, g);
+      if (mine) {
+        corners(r).forEach(function (c) {
+          el("rect", { x: c.x - 5, y: c.y - 5, width: 10, height: 10, "class": "ed-handle" }, g);
+        });
+        label(g, r.l, r.t - 6, (it.name ? "#" + it.name + " " : "") + it.region.map(fmt1).join(","));
+      }
+    });
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Connections (v285): the arrows of a drawing                            */
+  /*                                                                         */
+  /* Stage 2, second part (scope note, 13/10): "drag from one piece to       */
+  /* another to get an arrow between them". An end is a block (#id: the     */
+  /* runtime chooses where the arrow leaves and lands) or a place of the     */
+  /* drawing (#drawing:x,y, per cent of it), where it is dropped on no       */
+  /* block. A block or a drawing without a name gets one (id=#boxN,          */
+  /* id=#drawingN) on its line. The runtime draws the arrow as it draws the  */
+  /* deck's: the editor only changes its data-from and data-to, so what is   */
+  /* seen is what md2slides will draw. A new arrow goes last in the drawing  */
+  /* (just before > end drawing): in a drawing the order of the text is the  */
+  /* order of the steps, and the last comes on top.                          */
+  /* ---------------------------------------------------------------------- */
+
+  function pieceName(p) { return (p.dom && p.dom.id) || ""; }
+
+  function sameEnd(a, b) {
+    if (a.piece || b.piece) return a.piece === b.piece;
+    return a.drawing === b.drawing && a.x === b.x && a.y === b.y;
+  }
+
+  function copyEnd(e) {
+    return e.piece ? { piece: e.piece } : { drawing: e.drawing, x: e.x, y: e.y };
+  }
+
+  /* An end the deck wrote, as an end of ours: "id" of a block of a       */
+  /* drawing, or "drawing@x,y".                                            */
+  function linkEndOf(M, slide, addr) {
+    addr = (addr || "").trim();
+    var m = /^([^@\s]+)\s*@\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)$/.exec(addr);
+    if (m) {
+      var d = api.endElement(slide, m[1]);
+      return d && d.classList.contains("drawing") ? { drawing: d, x: +m[2], y: +m[3] } : null;
+    }
+    if (!/^[^@\s:\[]+$/.test(addr)) return null;
+    var el = api.endElement(slide, addr);
+    if (!el || !el.classList.contains("at") || !el.closest(".drawing")) return null;
+    for (var i = 0; i < M.items.length; i++) {
+      if (M.items[i].kind === "piece" && M.items[i].dom === el) return { piece: M.items[i] };
+    }
+    return null;
+  }
+
+  /* An end of a > arrow line against an end of ours. */
+  function wordIsEnd(w, e) {
+    if (e.piece) return !w.place && !!w.name && w.name.toLowerCase() === pieceName(e.piece).toLowerCase();
+    return !!w.place && w.place.name.toLowerCase() === e.drawing.id.toLowerCase() &&
+           w.place.x === e.x && w.place.y === e.y;
+  }
+
+  function stepOfDom(el) {
+    if (el.classList.contains("afterPrevious")) return "after";
+    if (el.classList.contains("withPrevious")) return "with";
+    return el.classList.contains("fragment") ? "click" : "";
+  }
+
+  function buildLinks(M, slide, al) {
+    Array.prototype.forEach.call(slide.querySelectorAll(".drawing .arrow[data-from][data-to]"), function (el) {
+      var ends = [linkEndOf(M, slide, el.getAttribute("data-from")),
+                  linkEndOf(M, slide, el.getAttribute("data-to"))];
+      if (!ends[0] || !ends[1]) return;
+      var it = { kind: "link", dom: el, drawing: el.closest(".drawing"), ends: ends,
+                 line: null, words: null };
+      for (var k = 0; k < al.length; k++) {
+        var a = al[k], w0 = a.ends[0], w1 = a.ends[1];
+        if (a.taken) continue;
+        if (wordIsEnd(w0, ends[0]) && wordIsEnd(w1, ends[1])) it.words = [w0.word, w1.word];
+        else if (wordIsEnd(w0, ends[1]) && wordIsEnd(w1, ends[0])) it.words = [w1.word, w0.word];
+        else continue;
+        a.taken = true; it.line = a.line; break;
+      }
+      it.step = stepOfDom(el);
+      if (it.line) {
+        var s0 = stepWord(gtLine(it.line.base).words[0]);
+        if (s0 && s0 !== "later") it.step = s0;
+      }
+      it.orig = { ends: ends.map(copyEnd), step: it.step };
+      M.items.push(it);
+    });
+  }
+
+  function linkWord(e) {
+    if (e.piece) return "#" + pieceName(e.piece);
+    return "#" + e.drawing.id + ":" + fmt1(e.x) + "," + fmt1(e.y);
+  }
+
+  function linkAddr(e) {
+    if (e.piece) return pieceName(e.piece);
+    return e.drawing.id + "@" + fmt1(e.x) + "," + fmt1(e.y);
+  }
+
+  function linkText(it, M) {
+    if (!it.line || it.isNew) {
+      var k = M.drawings.indexOf(it.drawing), src = M.drawingSrc && M.drawingSrc[k];
+      var ind = src ? gtLine(src.line.text).indent : "";
+      var g = { indent: ind, words: ["arrow", linkWord(it.ends[0]), "->", linkWord(it.ends[1])] };
+      setStep(g, it.step, "arrow");
+      return joinLine(g);
+    }
+    var g2 = gtLine(it.line.base);
+    g2.words[it.words[0]] = linkWord(it.ends[0]);
+    g2.words[it.words[1]] = linkWord(it.ends[1]);
+    setStep(g2, it.step, "arrow");
+    return joinLine(g2);
+  }
+
+  /* The deck's own arrow takes the ends and is drawn again by the runtime. */
+  function setLinkDom(it) {
+    if (!it.dom) return;
+    it.dom.classList.toggle("ed-gone", !!it.gone);
+    it.dom.setAttribute("data-from", linkAddr(it.ends[0]));
+    it.dom.setAttribute("data-to", linkAddr(it.ends[1]));
+  }
+
+  function uniqueName(base) {
+    var n = 1;
+    while (document.getElementById(base + n)) n++;
+    return base + n;
+  }
+
+  /* A block an arrow needs a name for: id=#boxN on its line, and on the   */
+  /* slide at once (the runtime finds the arrow's ends by their ids).       */
+  function namePiece(M, p) {
+    if (pieceName(p)) return;
+    p.newName = uniqueName("box");
+    p.dom.id = p.newName;
+    M.added.push(p.dom);
+    if (p.line) commit(p, M);
+  }
+
+  function nameDrawing(M, dr) {
+    if (dr.id) return;
+    dr.id = uniqueName("drawing");
+    M.added.push(dr);
+    M.newDrawings.push(dr);
+    var k = M.drawings.indexOf(dr), src = M.drawingSrc && M.drawingSrc[k];
+    if (!src) return;
+    var L = src.line, g = gtLine(L.text), at = keywordAt(g, ["drawing"]);
+    g.words.splice(at + 1, 0, "id=#" + dr.id);
+    L.text = joinLine(g);
+    if (L.state === "same") L.state = "changed";
+  }
+
+  function nameEnds(M, it) {
+    it.ends.forEach(function (e) {
+      if (e.piece) namePiece(M, e.piece); else nameDrawing(M, e.drawing);
+    });
+  }
+
+  /* The lines a connection changed besides its own: the names it gave. */
+  function linkAlso(it, M) {
+    var out = [];
+    it.ends.forEach(function (e) {
+      if (e.piece && e.piece.newName && !out.some(function (o) { return o.p === e.piece; })) {
+        out.push({ p: e.piece, text: e.piece.line ? e.piece.line.text : "id=#" + e.piece.newName,
+                   where: e.piece.line ? cap(lineNo(M, e.piece.line)) + ", the block, with its name:"
+                                       : "The block needs a name: put this on its line." });
+      }
+      if (e.drawing && M.newDrawings.indexOf(e.drawing) >= 0 && !out.some(function (o) { return o.p === e.drawing; })) {
+        var k = M.drawings.indexOf(e.drawing), src = M.drawingSrc && M.drawingSrc[k];
+        out.push({ p: e.drawing, text: src ? src.line.text : "id=#" + e.drawing.id,
+                   where: src ? cap(lineNo(M, src.line)) + ", the drawing, with its name:"
+                              : "The drawing needs a name: put this on its line." });
+      }
+    });
+    return out;
+  }
+
+  /* A new connection's line, last in its drawing. */
+  function insertLinkLine(M, it) {
+    var k = M.drawings.indexOf(it.drawing), src = M.drawingSrc && M.drawingSrc[k];
+    if (!src || !src.end) return null;
+    var at = M.lines.indexOf(src.end);
+    var add = [];
+    if (at > 0 && M.lines[at - 1].text.trim() !== "" && !gtLine(M.lines[at - 1].text)) {
+      add.push({ text: "", orig: null, state: "new", blank: true });
+    }
+    var A = { text: "", orig: null, state: "new" };
+    add.push(A);
+    M.lines.splice.apply(M.lines, [at, 0].concat(add));
+    A.blanks = add.filter(function (x) { return x.blank; });
+    return A;
+  }
+
+  /* A drawing that shows a step at a time: a new arrow comes on a click;  */
+  /* in one that does not, it is there from the start.                    */
+  function linkStep(dr) { return dr.querySelector(".fragment") ? "click" : ""; }
+
+  /* The end under the pointer: a block of the drawing (not `avoid`), or   */
+  /* the place, in per cent of the drawing.                                */
+  function linkEndAt(M, dr, x, y, avoid) {
+    var h = pieceAt(M, x, y);
+    if (h && h.it.drawing === dr && h.it !== avoid) return { piece: h.it };
+    var r = dr.getBoundingClientRect();
+    return { drawing: dr, x: round1(clamp((x - r.left) / r.width * 100)),
+             y: round1(clamp((y - r.top) / r.height * 100)) };
+  }
+
+  function linkPoint(e) {
+    if (e.piece) {
+      var p = pieceRect(e.piece);
+      return { x: (p.l + p.r) / 2, y: (p.t + p.b) / 2 };
+    }
+    var r = e.drawing.getBoundingClientRect();
+    return { x: r.left + r.width * e.x / 100, y: r.top + r.height * e.y / 100 };
+  }
+
+  /* The arrow as the runtime drew it, in the window's pixels: points along */
+  /* its shaft. null when it is not drawn (no room between its ends).      */
+  function linkPath(it) {
+    var sh = it.dom && it.dom.querySelector(".arrow-shaft");
+    if (!sh || !sh.getTotalLength || sh.closest("svg").style.display === "none") return null;
+    var m = sh.getScreenCTM();
+    if (!m) return null;
+    var L = sh.getTotalLength(), n = Math.max(2, Math.min(80, Math.ceil(L / 6))), out = [];
+    for (var i = 0; i <= n; i++) {
+      var p = sh.getPointAtLength(L * i / n);
+      out.push({ x: m.a * p.x + m.c * p.y + m.e, y: m.b * p.x + m.d * p.y + m.f });
+    }
+    return out;
+  }
+
+  function nearPath(pts, x, y) {
+    var best = Infinity;
+    for (var i = 1; i < pts.length; i++) best = Math.min(best, distSeg(x, y, pts[i - 1], pts[i]));
+    return best;
+  }
+
+  function renderLinks(M) {
+    M.items.forEach(function (it) {
+      if (it.kind !== "link" || it.gone || it !== sel) return;
+      var pts = linkPath(it);
+      if (!pts) {
+        var a = linkPoint(it.ends[0]), b = linkPoint(it.ends[1]);
+        pts = [a, b];
+      }
+      var g = el("g", { "class": "ed-item ed-sel" + (changed(it) ? " ed-changed" : "") }, layer);
+      el("polyline", { points: pts.map(function (p) { return p.x + "," + p.y; }).join(" "),
+                       "class": "ed-linksel" }, g);
+      if (!drag || drag.it !== it) {
+        [pts[0], pts[pts.length - 1]].forEach(function (c) {
+          el("circle", { cx: c.x, cy: c.y, r: 6, "class": "ed-handle" }, g);
+        });
+      }
+    });
+    if (drag && drag.target && (drag.kind === "new-link" || (drag.it && drag.it.kind === "link"))) {
+      var t = drag.target;
+      if (t.piece) {
+        var r = pieceRect(t.piece);
+        el("rect", { x: r.l, y: r.t, width: r.r - r.l, height: r.b - r.t, "class": "ed-target" }, layer);
+      } else {
+        var q = linkPoint(t);
+        el("circle", { cx: q.x, cy: q.y, r: 5, "class": "ed-target" }, layer);
+      }
+      var from = linkPoint(drag.fixed);
+      el("line", { x1: from.x, y1: from.y, x2: drag.px, y2: drag.py, "class": "ed-rubber" }, layer);
+    }
+  }
+
+  /* "To front" (scope note: "it writes z-index on that piece"): over every */
+  /* other block and arrow of its drawing, which are stacked as written.   */
+  function toFront(M, it) {
+    var top = 0;
+    M.items.forEach(function (o) {
+      if (o.kind === "piece" && o !== it && !o.gone && o.drawing === it.drawing) top = Math.max(top, parseInt(o.z, 10) || 0);
+    });
+    it.z = String(top + 1);
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Pointer                                                                 */
+  /* ---------------------------------------------------------------------- */
+
+  function picAt(M, x, y) {
+    for (var i = M.pics.length - 1; i >= 0; i--) {
+      var r = M.pics[i].img.getBoundingClientRect();
+      if (r.width && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return M.pics[i];
+    }
+    return null;
+  }
+
+  function pct(pic, x, y) {
+    var r = pic.img.getBoundingClientRect();
+    return [clamp((x - r.left) / r.width * 100), clamp((y - r.top) / r.height * 100)];
+  }
+
+  function distSeg(px, py, a, b) {
+    var dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy;
+    var t = l2 ? Math.max(0, Math.min(1, ((px - a.x) * dx + (py - a.y) * dy) / l2)) : 0;
+    var qx = a.x + t * dx - px, qy = a.y + t * dy - py;
+    return Math.sqrt(qx * qx + qy * qy);
+  }
+
+  /* What is under the pointer: a handle of the selection first, then the  */
+  /* items, the last drawn (the topmost) first.                             */
+  function hit(M, x, y) {
+    if (sel && !sel.gone) {
+      if (sel.kind === "mark") {
+        var cs = corners(rectOf(sel));
+        for (var i = 0; i < cs.length; i++) {
+          if (Math.abs(cs[i].x - x) <= 8 && Math.abs(cs[i].y - y) <= 8) return { it: sel, part: cs[i].c };
+        }
+      } else if (sel.kind === "arrow") {
+        for (var j = 0; j < 2; j++) {
+          var p = pointOf(sel.ends[j]);
+          if (Math.abs(p.x - x) <= 9 && Math.abs(p.y - y) <= 9) return { it: sel, part: "end" + j };
+        }
+      }
+    }
+    if (sel && !sel.gone && sel.kind === "piece") {
+      var pc = corners(pieceRect(sel));
+      for (var q = 0; q < pc.length; q++) {
+        if (Math.abs(pc[q].x - x) <= 8 && Math.abs(pc[q].y - y) <= 8) return { it: sel, part: pc[q].c };
+      }
+    }
+    if (sel && !sel.gone && sel.kind === "link") {
+      var sp = linkPath(sel) || [linkPoint(sel.ends[0]), linkPoint(sel.ends[1])];
+      var ends = [sp[0], sp[sp.length - 1]];
+      for (var j2 = 0; j2 < 2; j2++) {
+        if (Math.abs(ends[j2].x - x) <= 9 && Math.abs(ends[j2].y - y) <= 9) return { it: sel, part: "end" + j2 };
+      }
+    }
+    var gh = guideAt(M, x, y);
+    if (gh) return gh;
+    for (var k = M.items.length - 1; k >= 0; k--) {
+      var it = M.items[k];
+      if (it.gone || it.kind === "piece") continue;
+      if (it.kind === "link") {
+        var lp = linkPath(it);
+        if (lp && nearPath(lp, x, y) <= 6) return { it: it, part: "body" };
+        continue;
+      }
+      if (it.kind === "mark") {
+        var r = rectOf(it);
+        if (x >= r.l - 4 && x <= r.r + 4 && y >= r.t - 4 && y <= r.b + 4) return { it: it, part: "body" };
+      } else if (distSeg(x, y, pointOf(it.ends[0]), pointOf(it.ends[1])) <= 7) {
+        return { it: it, part: "body" };
+      }
+    }
+    return pieceAt(M, x, y);
+  }
+
+  function ours(t) {
+    return !!(t && t.closest && t.closest("#ed-bar, #source-pane, #source-bar, #diag-hud, " +
+      "#jump-overlay, #style-overlay, #help-overlay, #about-overlay, #stats-overlay, " +
+      "#countdown-ask, #source-overlay, .touch-bar, a"));
+  }
+
+  function onDown(e) {
+    tookLast = false;
+    if (!on || (typeof e.button === "number" && e.button !== 0) || ours(e.target)) return;
+    var M = model();
+    if (!M || tool === "place") return;
+    if (saving) { tookLast = true; e.preventDefault(); e.stopPropagation(); return; }
+    var x = e.clientX, y = e.clientY, pic = picAt(M, x, y);
+    /* in a drawing, the tools act on the drawing, even over a picture of it */
+    if (pic && pic.img.closest(".drawing")) pic = null;
+    var dr = pic ? null : drawingAt(M, x, y);
+    if (tool === "box" && dr) {
+      var f = frameRect(dr), px0 = clamp((x - f.l) / f.w * 100), py0 = clamp((y - f.t) / f.h * 100);
+      drag = { kind: "new-piece", x: x, y: y, x0: px0, y0: py0,
+               it: { kind: "piece", isNew: true, drawing: dr, frame: dr, region: [px0, py0, 0, 0], text: "Text" } };
+    } else if (tool === "box" || tool === "ring") {
+      if (!pic) return;
+      var p = pct(pic, x, y);
+      drag = { kind: "new-mark", x: x, y: y, it: { kind: "mark", pic: pic, isNew: true,
+               region: [p[0], p[1], p[0], p[1]], look: tool, pen: "", step: "click", name: "" } };
+    } else if (tool === "arrow" && dr) {
+      var E0 = linkEndAt(M, dr, x, y, null);
+      drag = { kind: "new-link", x: x, y: y, px: x, py: y, fixed: E0, target: null,
+               it: { kind: "link", isNew: true, drawing: dr, step: linkStep(dr),
+                     ends: [E0, copyEnd(E0)] } };
+    } else if (tool === "arrow") {
+      if (!pic) return;
+      var q = pct(pic, x, y);
+      drag = { kind: "new-arrow", x: x, y: y, it: { kind: "arrow", isNew: true, step: "click",
+               ends: [{ pic: pic, x: q[0], y: q[1] }, { pic: pic, x: q[0], y: q[1] }] } };
+    } else {
+      var h = hit(M, x, y);
+      if (h && h.guide) {
+        drag = { kind: "guide", guide: h.guide, i: h.i, drawing: h.drawing, x: x, y: y };
+      } else if (!h) {
+        if (!pic && !dr) { if (sel) { sel = null; panel(); render(); } return; }
+        sel = null; panel(); render();
+      } else {
+        sel = h.it; panel();
+        drag = { kind: "edit", part: h.part, it: h.it, x: x, y: y,
+                 region: h.it.region ? h.it.region.slice() : null,
+                 ends: h.it.ends ? h.it.ends.map(function (e2) {
+                   return { pic: e2.pic, x: e2.x, y: e2.y };
+                 }) : null, moved: false };
+        render();
+      }
+    }
+    tookLast = true;
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  function onMove(e) {
+    if (!on) return;
+    var M = model();
+    if (!M) return;
+    var x = e.clientX, y = e.clientY;
+    if (!drag) {
+      if (tool === "select") {
+        var h = hit(M, x, y);
+        document.documentElement.classList.toggle("ed-over", !!h);
+        document.documentElement.classList.toggle("ed-over-handle", !!(h && h.part !== "body"));
+      }
+      return;
+    }
+    e.preventDefault();
+    var it = drag.it;
+    if (drag.kind === "new-mark") {
+      var p = pct(it.pic, x, y);
+      it.region[2] = p[0]; it.region[3] = p[1];
+    } else if (drag.kind === "new-arrow") {
+      var to = picAt(M, x, y) || it.ends[1].pic, q = pct(to, x, y);
+      it.ends[1] = { pic: to, x: q[0], y: q[1] };
+    } else if (drag.kind === "new-link") {
+      drag.px = x; drag.py = y;
+      drag.target = linkEndAt(M, it.drawing, x, y, drag.fixed.piece || null);
+      it.ends[1] = drag.target;
+      render();
+    } else if (it && it.kind === "link") {
+      if (drag.part === "body") return;
+      if (Math.abs(x - drag.x) > 2 || Math.abs(y - drag.y) > 2) drag.moved = true;
+      if (!drag.moved) return;
+      var kk = drag.part === "end0" ? 0 : 1;
+      drag.fixed = it.ends[1 - kk];
+      drag.px = x; drag.py = y;
+      drag.target = linkEndAt(M, it.drawing, x, y, drag.fixed.piece || null);
+      render();
+    } else if (drag.kind === "guide") {
+      var gf = frameRect(drag.drawing);
+      var gv = drag.guide === "x" ? (x - gf.l) / gf.w * 100 : (y - gf.t) / gf.h * 100;
+      guides[drag.guide][drag.i] = Math.max(0, Math.min(100, Math.round(gv / 5) * 5));
+      render();
+    } else if (drag.kind === "new-piece") {
+      var nf = frameRect(it.frame), snapped = snapPoint(M, it, x, y);
+      var nx = clamp((snapped.x - nf.l) / nf.w * 100), ny = clamp((snapped.y - nf.t) / nf.h * 100);
+      it.region = [Math.min(drag.x0, nx), Math.min(drag.y0, ny), Math.abs(nx - drag.x0), Math.abs(ny - drag.y0)];
+      drag.snapX = snapped.sx; drag.snapY = snapped.sy;
+    } else if (it.kind === "piece") {
+      if (Math.abs(x - drag.x) > 2 || Math.abs(y - drag.y) > 2) drag.moved = true;
+      if (!drag.moved) return;
+      movePiece(M, drag, x, y);
+      syncDom(it);
+      api.arrows();
+    } else {
+      if (Math.abs(x - drag.x) > 2 || Math.abs(y - drag.y) > 2) drag.moved = true;
+      if (!drag.moved) return;
+      if (it.kind === "mark") {
+        var r = it.pic.img.getBoundingClientRect();
+        var dx = (x - drag.x) / r.width * 100, dy = (y - drag.y) / r.height * 100;
+        var a = drag.region.slice();
+        var l = Math.min(a[0], a[2]), t = Math.min(a[1], a[3]), rr = Math.max(a[0], a[2]), b = Math.max(a[1], a[3]);
+        if (drag.part === "body") {
+          dx = Math.max(-l, Math.min(100 - rr, dx)); dy = Math.max(-t, Math.min(100 - b, dy));
+          it.region = [l + dx, t + dy, rr + dx, b + dy].map(Math.round);
+        } else {
+          var c = drag.part;
+          if (c.charAt(1) === "l") l = clamp(l + dx); else rr = clamp(rr + dx);
+          if (c.charAt(0) === "t") t = clamp(t + dy); else b = clamp(b + dy);
+          it.region = [Math.min(l, rr), Math.min(t, b), Math.max(l, rr), Math.max(t, b)].map(Math.round);
+        }
+      } else {
+        var moveEnd = function (k) {
+          var e0 = drag.ends[k], pt = pointOf(e0);
+          var nx = pt.x + x - drag.x, ny = pt.y + y - drag.y;
+          var pic2 = drag.part === "body" ? e0.pic : (picAt(M, nx, ny) || e0.pic);
+          var v = pct(pic2, nx, ny);
+          it.ends[k] = { pic: pic2, x: Math.round(v[0]), y: Math.round(v[1]) };
+        };
+        if (drag.part === "body") { moveEnd(0); moveEnd(1); }
+        else moveEnd(drag.part === "end0" ? 0 : 1);
+      }
+      syncDom(it);
+    }
+  }
+
+  function onUp(e) {
+    if (!drag) return;
+    var d = drag, M = model();
+    drag = null;
+    if (!M) return;
+    e.preventDefault();
+    var it = d.it;
+    if (d.kind === "guide") { render(); return; }
+    if (d.kind === "new-piece") {
+      if (it.region[2] < 1 || it.region[3] < 1) { render(); return; }
+      it.region = it.region.map(round1);
+      newPiece(M, it);
+      M.items.push(it);
+      sel = it;
+      setTool("select");
+      commit(it, M);
+      done(it, M);
+      panel(); render(); api.refreshPane(); api.layout();
+      return;
+    }
+    if (d.kind === "new-link") {
+      if (!d.target || (Math.abs(e.clientX - d.x) < 5 && Math.abs(e.clientY - d.y) < 5)) { render(); return; }
+      it.ends[1] = d.target;
+      nameEnds(M, it);
+      var p = document.createElement("p");
+      p.className = "arrow";
+      it.drawing.appendChild(p);
+      it.dom = p;
+      setLinkDom(it);
+      if (M.lines) it.line = insertLinkLine(M, it);
+      M.items.push(it);
+      sel = it;
+      setTool("select");
+      commit(it, M);
+      api.arrows();
+      done(it, M);
+      panel(); render(); api.refreshPane();
+      return;
+    }
+    if (it && it.kind === "link") {
+      if (d.moved && d.target) {
+        it.ends[d.part === "end0" ? 0 : 1] = d.target;
+        nameEnds(M, it);
+        commit(it, M);
+        setLinkDom(it);
+        api.arrows();
+        done(it, M);
+      }
+      panel(); render(); api.refreshPane();
+      return;
+    }
+    if (d.kind === "new-mark" || d.kind === "new-arrow") {
+      if (Math.abs(e.clientX - d.x) < 5 && Math.abs(e.clientY - d.y) < 5) { render(); return; }
+      if (it.kind === "mark") {
+        var a = it.region;
+        it.region = [Math.min(a[0], a[2]), Math.min(a[1], a[3]),
+                     Math.max(a[0], a[2]), Math.max(a[1], a[3])].map(Math.round);
+      } else {
+        it.ends.forEach(function (x) { x.x = Math.round(x.x); x.y = Math.round(x.y); });
+        it.ends.forEach(function (x) { namePicture(M, x.pic); });
+      }
+      if (M.lines && (it.kind === "mark" ? it.pic.src : (it.ends[0].pic.src || it.ends[1].pic.src))) {
+        it.line = insertLine(M, it);
+      }
+      M.items.push(it);
+      sel = it;
+      setTool("select");
+      commit(it, M);
+      done(it, M);
+    } else if (d.moved) {
+      if (it.kind === "arrow") it.ends.forEach(function (x) { namePicture(M, x.pic); });
+      if (it.kind === "piece") { it.region = it.region.map(round1); api.layout(); }
+      commit(it, M);
+      syncDom(it);
+      done(it, M);
+    }
+    panel();
+    render();
+    api.refreshPane();
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Keys                                                                    */
+  /* ---------------------------------------------------------------------- */
+
+  function key(e) {
+    if (!on) return false;
+    if (e.target && e.target.closest && e.target.closest("#ed-bar input")) return false;
+    if ((e.key === "Delete" || e.key === "Backspace") && sel) { remove(sel); return true; }
+    if (e.key === "Escape" && (sel || tool !== "select")) {
+      sel = null; setTool("select"); panel(); render(); return true;
+    }
+    return false;
+  }
+
+  function remove(it) {
+    var M = model();
+    if (!M) return;
+    if (it.kind === "piece") { removePiece(M, it); }
+    else if (it.isNew) {
+      M.items.splice(M.items.indexOf(it), 1);
+      if (it.kind === "link" && it.dom) { it.dom.remove(); api.arrows(); }
+      if (it.line) {
+        M.lines.splice(M.lines.indexOf(it.line), 1);
+        (it.line.blanks || []).forEach(function (b) {
+          var i = M.lines.indexOf(b);
+          if (i >= 0) M.lines.splice(i, 1);
+        });
+      }
+    } else {
+      it.gone = true;
+      if (it.line) it.line.deleted = true;
+      syncDom(it);
+    }
+    sel = null;
+    panel(); render(); api.refreshPane();
+    if (serving(M)) later(M);
+    else if (M.lines && (it.line || it.isNew)) copySlide(M);
+    else api.toast(it.isNew ? "Taken away" : where(it, M), "info");
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* md2slides --edit (v281): the change goes into the .md by itself          */
+  /* ---------------------------------------------------------------------- */
+
+  /* A deck served by md2slides --edit, a slide whose Markdown is known: what */
+  /* changes is saved. Otherwise, the copy way.                              */
+  function serving(M) { return !!(api.edit() && M && M.lines && M.first); }
+
+  /* After a change: saved a moment later (the look, the pen and the step     */
+  /* are often clicked one after another), or copied.                        */
+  function done(it, M) {
+    if (serving(M) && it.line) later(M);
+    else if (M.lines && it.line) copySlide(M);
+    else copyItem(it, M);
+  }
+
+  function later(M) {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(function () { save(M); }, 600);
+    status("Saving soon\u2026");
+  }
+
+  function status(text) {
+    if (!bar) return;
+    var t = bar.querySelector(".ed-title");
+    t.textContent = text || "Pictures";
+    bar.classList.toggle("ed-busy", !!text);
+  }
+
+  /* What changed on the slide, in a few words, for after the reload. */
+  function summary(M) {
+    var c = 0, n = 0, d = 0;
+    M.lines.forEach(function (L) {
+      if (L.blank) return;
+      if (L.deleted) d++;
+      else if (L.state === "new") n++;
+      else if (L.state === "changed") c++;
+    });
+    var out = [];
+    if (c) out.push(c + (c === 1 ? " line changed" : " lines changed"));
+    if (n) out.push(n + (n === 1 ? " line added" : " lines added"));
+    if (d) out.push(d + (d === 1 ? " line deleted" : " lines deleted"));
+    return out.join(", ");
+  }
+
+  /* The slide's lines as they were built and as they are now: the server   */
+  /* checks the first against the file and puts the second in their place  */
+  /* (EditSave in md2slides.rex).                                          */
+  function save(M) {
+    saveTimer = null;
+    var said = summary(M);
+    if (!said) { status(""); return; }
+    var old = api.sources()[M.idx].split("\n");
+    var now = M.lines.filter(function (L) { return !L.deleted; }).map(function (L) { return L.text; });
+    var body = ["md2slides-save 1", "first " + M.first, "old " + old.length].concat(old,
+               ["new " + now.length], now).join("\n");
+    saving = true;
+    status("Saving\u2026");
+    fetch("/md2slides-edit/save", {
+      method: "POST",
+      headers: { "Content-Type": "text/plain; charset=utf-8", "X-Md2slides-Token": api.edit().token },
+      body: body
+    }).then(function (r) {
+      return r.text().then(function (t) { return { ok: r.ok, text: t }; });
+    }).then(function (a) {
+      if (a.ok) { api.reloadHere("Saved: " + said + "."); return; }
+      saving = false; status("");
+      api.toast(a.text, "info");
+    }, function () {
+      saving = false; status("");
+      api.toast("The server does not answer: is md2slides --edit still running?", "info");
+    });
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* The bar: the tools, and the selection's line                            */
+  /* ---------------------------------------------------------------------- */
+
+  var ICON = {
+    select: '<path d="M5 3l12 7-5 1.5L9.5 17z"/>',
+    box:    '<rect x="3.5" y="5.5" width="13" height="9" rx="1.5"/>',
+    ring:   '<ellipse cx="10" cy="10" rx="7" ry="5"/>',
+    arrow:  '<path d="M4 16L15 5M9 5h6v6"/>',
+    place:  '<circle cx="10" cy="10" r="2"/><path d="M10 2v4M10 14v4M2 10h4M14 10h4"/>'
+  };
+  var TIP = {
+    select: "Select: change, move or delete a mark or an arrow",
+    box: "Rectangle: drag on a picture (a mark) or on a drawing (a new box)", ring: "Ellipse: drag on a picture",
+    arrow: "Arrow: drag from one place of a picture to another, or from a block of a drawing to another (or to a place of it)",
+    place: "Place: a click copies the place, a drag the region (as d always did)"
+  };
+
+  function esc(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;");
+  }
+
+  function buildBar() {
+    bar = document.createElement("div");
+    bar.id = "ed-bar";
+    var tools = ["select", "box", "ring", "arrow", "place"].map(function (t) {
+      return '<button type="button" class="ed-tool" data-tool="' + t + '" title="' + TIP[t] + '">' +
+             '<svg viewBox="0 0 20 20" aria-hidden="true">' + ICON[t] + '</svg></button>';
+    }).join("");
+    bar.innerHTML =
+      '<div class="ed-tools"><span class="ed-title">Pictures</span>' + tools +
+      '<button type="button" class="ed-guides on" data-do="guides" title="The guides of the drawings">#</button></div>' +
+      '<div class="ed-panel"></div>';
+    document.body.appendChild(bar);
+    bar.addEventListener("click", function (e) {
+      var b = e.target.closest("button");
+      if (!b) return;
+      e.preventDefault();
+      var M = model();
+      if (b.hasAttribute("data-tool")) { setTool(b.getAttribute("data-tool")); return; }
+      var what = b.getAttribute("data-do");
+      if (what === "copy" && sel) { copyItem(sel, M); return; }
+      if (what === "copy-slide") { copySlide(M); return; }
+      if (what === "copy-also") { api.copy(b.getAttribute("data-text"), "Copied"); return; }
+      if (what === "delete" && sel) { remove(sel); return; }
+      if ((what === "front" || what === "unfront") && sel && sel.kind === "piece") {
+        if (what === "front") toFront(M, sel); else sel.z = "";
+        commit(sel, M); syncDom(sel); api.arrows(); panel(); render(); api.refreshPane();
+        done(sel, M);
+        return;
+      }
+      if (what === "pane") { api.openPane(); return; }
+      if (what === "guides") { guidesOn = !guidesOn; b.classList.toggle("on", guidesOn); render(); return; }
+      if (what === "discard") { discard(); return; }
+      if (!sel) return;
+      var v = b.getAttribute("data-v");
+      if (what === "look") sel.look = v;
+      if (what === "pen") sel.pen = v;
+      if (what === "step") sel.step = v;
+      commit(sel, M); syncDom(sel); panel(); render(); api.refreshPane();
+      if (serving(M)) later(M);
+      else if (M.lines && sel.line) copySlide(M);
+    });
+    layer = document.createElementNS(SVGNS, "svg");
+    layer.id = "ed-layer";
+    layer.setAttribute("aria-hidden", "true");
+    document.body.appendChild(layer);
+  }
+
+  function setTool(t) {
+    tool = t;
+    if (t !== "select") { sel = null; panel(); }
+    document.documentElement.setAttribute("data-ed-tool", t);
+    if (bar) Array.prototype.forEach.call(bar.querySelectorAll(".ed-tool"), function (b) {
+      b.classList.toggle("on", b.getAttribute("data-tool") === t);
+    });
+    render();
+  }
+
+  function choice(what, act, vals, cur, names) {
+    return '<div class="ed-row"><span class="ed-k">' + what + '</span>' + vals.map(function (v, i) {
+      var sw = act === "pen" && v ? '<i style="background:' + esc(penColor(v)) + '"></i>' : "";
+      return '<button type="button" data-do="' + act +
+             '" data-v="' + v + '" class="' + (v === cur ? "on" : "") + '">' + sw +
+             esc(names ? names[i] : v) + '</button>';
+    }).join("") + '</div>';
+  }
+
+  function panel() {
+    if (!bar) return;
+    var P = bar.querySelector(".ed-panel"), M = on ? model() : null;
+    if (!M) { P.innerHTML = ""; return; }
+    var nChanges = M.items.filter(changed).length;
+    var foot = '<div class="ed-foot">' +
+      (nChanges ? nChanges + (nChanges === 1 ? " change" : " changes") + " on this slide" : "") +
+      (nChanges && M.lines ? ' <button type="button" data-do="copy-slide" title="' +
+        esc(slideWhere(M)) + '">Copy the slide</button>' +
+        ' <button type="button" data-do="pane">Show it</button>' : "") +
+      (nChanges ? ' <button type="button" data-do="discard">Discard</button>' : "") + '</div>';
+    if (!sel) {
+      P.innerHTML = '<div class="ed-hint">' + (M.pics.length
+        ? "Draw on a picture with the rectangle, the ellipse or the arrow; click a mark or an arrow to change it." +
+          (M.drawings.length ? " On a drawing: drag a block or its corners; the rectangle makes a new box, the arrow joins two blocks." : "")
+        : M.drawings.length ? "Drag a block of the drawing, or its corners; the rectangle makes a new box; the arrow joins two blocks (or a block and a place). Click an arrow to change it. Drag a guide by its handle."
+        : "No pictures or drawings on this slide.") + '</div>' + (nChanges ? foot : "");
+      return;
+    }
+    var it = sel, html = "";
+    var text = it.text || lineText(it, M);
+    html += '<div class="ed-line"><code>' + esc(text) + '</code>' +
+            '<button type="button" data-do="copy" title="Copy the line">Copy</button></div>';
+    html += '<div class="ed-where">' + esc(where(it, M)) + '</div>';
+    alsoLines(it, M).forEach(function (a) {
+      html += '<div class="ed-where">' + esc(a.where) + '</div>' +
+              '<div class="ed-line"><code>' + esc(a.text) + '</code>' +
+              '<button type="button" data-do="copy-also" data-text="' + esc(a.text) + '">Copy</button></div>';
+    });
+    if (!it.gone && it.kind === "piece") {
+      if (it.isNew) {
+        html += '<div class="ed-row"><span class="ed-k">Text</span><input type="text" class="ed-text" value="' +
+                esc(it.text) + '"></div>';
+      } else if (it.group) {
+        html += '<div class="ed-hint">A group: its blocks move with it.</div>';
+      }
+      html += '<div class="ed-row"><span class="ed-k">Stacking</span>' +
+              '<button type="button" data-do="front" title="Over every other block and arrow of the drawing (z-index)">To front</button>' +
+              (it.z ? '<button type="button" data-do="unfront" title="Where its text puts it: no z-index">As written</button>' : "") +
+              (it.z ? '<span class="ed-k">z-index ' + esc(it.z) + '</span>' : "") + '</div>';
+      html += '<div class="ed-row"><button type="button" data-do="delete">Delete</button></div>';
+    } else if (!it.gone) {
+      if (it.kind === "mark") {
+        html += choice("Look", "look", LOOKS, it.look || "wash");
+        html += choice("Pen", "pen", ["", "1", "2", "3", "4"], it.pen, ["auto", "1", "2", "3", "4"]);
+        html += choice("Comes in", "step", ["click", "with", "after"], it.step,
+                       ["on a click", "with the step before", "after it"]);
+      } else {
+        html += choice("Comes in", "step", ["", "click", "with", "after"], it.step,
+                       ["from the start", "on a click", "with the step before", "after it"]);
+      }
+      html += '<div class="ed-row"><button type="button" data-do="delete">Delete</button></div>';
+    }
+    P.innerHTML = html + foot;
+    var input = P.querySelector(".ed-text");
+    if (input) {
+      input.addEventListener("input", function () {
+        it.text = input.value;
+        if (it.dom) it.dom.querySelector("p").textContent = it.text;
+        if (it.textLine) it.textLine.text = it.text;
+        api.refreshPane();
+      });
+      input.addEventListener("change", function () { done(it, M); });
+    }
+  }
+
+  function copyItem(it, M) {
+    if (it.gone) return;
+    var t = it.text || lineText(it, M);
+    api.copy(t.replace(/^\s+/, function (s) { return it.line ? s : ""; }),
+             "Copied. " + where(it, M));
+  }
+
+  /* The whole slide, as it is now (Rony, 13/10 12:21: "much easier and    */
+  /* much less error-prone than spotting the right line"): it is pasted in  */
+  /* place of the slide, or beside it to compare the two.                   */
+  function slideWhere(M) {
+    var n = api.sources()[M.idx].split("\n").length;
+    return M.first ? "Paste it in place of lines " + M.first + " to " + (M.first + n - 1) + " of the .md."
+                   : "Paste it in place of this slide's Markdown.";
+  }
+
+  function copySlide(M) {
+    var now = M.lines.filter(function (L) { return !L.deleted; }).map(function (L) { return L.text; });
+    api.copy(now.join("\n") + "\n", "Copied slide " + (M.idx + 1) + ", with the changes. " + slideWhere(M));
+  }
+
+  /* Everything on this slide back as the deck has it. */
+  function discard() {
+    var M = model();
+    if (!M) return;
+    M.items.forEach(function (it) {
+      if (it.isNew) { if ((it.kind === "piece" || it.kind === "link") && it.dom) it.dom.remove(); return; }
+      it.gone = false;
+      if (it.kind === "piece") {
+        it.region = it.orig.region.slice(); it.z = it.orig.z; it.newName = "";
+        placePiece(it); return;
+      }
+      if (it.kind === "link") {
+        it.ends = it.orig.ends.map(copyEnd); it.step = it.orig.step;
+        setLinkDom(it); return;
+      }
+      if (it.kind === "mark") {
+        it.region = it.orig.region.slice(); it.look = it.orig.look; it.pen = it.orig.pen;
+        it.step = it.orig.step;
+        if (it.dom) {
+          it.dom.classList.remove("ed-gone");
+          placeSpan(it);
+        }
+      } else {
+        it.ends = it.orig.ends.map(function (e) { return { pic: e.pic, x: e.x, y: e.y }; });
+        it.step = it.orig.step;
+        if (it.dom) it.dom.classList.remove("ed-gone");
+      }
+    });
+    M.added.forEach(function (x) { x.removeAttribute("id"); });
+    delete models[M.idx];
+    sel = null;
+    api.layout();
+    api.arrows();
+    panel(); render(); api.refreshPane();
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* The slide's Markdown, with the changes, for the pane (Shift+V)          */
+  /* ---------------------------------------------------------------------- */
+
+  function pane(idx) {
+    var M = models[idx];
+    if (!on || !M || !M.lines) return null;
+    var html = "", text = [];
+    M.lines.forEach(function (L) {
+      var n = L.orig === null ? "+" : String(M.first ? M.first + L.orig : L.orig + 1);
+      var cls = L.deleted ? "ed-del" : L.state === "new" ? "ed-new" : L.state === "changed" ? "ed-chg" : "";
+      html += '<span class="ed-pl' + (cls ? " " + cls : "") + '"><span class="ed-n">' + n +
+              '</span>' + esc(L.text) + "</span>";
+      if (!L.deleted) text.push(L.text);
+    });
+    return { html: html, text: text.join("\n") };
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* With the runtime                                                        */
+  /* ---------------------------------------------------------------------- */
+
+  window.MdEditor = {
+    attach: function (a) {
+      api = a;
+      document.addEventListener("pointerdown", onDown, true);
+      document.addEventListener("pointermove", onMove, true);
+      document.addEventListener("pointerup", onUp, true);
+      document.addEventListener("pointercancel", function () { drag = null; render(); }, true);
+    },
+    set: function (v) {
+      on = !!v;
+      if (on && !bar) buildBar();
+      document.documentElement.classList.toggle("ed-on", on);
+      if (!on) { sel = null; drag = null; render(); }
+      setTool(tool);
+      panel();
+      if (on && !loopOn) { loopOn = true; lastKey = ""; requestAnimationFrame(loop); }
+    },
+    key: key,
+    tool: function (t) { if (t) setTool(t); return tool; },
+    tookLast: function () { return on && tookLast; },
+    placing: function () { return on && tool === "place"; },
+    pane: pane
+  };
+})();
+
+</script>
+<script>
+/******************************************************************************/
+/*                                                                            */
 /*  deck-runtime.js -- Presentation deck runtime                              */
 /*                                                                            */
 /*  Adds to a RexxPub-generated document the things the scrolling HTML output  */
@@ -7465,6 +9810,7 @@ ooRexx 1</code></pre>
   /* about beats at all -- each just says "something moved" when it is done.  */
   function spotSync(slide) {
     if (window.Spotlight) window.Spotlight.sync(slide);
+    if (notesWin) syncMirrors();        /* the presenter's window follows (v279) */
   }
 
   function fragmentsOf(slide) {
@@ -7839,7 +10185,55 @@ ooRexx 1</code></pre>
   function layoutBox(el, slide) {
     var o = offsetIn(el, slide);
     if (!o || (!el.offsetWidth && !el.offsetHeight)) return null;
+    if (inlineHop(el, slide)) o = paintedIn(el, slide) || o;
     return { l: o.x, t: o.y, r: o.x + el.offsetWidth, b: o.y + el.offsetHeight };
+  }
+
+  /* Does el's offsetParent chain go through an INLINE element? Firefox     */
+  /* gives a box whose offsetParent is inline offsetTop 0: the line spans of */
+  /* a numbered listing are inline-block once they are steps or marks, and  */
+  /* their offsetParent is the <code> (v278; Rony's 050 #10: a callout to   */
+  /* lines 3-5 of an output stood at line 1, on screen and on paper).        */
+  function inlineHop(el, slide) {
+    for (var n = el; n && n !== slide; n = n.offsetParent) {
+      var p = n.offsetParent;
+      if (p && p !== slide && getComputedStyle(p).display === "inline") return true;
+    }
+    return false;
+  }
+
+  /* el's layout position in the slide, from paint: against the nearest     */
+  /* block above it whose own offsets can be trusted, less el's own         */
+  /* transform (a hidden fade-up line is painted 72px lower than it lives). */
+  /* A translation and a scale are undone; a turn is not (none is used on a */
+  /* line). null when there is no such block.                              */
+  function paintedIn(el, slide) {
+    var a = el.parentNode;
+    while (a && a !== slide && a.nodeType === 1) {
+      var d = getComputedStyle(a).display;
+      if (d !== "inline" && d !== "contents" && !inlineHop(a, slide)) break;
+      a = a.parentNode;
+    }
+    if (!a || a.nodeType !== 1) return null;
+    var ao = a === slide ? { x: 0, y: 0 } : offsetIn(a, slide);
+    if (!ao || !a.offsetWidth) return null;
+    var ar = a.getBoundingClientRect(), er = el.getBoundingClientRect();
+    var k = ar.width / a.offsetWidth;
+    if (!k) return null;
+    var x = (er.left - ar.left) / k, y = (er.top - ar.top) / k;
+    var cs = getComputedStyle(el);
+    if (cs.transform && cs.transform !== "none" && window.DOMMatrixReadOnly) {
+      var m = new DOMMatrixReadOnly(cs.transform);
+      var org = (cs.transformOrigin || "0 0").split(" ").map(parseFloat);
+      x -= (org[0] || 0) * (1 - m.a) + m.e;
+      y -= (org[1] || 0) * (1 - m.d) + m.f;
+    }
+    if (a === slide) {
+      var sc = getComputedStyle(slide);
+      x -= parseFloat(sc.borderLeftWidth) || 0;
+      y -= parseFloat(sc.borderTopWidth) || 0;
+    }
+    return { x: ao.x + x, y: ao.y + y };
   }
 
   /* The nearest element, from el up, that lays out a box of its own: not    */
@@ -10055,13 +12449,13 @@ ooRexx 1</code></pre>
     ["g", "Go to a slide: pick it, type its number, or search (F1 there: its keys)", [["g", "g"]]],
     ["0-9", "Go to a slide, number already typed"],
     ["s", "Choose the Rexx highlighting style", [["s", "s"]]],
-    ["d", "Diagnose: deck-health problems (overflowing slides)", [["d", "d"]]],
+    ["d", "Diagnose: the deck's problems, and drawing marks and arrows on pictures", [["d", "d"]]],
     ["a", "About this deck: the file, the build, the tools", [["a", "a"]]],
-    ["n", "The presenter's window: this slide's notes, the next slide, the time (keys pressed there move the deck)", [["n", "n"]]],
+    ["n", "The presenter's window: this slide and the next, the notes, the time (keys pressed there move the deck)", [["n", "n"]]],
     ["v", "View the Markdown of this slide", [["v", "v"]]],
     ["Shift+V", "The Markdown beside the slide, as you go; drag the bar between them", [["Shift+V", "Shift+V"]]],
     ["b / w", "Blank the screen to black / white", [["b", "b"], ["w", "w"]]],
-    ["f", "Fullscreen", [["f", "f"]]],
+    ["f / Shift+F", "Fullscreen; Shift+F: full screen on the other screen, the presenter's window on this one (Chrome, Edge)", [["f", "f"], ["Shift+F", "Shift+F"]]],
     ["t", "Timer: time elapsed and left (it starts with full screen, and goes on through a reload)", [["t", "t"]]],
     ["Esc / t on a red popup", "Over time: no more overtime popups until the timer restarts (or tap the popup)"],
     ["r", "Restart the timer from 0:00 (press twice)", [["r", "r"]]],
@@ -10410,6 +12804,16 @@ ooRexx 1</code></pre>
     return sources;
   }
   function sourceAllowed() { return !!deckSources(); }
+  /* The line of the file where each slide opens (v280), for d's editor. */
+  var sourceLines;
+  function deckSourceLines() {
+    if (sourceLines === undefined) {
+      var el = document.getElementById("deck-source-lines");
+      try { sourceLines = el ? JSON.parse(el.textContent) : null; } catch (e) { sourceLines = null; }
+      if (!Array.isArray(sourceLines)) sourceLines = null;
+    }
+    return sourceLines;
+  }
   function sourceOpen() { return !!(sourceBox && sourceBox.classList.contains("open")); }
   function closeSource() {
     if (sourceBox) sourceBox.classList.remove("open");
@@ -10493,7 +12897,7 @@ ooRexx 1</code></pre>
       e.preventDefault(); toggleSplit(false);
     });
     splitPane.querySelector(".sp-copy").addEventListener("click", function () {
-      var b = this, t = splitPane.querySelector(".sp-text").textContent;
+      var b = this, t = splitText();
       var done = function () { b.textContent = "Copied"; setTimeout(function () { b.textContent = "Copy"; }, 1500); };
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(t).then(done, function () {});
@@ -10531,8 +12935,63 @@ ooRexx 1</code></pre>
     splitPane.querySelector(".sp-title").textContent =
       "Markdown of slide " + (current + 1) + " of " + slides.length;
     var pre = splitPane.querySelector(".sp-text");
-    pre.textContent = all[current] || "";
-    pre.scrollTop = 0;
+    /* With d on, the editor's version (v280): the lines numbered as in the  */
+    /* file, and what it changed marked.                                     */
+    var ed = window.MdEditor ? window.MdEditor.pane(current) : null;
+    var top = pre.scrollTop, same = pre.getAttribute("data-slide") === String(current);
+    if (ed) pre.innerHTML = ed.html;
+    else pre.textContent = all[current] || "";
+    pre.setAttribute("data-slide", String(current));
+    pre.scrollTop = same ? top : 0;
+  }
+  /* ---------------------------------------------------------------------- */
+  /* md2slides --edit (v281). A deck that its server built carries a key    */
+  /* (#deck-edit), and the editor saves its changes there. A save builds    */
+  /* the deck again, and the page reloads: back at the same slide, at the   */
+  /* same step, with d (and the Markdown beside, if it was) on again.       */
+  /* ---------------------------------------------------------------------- */
+  var editInfo, EDIT_BACK = "md2slides.edit-back:" + location.pathname;
+  function editServer() {
+    if (editInfo === undefined) {
+      var el = document.getElementById("deck-edit");
+      try { editInfo = el ? JSON.parse(el.textContent) : null; } catch (e) { editInfo = null; }
+      if (!editInfo || !editInfo.token) editInfo = null;
+    }
+    return editInfo;
+  }
+  function editReload(said) {
+    try {
+      sessionStorage.setItem(EDIT_BACK, JSON.stringify({
+        slide: current, step: stepsShown(current).shown, split: splitOn, said: said || "",
+        tool: window.MdEditor ? window.MdEditor.tool() : "" }));
+    } catch (e) { /* none: the reload lands where the address says */ }
+    location.reload();
+  }
+  function editComeBack() {
+    var b = null;
+    try {
+      b = JSON.parse(sessionStorage.getItem(EDIT_BACK));
+      sessionStorage.removeItem(EDIT_BACK);
+    } catch (e) { b = null; }
+    if (!b || !editServer()) return;
+    if (b.slide !== current && b.slide >= 0 && b.slide < slides.length) showSlide(b.slide, false, 0);
+    cancelChain();
+    var slide = slides[current], steps = stepsOf(slide);
+    for (var i = 0; i < Math.min(b.step, steps.length); i++) {
+      steps[i].forEach(function (f) { f.classList.add("revealed"); });
+    }
+    spotSync(slide);
+    fitBoxes(slide);
+    if (!diagnoseOn) toggleDiagnose();
+    if (b.tool && window.MdEditor) window.MdEditor.tool(b.tool);
+    if (b.split && !splitOn) toggleSplit(true);
+    if (b.said) showToast(b.said, "info");
+  }
+
+  /* What the pane's Copy copies: the editor's version, when there is one. */
+  function splitText() {
+    var ed = window.MdEditor ? window.MdEditor.pane(current) : null;
+    return ed ? ed.text : splitPane.querySelector(".sp-text").textContent;
   }
   function toggleSplit(on) {
     if (on === undefined) on = !splitOn;
@@ -12111,7 +14570,27 @@ ooRexx 1</code></pre>
   /* deck, and keys pressed in it move the deck. With print-notes: yes, a    */
   /* page with the notes follows each slide that has them, on paper.         */
   /* ---------------------------------------------------------------------- */
+  /* ---------------------------------------------------------------------- */
+  /* The presenter's window (v279, Rony 11-Oct 23:14: "the current slide    */
+  /* and the next one in small, the time elapsed and left, as presentation   */
+  /* programs do"). Three parts, as in Impress and PowerPoint: the slide as  */
+  /* the audience sees it now, step by step, large on the left; the next    */
+  /* slide, finished, small on the right, with the notes under it; and a    */
+  /* bar with the number and title, the time elapsed and left, and the      */
+  /* clock.                                                                 */
+  /*                                                                        */
+  /* The two slides are the deck itself, twice, in iframes: the same file   */
+  /* with ?md2slides-mirror, which starts a deck that only shows what it is */
+  /* told (see Mirror below). A copy of the slide's DOM would need the       */
+  /* deck's sheets, its fonts and its own measures (the arrows, callouts and */
+  /* marks are placed by this runtime, by the size of the stage); a mirror  */
+  /* has all of it, and shows the slide exactly as the audience sees it.    */
+  /* Where a frame cannot load (some browsers refuse a file:// frame in a   */
+  /* page that is not one), the window still has the notes, the titles and */
+  /* the time, as before v279.                                              */
+  /* ---------------------------------------------------------------------- */
   var notesWin = null, notesTick = null;
+  var MIRROR_PARAM = "md2slides-mirror";
 
   function notesHTML(i) {
     var parts = [];
@@ -12119,33 +14598,118 @@ ooRexx 1</code></pre>
     return parts.join("");
   }
   function notesAlive() { return notesWin && !notesWin.closed; }
-  function openNotes() {
-    if (notesAlive()) { notesWin.focus(); updateNotes(); return; }
-    notesWin = window.open("", "md2slides-notes", "width=960,height=680");
+  function mirrorURL() {
+    var u = window.location.href.split("#")[0];
+    return u + (u.indexOf("?") < 0 ? "?" : "&") + MIRROR_PARAM;
+  }
+  /* where: a screen (Shift+F) to put the window on, or nothing. */
+  function openNotes(where) {
+    if (notesAlive()) {
+      if (where) placeNotesWin(where);
+      notesWin.focus(); updateNotes(); return;
+    }
+    var feat = "width=1200,height=720";
+    if (where) feat = "left=" + where.availLeft + ",top=" + where.availTop +
+                      ",width=" + where.availWidth + ",height=" + where.availHeight;
+    notesWin = window.open("", "md2slides-notes", feat);
     if (!notesWin) {
-      showToast("The browser blocked the notes window: allow pop-ups for this deck, and press n again", "info");
+      showToast("The browser blocked the presenter's window: allow pop-ups for this deck, and press n again", "info");
       return;
     }
+    var g = readGeometry(), ratio = g.w + " / " + g.h;
     var d = notesWin.document;
     d.open();
-    d.write('<!doctype html><html><head><meta charset="utf-8"><title>Notes</title><style>' +
-      'body{margin:0;font:22px/1.4 system-ui,sans-serif;background:#1e1e1e;color:#eee;display:flex;flex-direction:column;height:100vh}' +
-      '#np-top{display:flex;gap:1em;align-items:baseline;padding:.6em 1em;background:#333;font-size:18px}' +
-      '#np-num{font-weight:bold}#np-title{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
-      '#np-time{color:#ffd479;white-space:nowrap}' +
-      '#np-notes{flex:1;overflow:auto;padding:1em 1.4em;font-size:26px}#np-notes p{margin:0 0 .6em}' +
-      '#np-notes .np-none{color:#888;font-style:italic}' +
-      '#np-next{padding:.5em 1em;background:#2a2a2a;color:#aaa;font-size:18px}' +
-      '</style></head><body><div id="np-top"><span id="np-num"></span><span id="np-title"></span>' +
-      '<span id="np-time"></span></div><div id="np-notes"></div><div id="np-next"></div></body></html>');
+    d.write('<!doctype html><html><head><meta charset="utf-8"><title>Presenter</title><style>' +
+      'html,body{height:100%}' +
+      'body{margin:0;font:20px/1.35 system-ui,sans-serif;background:#1e1e1e;color:#eee;' +
+        'display:flex;flex-direction:column;overflow:hidden}' +
+      '#np-top{display:flex;gap:1.2em;align-items:baseline;padding:.45em 1em;background:#333;font-size:18px}' +
+      '#np-num{font-weight:bold;white-space:nowrap}' +
+      '#np-title{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
+      '#np-clock{color:#aaa;white-space:nowrap}' +
+      '#np-main{flex:1;display:flex;gap:14px;padding:14px;min-height:0}' +
+      '#np-left{flex:1.9;display:flex;flex-direction:column;min-width:0;min-height:0;gap:10px}' +
+      '#np-right{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;gap:10px}' +
+      '.np-frame{position:relative;width:100%;aspect-ratio:' + ratio + ';background:#000;' +
+        'flex:none;max-height:100%;border-radius:4px;overflow:hidden}' +
+      '#np-cur{outline:3px solid #ffd479}' +
+      '.np-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0;pointer-events:none}' +
+      '.np-label{font-size:15px;color:#aaa;text-transform:uppercase;letter-spacing:.06em}' +
+      '#np-steps{font-size:16px;color:#aaa}' +
+      '#np-times{display:flex;gap:1.5em;align-items:baseline;flex-wrap:wrap}' +
+      '#np-elapsed{font-size:44px;font-weight:bold;font-variant-numeric:tabular-nums}' +
+      '#np-left-t{font-size:30px;font-variant-numeric:tabular-nums}' +
+      '#np-left-t.over{color:#ff6b6b}' +
+      '#np-time{font-size:15px;color:#aaa}' +
+      '#np-next-t{color:#ccc;font-size:17px}' +
+      '#np-notes{flex:1;overflow:auto;font-size:24px;min-height:0;' +
+        'border-top:1px solid #444;padding-top:.5em}#np-notes p{margin:0 0 .6em}' +
+      '#np-notes .np-none{color:#888;font-style:italic;font-size:18px}' +
+      '#np-hint{font-size:15px;color:#ffd479;min-height:1em}' +
+      '</style></head><body>' +
+      '<div id="np-top"><span id="np-num"></span><span id="np-title"></span>' +
+      '<span id="np-clock"></span></div>' +
+      '<div id="np-main">' +
+        '<div id="np-left">' +
+          '<div class="np-frame" id="np-cur"><iframe id="np-cur-f" tabindex="-1" title="This slide"></iframe></div>' +
+          '<div id="np-steps"></div>' +
+          '<div id="np-times"><span id="np-elapsed"></span><span id="np-left-t"></span></div>' +
+          '<div id="np-time"></div>' +
+        '</div>' +
+        '<div id="np-right">' +
+          '<div class="np-label">Next</div>' +
+          '<div class="np-frame" id="np-next"><iframe id="np-next-f" tabindex="-1" title="Next slide"></iframe></div>' +
+          '<div id="np-next-t"></div>' +
+          '<div id="np-notes"></div>' +
+          '<div id="np-hint"></div>' +
+        '</div>' +
+      '</div></body></html>');
     d.close();
-    d.title = "Notes \u2014 " + document.title;
+    d.title = "Presenter — " + document.title;
     d.addEventListener("keydown", function (e) { onKey(e); });
+    var url = mirrorURL();
+    ["np-cur-f", "np-next-f"].forEach(function (id) {
+      var f = d.getElementById(id);
+      f.addEventListener("load", function () { syncMirrors(); });
+      f.src = url;
+    });
     updateNotes();
     if (notesTick === null) notesTick = setInterval(function () {
       if (!notesAlive()) { clearInterval(notesTick); notesTick = null; notesWin = null; return; }
       updateNotesTime();
     }, 1000);
+  }
+  function placeNotesWin(where) {
+    try {
+      notesWin.moveTo(where.availLeft, where.availTop);
+      notesWin.resizeTo(where.availWidth, where.availHeight);
+    } catch (e) { /* the browser said no: it stays where it is */ }
+  }
+  /* How far into slide i the deck is: the steps shown. */
+  function stepsShown(i) {
+    var steps = stepsOf(slides[i]), k = 0;
+    while (k < steps.length && steps[k][0].classList.contains("revealed")) k++;
+    return { shown: k, all: steps.length };
+  }
+  /* The two mirrors: this slide as far as it is, the next one finished. */
+  function syncMirrors() {
+    if (!notesAlive() || !slides) return;
+    var d = notesWin.document;
+    var tell = function (id, msg) {
+      var f = d.getElementById(id);
+      if (f && f.contentWindow) {
+        try { f.contentWindow.postMessage({ md2slidesMirror: msg }, "*"); } catch (e) {}
+      }
+    };
+    var at = stepsShown(current);
+    tell("np-cur-f", { slide: current, step: at.shown, style: currentStyle });
+    tell("np-next-f", { slide: current + 1, step: -1, style: currentStyle });
+    var s = d.getElementById("np-steps");
+    if (s) {
+      var left = at.all - at.shown;
+      s.textContent = !at.all ? "" : left ? "Step " + at.shown + " of " + at.all +
+        " · " + left + " more on this slide" : "All " + at.all + " steps shown";
+    }
   }
   function updateNotes() {
     if (!notesAlive() || !slides) return;
@@ -12156,15 +14720,136 @@ ooRexx 1</code></pre>
     el("np-title").textContent = titles[current];
     var html = notesHTML(current);
     el("np-notes").innerHTML = html || '<p class="np-none">No notes for this slide.</p>';
-    el("np-next").textContent = current + 1 < slides.length ?
-      "Next: " + (current + 2) + ". " + titles[current + 1] : "This is the last slide.";
+    el("np-next-t").textContent = current + 1 < slides.length ?
+      (current + 2) + ". " + titles[current + 1] : "This is the last slide.";
+    el("np-next").style.visibility = current + 1 < slides.length ? "" : "hidden";
+    syncMirrors();
     updateNotesTime();
   }
   function updateNotesTime() {
     if (!notesAlive()) return;
-    var t = notesWin.document.getElementById("np-time");
-    if (t) t.textContent = timerStatus();
+    var d = notesWin.document, el = function (id) { return d.getElementById(id); };
+    if (!el("np-time")) return;
+    var now = new Date();
+    el("np-clock").textContent = (now.getHours() < 10 ? "0" : "") + now.getHours() + ":" +
+                                 (now.getMinutes() < 10 ? "0" : "") + now.getMinutes();
+    if (tStart === null) {
+      el("np-elapsed").textContent = "0:00";
+      el("np-left-t").textContent = "";
+    } else {
+      el("np-elapsed").textContent = fmtTime(elapsed());
+      var rem = remaining();
+      el("np-left-t").textContent = rem === null ? "" :
+        rem >= 0 ? fmtTime(rem) + " left" : fmtTime(-rem) + " over";
+      el("np-left-t").classList.toggle("over", rem !== null && rem < 0);
+    }
+    /* Under the big numbers, only what they do not say: not started,     */
+    /* paused, the section.                                                 */
+    el("np-time").textContent = tStart === null ? timerStatus() :
+      timerStatus().split(" \u00b7 ").filter(function (p) {
+        return !/ (elapsed|left|over)$/.test(p) || /^section /.test(p);
+      }).join(" \u00b7 ");
   }
+  function notesHint(text) {
+    if (!notesAlive()) return;
+    var h = notesWin.document.getElementById("np-hint");
+    if (!h) return;
+    h.textContent = text || "";
+    clearTimeout(h._t);
+    if (text) h._t = setTimeout(function () { h.textContent = ""; }, 8000);
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Shift+F: the deck full screen on the other screen, and the presenter's */
+  /* window on this one (v279; Rony, 11-Oct: "which screen gets the slides"). */
+  /* Chrome and Edge have the Window Management API: a page may ask which   */
+  /* screens there are and go full screen on one of them, once the person   */
+  /* allows it (the browser asks the first time). Going full screen needs   */
+  /* a key pressed IN the deck's window: a key in the presenter's window    */
+  /* does not count for the deck, so there it only says so. Where the API   */
+  /* is missing (Firefox, Safari), or there is one screen, it says what to  */
+  /* do instead: drag the deck to the projector, f there, n.                */
+  /* ---------------------------------------------------------------------- */
+  function presentOnTwoScreens(e) {
+    var fromNotes = e && e.target && e.target.ownerDocument && e.target.ownerDocument !== document;
+    if (fromNotes) {
+      notesHint("Shift+F works in the deck's window: press it there (the browser lets only that window go full screen).");
+      return;
+    }
+    if (!window.getScreenDetails) {
+      showToast("This browser cannot choose a screen (Chrome and Edge can): drag the deck to the projector, press f there, then n", "info");
+      return;
+    }
+    window.getScreenDetails().then(function (sd) {
+      var here = sd.currentScreen, other = null;
+      sd.screens.forEach(function (s) {
+        if (!other && !(s.left === here.left && s.top === here.top &&
+                        s.width === here.width && s.height === here.height)) other = s;
+      });
+      if (!other) {
+        showToast("There is only one screen: connect the projector as an extended desktop, and press Shift+F again", "info");
+        return;
+      }
+      var el = document.documentElement;
+      var go = el.requestFullscreen ? el.requestFullscreen({ screen: other }) : null;
+      /* The presenter's window on this screen, from the same key press:    */
+      /* Chrome lets one press do both ("fullscreen companion window").    */
+      openNotes(here);
+      if (go && go.catch) go.catch(function () {
+        showToast("The browser did not let the deck go full screen there: press Shift+F again", "info");
+      });
+    }, function () {
+      showToast("To send the deck to the other screen, allow window management for this page (the browser asks), then press Shift+F again", "info");
+    });
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Mirror (v279). The deck opened with ?md2slides-mirror, in a frame of   */
+  /* the presenter's window. It lays out every slide as the deck does, and  */
+  /* then shows only what it is told by a message: a slide, how many of its */
+  /* steps (-1: all of them), the code style. No keys, no timer, no         */
+  /* storage, no hash, no animation: what it shows is a picture of the      */
+  /* deck, not a second deck.                                               */
+  /* ---------------------------------------------------------------------- */
+  function isMirror() {
+    return new RegExp("[?&]" + MIRROR_PARAM + "(=|&|$)").test(window.location.search);
+  }
+  function initMirror() {
+    document.documentElement.classList.add("leafing", "mirror");
+    window.addEventListener("message", function (e) {
+      var m = e.data && e.data.md2slidesMirror;
+      if (!m) return;
+      mirrorShow(m.slide, m.step, m.style);
+    });
+  }
+  function mirrorShow(n, step, style) {
+    if (style && style !== currentStyle) mirrorStyle(style);
+    var none = !(n >= 0 && n < slides.length);
+    document.documentElement.classList.toggle("mirror-none", none);
+    if (none) return;
+    slides[current].classList.remove("current", "anim-in", "anim-back");
+    current = n;
+    var slide = slides[current];
+    slide.classList.add("current");
+    var steps = stepsOf(slide);
+    fragmentsOf(slide).forEach(function (f) { f.classList.remove("revealed"); });
+    var k = step < 0 ? steps.length : Math.min(step, steps.length);
+    for (var i = 0; i < k; i++) steps[i].forEach(function (f) { f.classList.add("revealed"); });
+    spotSync(slide);
+    fitBoxes(slide);
+    fitHeight(slide);
+  }
+  /* The style the presenter chose, without keeping it: the deck keeps it. */
+  function mirrorStyle(style) {
+    var blocks = document.querySelectorAll(
+      '[class*="highlight-rexx-"]:not([data-rexx-style-locked])');
+    for (var i = 0; i < blocks.length; i++) {
+      blocks[i].className = blocks[i].className.replace(
+        /highlight-rexx-[A-Za-z0-9._-]+/g, "highlight-rexx-" + style);
+    }
+    currentStyle = style;
+  }
+
   /* Printing: a page with a slide's notes just after it (print-notes: yes). */
   function addNotesPages() {
     removeNotesPages();                 /* beforeprint may come twice */
@@ -12217,6 +14902,7 @@ ooRexx 1</code></pre>
     currentStyle = style;
     try { localStorage.setItem(STYLE_KEY, style); } catch (e) {}
     highlightCurrentStyle();
+    if (notesWin) syncMirrors();        /* the mirrors take the style (v279) */
   }
 
   function buildStyleOverlay() {
@@ -12445,6 +15131,12 @@ ooRexx 1</code></pre>
       return;
     }
 
+    /* d's editor (v280) first: Delete takes the selected mark or arrow away, */
+    /* Esc lets it go. Everything else does what it always does.              */
+    if (diagnoseOn && window.MdEditor && window.MdEditor.key(e)) {
+      e.preventDefault(); return;
+    }
+
     /* Alt+PageDown / Alt+PageUp leaf through the deck: the next or previous */
     /* slide at once, complete, with no page transition and no fragment       */
     /* animation (Rony: "quick scrolling full-page through the presentation   */
@@ -12493,7 +15185,8 @@ ooRexx 1</code></pre>
         setBlank(isBlank() ? null : "#fff"); e.preventDefault(); break;
 
       case "f": case "F":
-        toggleFullscreen(); e.preventDefault(); break;
+        if (e.shiftKey) presentOnTwoScreens(e); else toggleFullscreen();
+        e.preventDefault(); break;
 
       case "Escape":
         setBlank(null); break;
@@ -12598,7 +15291,12 @@ ooRexx 1</code></pre>
     placeSwallow = true;
     if (placeBox) placeBox.style.display = "none";
     if (!text) return;
-    var done = function () { showToast("Copied " + text, "info"); };
+    copyText(text);
+  }
+
+  /* The clipboard, with a word on the screen when it is done. */
+  function copyText(text, said) {
+    var done = function () { showToast(said || "Copied " + text, "info"); };
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text).then(done, function () { copyOld(text); done(); });
@@ -12653,6 +15351,9 @@ ooRexx 1</code></pre>
         e.target.closest("a, .touch-bar, " + DIALOGS)) return;
     if (askOpen()) { closeAsk(); return; }  /* a click outside the dialog: never mind */
     if (isBlank()) { setBlank(null); return; }
+    /* With d on, a click is the editor's (v280; the scope note: "the deck   */
+    /* does not move with a click"). The keys still step.                    */
+    if (diagnoseOn) return;
     if (isDragGesture(e) || hasSelection()) return;
     if (e.clientX < window.innerWidth / 8) prev();
     else next();
@@ -12945,6 +15646,8 @@ ooRexx 1</code></pre>
       /* them keeps a stale mark from surviving a source edit + toggle.        */
       slides.forEach(function (s) { s.removeAttribute("data-diag"); });
     }
+    if (window.MdEditor) window.MdEditor.set(diagnoseOn);
+    updateSplit();
   }
 
   /* ---------------------------------------------------------------------- */
@@ -12970,6 +15673,21 @@ ooRexx 1</code></pre>
 
     slides.forEach(function (s) { setAllFragments(s, false); });
     numberSlides();
+    if (isMirror()) {                   /* a frame of the presenter's window */
+      for (var ms = 0; ms < REXX_STYLES.length; ms++) {
+        if (REXX_STYLES[ms].d) { currentStyle = REXX_STYLES[ms].v; break; }
+      }
+      initMirror();
+      current = 0;
+      slides.forEach(function (s, i) { s.classList.toggle("current", i === 0); });
+      rescale();
+      fitAllBoxes();
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(function () { fitAllBoxes(); fitBoxes(slides[current]); });
+      }
+      window.addEventListener("resize", function () { rescale(); });
+      return;
+    }
     initStyle();
     mountAboutSheet();                  /* after `slides`: it is not one      */
     initTimer();
@@ -13026,6 +15744,24 @@ ooRexx 1</code></pre>
     document.addEventListener("mousemove", placeMove);
     document.addEventListener("mouseup", placeUp, true);
 
+    /* d's editor (v280, editor.js): what it needs from the runtime. */
+    if (window.MdEditor) window.MdEditor.attach({
+      index: function () { return current; },
+      slide: function () { return slides[current]; },
+      sources: deckSources,
+      sourceLines: deckSourceLines,
+      endElement: endElement,
+      toast: showToast,
+      copy: copyText,
+      refreshPane: updateSplit,
+      openPane: function () { toggleSplit(true); },
+      edit: editServer,
+      reloadHere: editReload,
+      arrows: function () { drawArrows(slides[current]); },
+      layout: function () { fitBoxes(slides[current]); }
+    });
+    if (!isMirror()) setTimeout(editComeBack, 0);
+
     window.addEventListener("hashchange", function () {
       var n = slideFromHash();
       if (n !== current) showSlide(n, false, 0);   /* landing, not stepping */
@@ -13070,6 +15806,7 @@ ooRexx 1</code></pre>
         return;
       }
       if (g.fingers !== 1 || g.dialog || anyDialogOpen()) return;
+      if (window.MdEditor && window.MdEditor.tookLast()) return;  /* a drawing */
       if (Math.abs(dx) > 40 && Math.abs(dx) > 2 * Math.abs(dy)) {
         dx < 0 ? next() : prev();
       }

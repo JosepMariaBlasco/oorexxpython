@@ -1,7 +1,8 @@
 #!/usr/bin/env rexx
 /*----------------------------------------------------------------------------*/
-/* Subclass.testGroup: Python classes with methods in Rexx (.py~extend), and  */
-/* Python exceptions through Rexx (.py~raise, raised again as themselves).    */
+/* Subclass.testGroup: Rexx classes that extend Python classes (.py~extend),  */
+/* the lifetime of their pairs, and Python exceptions through Rexx            */
+/* (.py~raise, raised again as themselves).                                   */
 /*                                                                            */
 /* Licensed under the Apache License, Version 2.0.                            */
 /*----------------------------------------------------------------------------*/
@@ -22,106 +23,204 @@ return testResult
 ::class "Subclass.testGroup" subclass PyTestCase public
 
 ::method test_thread
-  cls = .py~extend("threading.Thread", .SubWorker)
-  t = cls~new("w7")
+  t = .SubWorker~new("w7")
   t~start
   t~join
   self~assertSame("w7 ran", t~getattr("out"))
   self~assertSame(1, .py~isinstance(t, .py~import("threading")~Thread))
   self~assertSame("w7", t~name)
+  self~assertTrue(t~isA(.SubWorker))
+
+::method test_override_and_super
+  c = .SubCar~new("Seat", 2020)
+  self~assertSame("Seat is 7", c~describe)    -- Car's describe calls the override
+  self~assertSame(7, c~age)                   -- the override: Car's age + 1
+  self~assertSame("Seat", c~name)             -- a member that is not overridden
+  self~assertSame(1, .py~isinstance(c, .py~main~SubCarBase))
+
+::method test_identity
+  -- the Python object comes back to Rexx as the Rexx object itself
+  c = .SubCar~new("Fiat", 2010)
+  l = .py~list((c,))
+  self~assertTrue(l[0] == c)
+  self~assertTrue(l[0]~isA(.SubCar))
+  self~assertSame(.SubCar~pyClass, .py~type(c))
 
 ::method test_framework_instantiates
   -- json.dumps makes the encoder itself (cls=), with keyword arguments
-  enc = .py~extend("json.JSONEncoder", .SubEncoder)
-  out = .py~import("json")~dumps(.py~eval("{'z': complex(1, 2)}"), .py~kw("cls", enc))
+  out = .py~import("json")~dumps(.py~eval("{'z': complex(1, 2)}"), .py~kw("cls", .SubEncoder~pyClass))
   self~assertSame('{"z": [1.0, 2.0]}', out)
+
+::method test_python_makes_them
+  -- Python code makes them: the Rexx object, its INIT, then the Python object
+  make = .py~eval("lambda c, n: [c('py%d' % i, 2000 + i) for i in range(n)]")
+  l = make~new(.SubCar~pyClass, 3)
+  self~assertSame("py2 is 25", l[2]~describe)
+  self~assertTrue(l[2]~isA(.SubCar))
+  -- and Python subclasses of it
+  .py~exec(self~py("def subMakeSub(cls):",                                -
+                   "    class Sub(cls):",                                 -
+                   "        def describe(self): return 'sub: ' + super().describe()", -
+                   "    return Sub('Sub', 2016)"))
+  s = .py~main~subMakeSub(.SubCar~pyClass)
+  self~assertSame("sub: Sub is 11", s~describe)
+  self~assertTrue(s~isA(.SubCar))
+
+::method test_base_init_calls_an_override
+  -- the Rexx object has its Python object before the base's __init__ runs
+  h = .SubHandler~new("req")
+  self~assertSame("['rexx req']", h~log~string)
+
+::method test_socketserver
+  -- socketserver makes the handler itself, and its __init__ calls handle;
+  -- self~request is Python's (Object's REQUEST needs an argument)
+  s = .py~import("socketserver")
+  srv = s~TCPServer~new(.py~tuple(("127.0.0.1", 0)), .SubEcho~pyClass)
+  port = srv~server_address[1]
+  t = .py~import("threading")~Thread~new(.py~kw("target", srv~getattr("handle_request")))
+  t~start
+  sock = .py~import("socket")~create_connection(.py~tuple(("127.0.0.1", port)))
+  sock~sendall(.py~box("bytes", "hello"))
+  self~assertSame("echo: hello", sock~recv(100))
+  sock~close
+  t~join
+  srv~server_close
 
 ::method test_sequence_mixins
   -- only __getitem__ and __len__ in Rexx; IndexError (.py~raise) ends it
-  sq = .py~extend("collections.abc.Sequence", .SubSquares)~new(5)
+  sq = .SubSquares~new(5)
   self~assertSame("[0, 1, 4, 9, 16]", .py~list(sq)~string)
   self~assertSame(5, .py~len(sq))
   self~assertSame(3, sq~index(9))
   self~assertSame(1, .py~eval("lambda s: 16 in s")~new(sq))
   self~assertSame("[16, 9, 4, 1, 0]", .py~list(.py~reversed(sq))~string)
 
-::method test_super
-  d = .py~extend("dict", .SubUpper)~new
+::method test_super_of_a_special_method
+  d = .SubUpper~new
   d["abc"] = 1
   self~assertSame("{'ABC': 1}", d~string)
 
 ::method test_special_results
-  o = .py~extend("object", .SubThing)~new
+  o = .SubThing~new
   self~assertSame("a thing", .py~str(o)~string)    -- not the int 42-style
   self~assertSame(0, .py~bool(o))                  -- Rexx 0 -> False
   self~assertSame(7, .py~len(o))                   -- Rexx "7" -> 7
   self~assertSame("42", .py~repr(o)~string)        -- Rexx 42 -> '42'
 
 ::method test_immutable_bases
-  -- the value goes to the base's __new__; instances stay objects in Rexx
-  s = .py~extend("str", .SubShout)~new("hey")
+  -- the value goes to the base's __new__, from INIT's init:super
+  s = .SubShout~new("hey")
   self~assertSame("HEY!", s~shout)
   self~assertSame("hey", s~string)
   self~assertSame(1, .py~isinstance(s, .py~getattr("str")))
-  c = .py~extend("int", .SubCelsius)~new(100)
+  u = .SubUpperStr~new("quiet")                    -- INIT changes the value
+  self~assertSame("QUIET", u~string)
+  self~assertSame("QUIET!", u~shout)
+  c = .SubCelsius~new(100)
   self~assertSame(212, c~fahrenheit)
   self~assertSame(101, c + 1)                      -- Python's int +
-  p = .py~extend("tuple", .SubPoint)~new(.array~of(3, 4))
+  p = .SubPoint~new((3, 4))
   self~assertSame("5.0", p~norm)
   self~assertSame(4, p[1])
 
-::method test_rexx_new
-  -- a Rexx __new__: SELF is the class, SUPER~__new__ the base's
-  u = .py~extend("str", .SubUpperStr)~new("quiet")
-  self~assertSame("QUIET", u~string)
-  self~assertSame("QUIET!", u~shout)
-
 ::method test_object_takes_no_arguments
-  cls = .py~extend("object", .SubPlain)
   signal on syntax
-  cls~new(1)
+  .SubPlain~new(1)
   self~fail("no error")
 syntax:
   self~assertTrue(condition("O")~message~pos("takes no arguments") > 0)
 
 ::method test_names
   -- a base method in mixed case is found; another one is given by ::ANNOTATE
-  base = .py~exec(self~py("class SubBase:",                       -
-                          "    def doIt(self): return 'base'",       -
-                          "    def call_both(self): return self.doIt() + '/' + self.do_GET()"))
-  cls = .py~extend(.py~main~SubBase, .SubNames)
-  self~assertSame("rexx doIt/rexx do_GET", cls~new~call_both)
+  .py~exec(self~py("class SubBase:",                       -
+                   "    def doIt(self): return 'base'",       -
+                   "    def call_both(self): return self.doIt() + '/' + self.do_GET()"))
+  .py~extend(.SubNames, .py~main~SubBase)
+  self~assertSame("rexx doIt/rexx do_GET", .SubNames~new~call_both)
   -- a name two attributes match: an error that asks for ::ANNOTATE
   amb = .py~eval("type('Amb', (), {'foo': 1, 'FOO': 2})")
-  c = self~syntaxOf(.py, "EXTEND", amb, .SubAmbiguous)
+  c = self~syntaxOf(.py, "EXTEND", .SubAmbiguous, amb)
   self~assertTrue(c~message~pos("::annotate method foo python") > 0, c~message)
 
-::method test_kwargs_and_shared_object
-  counter = .SubCounter~new
-  cls = .py~extend("object", counter, "Shared")
-  a = cls~new
-  b = cls~new
-  a~bump
-  b~bump(.py~kw("by", 10))
-  self~assertSame(11, a~total)
-  self~assertSame(11, b~total)
-  self~assertSame("Shared", cls~getattr("__name__"))
+::method test_keyword_arguments
+  -- Python's keyword arguments reach an override as a .PyKwArgs, last
+  c = .SubCounter~new
+  .py~eval("lambda c: (c.bump(), c.bump(by=10))")~new(c)
+  self~assertSame(11, c~total)
 
-::method test_no_cycle
-  -- the Python object holds its Rexx object, not the other way round:
-  -- dropped pairs are collected (before, all of them stayed alive)
-  cls = .py~extend("object", .SubPeer)
-  .SubPeer~live = 0
-  do 3
-    do 3000
-      o = cls~new
-    end
-    drop o
+::method test_guarded_reentry
+  -- a guarded Rexx method calls Python, which calls another override on the
+  -- same thread: no deadlock
+  c = .SubCar~new("Opel", 2000)
+  self~assertSame("Opel is 27", c~describeTwice~left(10))
+
+::method test_errors
+  c = self~syntaxOf(.SubNotExtended, "NEW")
+  self~assertTrue(c~message~pos("no Python class extends") > 0, c~message)
+  c = self~syntaxOf(.py, "EXTEND", "object", .SubPlain)      -- the old order
+  self~assertTrue(c~message~pos("must be a subclass of PyObject") > 0, c~message)
+  .py~extend(.SubNoSuper, "object")
+  o = .SubNoSuper~new
+  c = self~syntaxOf(o, "__CLASS__")
+  self~assertTrue(c~message~pos("init:super") > 0, c~message)
+  c = self~syntaxOf(.py~eval("lambda c: c()"), "NEW", .SubNoSuper~pyClass)
+  self~assertTrue(c~message~pos("init:super") > 0, c~message)
+
+::method test_lifetime
+  -- the pair lives while either side holds it; the class's UNINIT runs
+  -- once, when it is over (docs/design.md, *Subclassing*)
+  keep = .py~eval("[]")
+  -- dropped by both sides
+  .SubPeer~uninits = 0
+  do 200; o = .SubPeer~new("x"); end
+  drop o
+  call collect
+  self~assertSame(200, .SubPeer~uninits, "dropped by both")
+  -- held by Python alone: they live, and Python calls their overrides
+  .SubPeer~uninits = 0
+  do i = 1 to 50; keep~append(.SubPeer~new("k"i)); end
+  call collect
+  self~assertSame(0, .SubPeer~uninits, "held by Python")
+  r = .py~eval("lambda l: [p.describe() for p in l]")~new(keep)
+  self~assertSame("k50 says woof", r[49])
+  call collect
+  self~assertSame(0, .SubPeer~uninits, "held by Python, after the calls")
+  keep~clear
+  call collect
+  self~assertSame(50, .SubPeer~uninits, "then dropped by Python")
+  -- held by Rexx alone; taken back by Rexx after Python let it go
+  .SubPeer~uninits = 0
+  a = .SubPeer~new("rexx")
+  keep~append(.SubPeer~new("back"))
+  call collect
+  b = keep~pop
+  call collect
+  self~assertSame(0, .SubPeer~uninits, "held by Rexx")
+  self~assertSame("rexx says woof", a~describe)
+  self~assertSame("back says woof", b~describe)
+  drop a b
+  call collect
+  self~assertSame(2, .SubPeer~uninits, "then dropped by Rexx")
+  -- made by Python
+  .SubPeer~uninits = 0
+  l = .py~eval("lambda c: [c('py%d' % i) for i in range(30)]")~new(.SubPeer~pyClass)
+  call collect
+  self~assertSame(0, .SubPeer~uninits, "made by Python, held by Python")
+  drop l
+  call collect
+  self~assertSame(30, .SubPeer~uninits, "made by Python, then dropped")
+  return
+
+-- both collectors, a few rounds (a round may only arm a new sentinel)
+collect: procedure
+  gc = .py~import("gc")
+  do 6
     junk = .array~new
-    do 20000; junk~append(.Object~new); end
+    do 30000; junk~append(.Object~new); end
     drop junk
+    gc~collect                      -- a bridge call: the bridge drains
   end
-  self~assertTrue(.SubPeer~live < 6000, "live Rexx objects:" .SubPeer~live "of 9000")
+  return
 
 ::method test_python_exception_through_rexx
   -- Python -> Rexx -> Python: the exception comes back as itself
@@ -144,62 +243,110 @@ syntax:
   c = self~syntaxOf(.py, "RAISE", "not an exception")
   self~assertSame(93.900, c~code)
 
-::class SubWorker
-::method __init__
-  use arg name, slot
-  slot~super~__init__(.py~kw("name", name))
+::class SubWorker subclass PyObject
+::method activate class
+  .py~extend(self, "threading.Thread")
+::method init
+  use arg name
+  self~init:super(.py~kw("name", name))
 ::method run
-  use arg slot
-  slot~self~setattr("out", slot~self~name "ran")
+  self~setattr("out", self~name "ran")
 
-::class SubEncoder
+::class SubCar subclass PyObject
+::method activate class
+  .py~exec("class SubCarBase:"                                              || "0a"x || -
+           "    def __init__(self, name, year): self.name, self.year = name, year" || "0a"x || -
+           "    def age(self): return 2026 - self.year"                     || "0a"x || -
+           "    def describe(self): return '%s is %d' % (self.name, self.age())")
+  .py~extend(self, .py~main~SubCarBase)
+::method init
+  use arg name, year
+  self~init:super(name, year)
+::method age
+  return self~age:super + 1
+::method describeTwice                -- guarded: Python calls AGE back on this thread
+  return self~describe "/" self~describe
+
+::class SubHandler subclass PyObject
+::method activate class
+  .py~exec("class SubHBase:"                                          || "0a"x || -
+           "    def __init__(self, x): self.log = []; self.setup(x)"  || "0a"x || -
+           "    def setup(self, x): self.log.append('base ' + x)")
+  .py~extend(self, .py~main~SubHBase)
+::method setup
+  use arg x
+  self~log~append("rexx" x)
+
+::class SubEcho subclass PyObject
+::method activate class
+  .py~extend(self, "socketserver.BaseRequestHandler")
+::method handle
+  data = self~request~recv(100)
+  self~request~sendall(.py~box("bytes", "echo:" data))
+
+::class SubEncoder subclass PyObject
+::method activate class
+  .py~extend(self, "json.JSONEncoder")
 ::method default
-  use arg o, slot
-  if .py~isinstance(o, .py~complex) then return .array~of(o~real, o~imag)
-  return slot~super~default(o)
+  use arg o
+  if .py~isinstance(o, .py~complex) then return (o~real, o~imag)
+  return self~default:super(o)
 
-::class SubSquares
-::method __init__
+::class SubSquares subclass PyObject
+::method activate class
+  .py~extend(self, "collections.abc.Sequence")
+::method init
   expose n
-  use arg n, slot
-  slot~super~__init__
+  use arg n
+  self~init:super
 ::method __getitem__
   expose n
-  use arg i, slot
+  use arg i
   if i >= n then .py~raise(.py~IndexError, i)
   return i * i
 ::method __len__
   expose n
   return n
 
-::class SubShout
+::class SubShout subclass PyObject
+::method activate class
+  .py~extend(self, "str")
 ::method shout
-  use arg slot
-  return slot~self~upper || "!"
+  return self~upper || "!"
 
 ::class SubUpperStr subclass SubShout
-::method __new__
-  use arg value, slot
-  return slot~super~__new__(slot~self, value~upper)
+::method activate class
+  .py~extend(self, "str")
+::method init
+  use arg value
+  self~init:super(value~upper)
 
-::class SubCelsius
+::class SubCelsius subclass PyObject
+::method activate class
+  .py~extend(self, "int")
 ::method fahrenheit
-  use arg slot
-  return slot~self * 9 / 5 + 32
+  return self * 9 / 5 + 32
 
-::class SubPoint
+::class SubPoint subclass PyObject
+::method activate class
+  .py~extend(self, "tuple")
 ::method norm
-  use arg slot
-  return .py~import("math")~hypot(slot~self[0], slot~self[1])
+  return .py~import("math")~hypot(self[0], self[1])
 
-::class SubPlain
+::class SubPlain subclass PyObject
+::method activate class
+  .py~extend(self, "object")
 
-::class SubUpper
+::class SubUpper subclass PyObject
+::method activate class
+  .py~extend(self, "dict")
 ::method __setitem__
-  use arg k, v, slot
-  slot~super~__setitem__(.py~str(k~upper), v)
+  use arg k, v
+  self~__setitem__:super(.py~str(k~upper), v)
 
-::class SubThing
+::class SubThing subclass PyObject
+::method activate class
+  .py~extend(self, "object")
 ::method __str__
   return "a thing"
 ::method __bool__
@@ -209,33 +356,49 @@ syntax:
 ::method __repr__
   return 42
 
-::class SubNames
+::class SubNames subclass PyObject
 ::method doit
   return "rexx doIt"
 ::method do_get
   return "rexx do_GET"
 ::annotate method do_get python "do_GET"
 
-::class SubAmbiguous
+::class SubAmbiguous subclass PyObject
 ::method foo
 
-::class SubCounter
+::class SubCounter subclass PyObject
+::method activate class
+  .py~extend(self, "object")
 ::method init
   expose n
   n = 0
+  self~init:super
 ::method bump
   expose n
-  use arg slot
-  by = slot~kwargs["by"]
-  if by == .nil then by = 1
+  use arg kw = .nil
+  by = 1
+  if kw~isA(.PyKwArgs) then by = kw["by"]
   n += by
 ::method total
   expose n
   return n
 
-::class SubPeer
-::attribute live class
+::class SubNotExtended subclass PyObject
+
+::class SubNoSuper subclass PyObject
 ::method init
-  self~class~live += 1
+  nop                                 -- no init:super: no Python object
+
+::class SubPeer subclass PyObject
+::attribute uninits class
+::method activate class
+  self~uninits = 0
+  .py~exec("class SubAnimal:"                                      || "0a"x || -
+           "    def __init__(self, name): self.name = name"         || "0a"x || -
+           "    def sound(self): return 'generic'"                  || "0a"x || -
+           "    def describe(self): return self.name + ' says ' + self.sound()")
+  .py~extend(self, .py~main~SubAnimal)
+::method sound
+  return "woof"
 ::method uninit
-  self~class~live -= 1
+  self~class~uninits += 1

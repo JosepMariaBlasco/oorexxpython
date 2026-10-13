@@ -193,7 +193,9 @@ the constant is `logging~getattr("INFO")`.
 - `do x over o` iterates `iter(o)`; `say o` shows `str(o)`.
 - `copy`, `send`, `start` and `run`, which ooRexx's Object already
   understands, go to the Python object when it has an attribute of that name,
-  and to Object's method otherwise.
+  and to Object's method otherwise; so does `request` with no arguments
+  (Object's needs one): a `socketserver` or `http.server` handler's
+  `self~request`.
 
 ### Operators
 
@@ -207,8 +209,9 @@ From Python to Rexx: `str`, `int`, `float`, `bool` (1 / 0), `bytes` and
 `None` (`.nil`) come back as Rexx strings; everything else as a `.PyObject`,
 by reference. numpy scalars (`np.float64`, `np.int64`...) are converted with
 `item()`, subclasses of `int` give their int value, floats use the plain
-`repr`. Instances of classes made by `.py~extend` are the exception: they
-come as `.PyObject`s whatever their base (see *Subclassing*).
+`repr`. The Python objects of Rexx classes that extend Python classes are
+the exception: they come as their Rexx objects, whatever their base (see
+*Subclassing*).
 
 From Rexx to Python, a Rexx string becomes:
 
@@ -266,8 +269,9 @@ the traceback in `condition("O")~additional[2]` and the exception itself, a
 `.PyObject`, in `additional[3]`.
 
 **A Python exception that goes back to Python is raised again as itself**,
-not as an `oorexx.RexxError`: Python calls Rexx code (a callback, a method of
-a class made by `.py~extend`), which calls Python, which raises; if the Rexx
+not as an `oorexx.RexxError`: Python calls Rexx code (a callback, an
+override of a Rexx class that extends a Python class), which calls Python,
+which raises; if the Rexx
 code does not trap the SYNTAX condition, the caller in Python gets the
 original exception, traceback included. Python's protocols depend on it: a
 sequence ends with `IndexError`, an iterator with `StopIteration`, a mapping
@@ -281,78 +285,101 @@ code can trap it, and Python gets the exception as itself.
 
 ### Subclassing
 
-`.py~extend(base, rexx [, name])` (or `py.extend`) makes a real Python class
-deriving from `base` whose methods are a Rexx class's, as BSF4ooRexx's
-`bsf.createProxyClass` does for Java:
+A Rexx class extends a Python class, so that Python calls the Rexx methods
+where it would call the class's own, as `.js~extend` does in ooRexx/WASM and
+`.net~extend` in ooRexx/.NET: the Rexx class is a subclass of `PyObject`,
+and `.py~extend(class, base)` (or `py.extend`), once per class (its
+`ACTIVATE` class method is the natural place), makes the Python class:
 
 ```rexx
-Worker = .py~extend("threading.Thread", .Worker)
-w = Worker~new(.py~kw("name", "worker"))
+w = .Worker~new(.py~kw("name", "worker"))
 w~start; w~join
 
-::class Worker
+::class Worker subclass PyObject
+::method activate class
+  .py~extend(self, "threading.Thread")
 ::method run
-  use arg slot
-  say "hello from" slot~self~name
+  say "hello from" self~name
 ```
 
 - **base**: a Python class, a dotted name (`"http.server.BaseHTTPRequestHandler"`,
   a builtin such as `"dict"`), or an Array of them. Python's
   `types.new_class` makes the class at run time, with any base, written in
   Python or in C, mixins and abstract base classes included: no code
-  generation.
-- **rexx**: a Rexx class, and each Python object gets its own new instance
-  of it; or a Rexx object, shared by all of them. The result is the Python
-  class, for Rexx (`cls~new(args)`) and for Python code that instantiates it
-  itself (`json.dumps(x, cls=...)`, `socketserver`'s handlers).
-- **The methods**: every public method of the Rexx class and of its Rexx
-  superclasses but `Object`, except `INIT`, `UNINIT` and names with a dot
-  (Rexx's own: a dot cannot be part of a Python name). Its Python name: the
-  one given by `::ANNOTATE method do_get python "do_GET"`; else, for a
-  `__dunder__` name, the lowercase one; else the base classes' attribute
-  that matches without regard to case (`RUN` is `run`, `DOIT` is `doIt`);
-  else the lowercase one. Two attributes that match (`foo` and `FOO`) are
-  an error that asks for the annotation.
-- **The calls**: a method gets the arguments Python passes and, last, a
-  StringTable: `SELF`, the Python object; `SUPER`, `super(cls, self)`, so
-  `slot~super~run` is the base class's `run`; `KWARGS`, a StringTable of
-  the keyword arguments (as BSF4ooRexx appends a Directory of context
-  information to a message from Java). Its result follows *Values*; the
-  results of special methods are converted as Python requires (`__bool__`,
-  `__contains__` to `bool`, `__len__`, `__hash__`, `__index__` to `int`,
-  `__str__`, `__repr__`, `__format__` to `str`...).
-- **Construction**: the Rexx object is made first, with no arguments (its
-  `INIT` is Rexx's own), in the class's `__new__`. Then the Python object is
-  made: by the Rexx class's `__new__` method, if it has one, which gets the
-  constructor's arguments with the class as `SELF` and `super(cls, cls)` as
-  `SUPER` (`slot~super~__new__(slot~self, value~upper)`), else by the
-  base's `__new__` with the constructor's arguments. Immutable bases (`str`,
-  `int`, `float`, `tuple`, `bytes`) take their value there:
-  `.py~extend("str", .Tag)~new("b")` is a `str` whose value is `"b"`. Then
-  Python's `__init__` runs with the same arguments: the Rexx class's
-  `__init__` method, if it has one, which calls the base's
-  (`slot~super~__init__(...)`), else the base's (`object`'s gets none, they
-  were `__new__`'s; with `object` as the only base and neither method in
-  Rexx, arguments are an error, as in Python). The Rexx object exists before
-  the base's `__init__` runs, because some bases call overridden methods
-  there (a `socketserver` handler does all its work in its constructor), and
-  for objects made without `__init__` (`cls.__new__(cls, ...)`). It does not
-  exist yet
-  while the base's `__new__` runs: a base that calls an overridden method
-  from its `__new__` is not supported.
-- **Values**: an instance of such a class reaches Rexx as a `.PyObject`,
-  even when its base is `str`, `int`, `float` or `bytes` (not as a Rexx
-  string, see *Values*): it has methods of its own. This includes `SELF`, so
-  `slot~self~upper` is Python's `str.upper`.
-- **Lifetime**: the Python object holds its Rexx object (in an attribute,
-  `_oorexx_peer`, through the usual reference of *Lifetime*); the Rexx
-  object does not hold the Python object, which it gets with each call. So
-  there is no cycle across the two collectors: when Python drops the object,
-  the Rexx object goes too. (Rexx code that keeps `SELF` keeps the Python
-  object, as it would any other.)
-- **Threads**: Python calls the methods on its own threads, which attach to
-  the interpreter instance for the call, as any callback; several at once
-  need ooRexx 5.3.0.
+  generation. It is named as the Rexx class and has one more base,
+  `oorexx._Pair` (no state, so any base takes it), by which the bridge
+  recognizes its instances. `.py~extend` answers it, and
+  `.Worker~pyClass` is it later, for Python code that makes the objects
+  itself (`json.dumps(x, cls=.MyEncoder~pyClass)`, `socketserver`'s
+  handlers). It reaches the Rexx class only through a `WeakReference`: the
+  Rexx class holds the Python class, not the other way round, so a class
+  made at run time can go.
+- **The overrides**: every public method of the Rexx class and of its
+  superclasses below `PyObject`, except `INIT`, `UNINIT`, `UNKNOWN` and
+  names with a dot (Rexx's own: a dot cannot be part of a Python name),
+  looked at when `extend` runs. Its Python name: the one given by
+  `::ANNOTATE method do_get python "do_GET"`; else, for a `__dunder__`
+  name, the lowercase one; else the base classes' attribute that matches
+  without regard to case (`RUN` is `run`, `DOIT` is `doIt`); else the
+  lowercase one. Two attributes that match (`foo` and `FOO`) are an error
+  that asks for the annotation. `__new__`, `__init__`, `__del__` and the
+  like cannot be overridden: `INIT` and `UNINIT` do that work.
+- **The calls**: Python calls an override with its positional arguments,
+  and a `.PyKwArgs` last if it passes keyword arguments
+  (`kw["by"]`). `self` is the Rexx object. The result follows *Values*;
+  the results of special methods are converted as Python requires
+  (`__bool__`, `__contains__` to `bool`, `__len__`, `__hash__`, `__index__`
+  to `int`, `__str__`, `__repr__`, `__format__` to `str`...).
+- **The base's members**: `self~name:super(args)` is the base's own member,
+  not the override (`PyObject`'s `UNKNOWN` resolves a name the class
+  overrides through Python's `super()`). A member that is not overridden is
+  reached as with any `.PyObject`: `w~start`.
+- **Construction**: `.Worker~new(args)` makes the Rexx object, whose `INIT`
+  calls `self~init:super(args)` (or has no `INIT`, and `PyObject`'s gets the
+  arguments): that runs the base's `__new__` with the arguments (immutable
+  bases, `str`, `int`, `float`, `tuple`, `bytes`, take their value there, so
+  `INIT` can change it: `self~init:super("<" || name || ">")`), and then the
+  base's `__init__` (`object`'s gets none: with `object` as the only base,
+  arguments are an error, as in Python). The Rexx object has its Python
+  object before the base's `__init__` runs, because some bases call
+  overrides there (a `socketserver` handler does all its work in its
+  constructor). When Python makes one itself (`Worker(...)`,
+  `cls.__new__(cls, ...)`), the class's `__new__` makes the Rexx object
+  first, with the same arguments (keyword arguments as a `.PyKwArgs`), and
+  its `INIT` makes the Python object; a Python subclass of the class gets an
+  object of its own class. An `INIT` that does not call `init:super` leaves
+  the Rexx object without a Python object: using it is an error that says
+  so. A base that calls an override from its `__new__` is not supported.
+- **Identity**: the Python object comes back to Rexx as the Rexx object
+  itself, a `Worker`, even for `str` or `int` bases (not as a Rexx string):
+  `.py~list((w,))[0] == w`.
+- **Lifetime**: the Rexx object and its Python object are a pair, which
+  lives while Rexx holds the one or Python holds the other, and the
+  collectors release it: nothing needs a hand (no `detach`). Each collector
+  sees only its own side, so the bridge lets the link that keeps the other
+  half alive point one way at a time. While Rexx holds the Rexx object, it
+  holds its Python object (a reference), and the Python object reaches it
+  through the bridge without holding it. When Rexx no longer does, the
+  bridge holds the Rexx object, and the Rexx object no longer holds the
+  Python object, so Python's collector decides: if Python no longer holds it
+  either, the pair is over; if Python hands it to Rexx again (passes it, or
+  calls an override), Rexx holds it again. The bridge learns that Rexx no
+  longer holds it from an `UNINIT`: not the object's own, which runs only
+  once, but a small sentinel's (`.PyPeerSentinel`), held only by the Rexx
+  object and holding it, a new one each round, whose `UNINIT` queues it on
+  the graveyard (see *Lifetime*: no native code in an `UNINIT`). Crossings
+  are counted, so that a sentinel that missed one only arms a new one. The
+  Python object's `__del__` says when it is gone (weak references would not
+  do: instances of subclasses of `int`, `tuple` and `bytes` cannot have
+  them). The class's `UNINIT`, if it has one, runs once, when the pair is
+  over: the Python object is gone by then, so it cannot use it. The details
+  are in `bridge.cpp`, *Pairs*; `Subclass.testGroup` and
+  `t50_subclass.py` force both collectors.
+- **Threads**: Python calls the overrides on its own threads, which attach
+  to the interpreter instance for the call, as any callback; several at once
+  need ooRexx 5.3.0. The overrides are Rexx methods, guarded unless declared
+  `UNGUARDED`: a call on one thread waits while another thread is in a
+  guarded method of the same object.
 
 ## Python → ooRexx
 

@@ -25,14 +25,15 @@
  *               ~main                    the __main__ module
  *               ~redirectTo(...)         Rexx's standard streams to Python's
  *                                        (py.redirectTo, below)
- *               ~extend(base, .Class)    a Python subclass of base with
- *                                        methods in Rexx (py.extend, below)
+ *               ~extend(.Class, base)    the Rexx class (a subclass of
+ *                                        PyObject) extends the Python class
+ *                                        base (py.extend, below)
  *               ~raise(exc [, args])     raise a Python exception
  *             Every other name is Python's builtin, unchanged: .py~list(x) is
  *             list(x); to build a list or tuple from items, pass a Rexx Array:
  *             .py~list((1, 2)), .py~tuple(("a", 1)).
  * Routines, as BSF4ooRexx's bsf.import: py.import(name), py.box(type, x),
- * py.kw(name, value, ...), py.redirectTo(...), py.extend(base, rexx [, name]).
+ * py.kw(name, value, ...), py.redirectTo(...), py.extend(class, base).
  * .PyObject   a Python object, by reference:
  *               o~name(args...)          attribute, called (names in any case)
  *               o~name                   attribute; called if a function/method
@@ -69,8 +70,68 @@
 -- same proxy (e.g. a Python thread calling back Rexx code that uses .py)
 -- would wait for it: a deadlock when the first thread waits for that one.
 ::method init
-  expose cself
+  expose cself pypair
+  if self~class \== .PyObject then do
+    pyclass = .PyObject~"PY.EXTENSIONOF"(self~class)
+    if pyclass \== .nil then do        -- .MyClass~new(args): a pair (py.extend, below)
+      -- the class's UNINIT runs when the pair is over ("PY.FINAL"), not when
+      -- Rexx no longer holds the object (an object's own UNINIT cannot be
+      -- removed: it becomes a NOP)
+      u = self~instanceMethod("UNINIT")
+      if u \== .PyObject~method("UNINIT") then self~setMethod("PY.UNINIT", u, "OBJECT")
+      self~setMethod("UNINIT", "nop")
+      signal on syntax
+      made = self~"PY.PAIRNEW"(pyclass, arg(1, "A"))  -- the Python object (__new__)
+      cself = made[1]
+      pypair = made[2]
+      self~"PY.ARM"
+      self~"PY.PAIRINIT"(arg(1, "A"))                  -- the base's __init__
+      return
+    end
+    if \self~isA(.Python) then
+      raise syntax 93.900 array ("ooRexx/Python:" self~class~id "is a subclass of PyObject that no Python class extends: call .py~extend(self, base) in its ACTIVATE class method")
+  end
   use strict arg cself                 -- a .Pointer the bridge made
+  return
+syntax: raise propagate
+::method "PY.PAIRNEW" private unguarded external "LIBRARY rexxpython PyPair_New"
+::method "PY.PAIRINIT" private unguarded external "LIBRARY rexxpython PyPair_Init"
+-- a new sentinel for a pair's Rexx object, while Rexx holds it: its UNINIT
+-- tells the bridge when Rexx no longer does (docs/design.md, *Subclassing*)
+::method "PY.ARM" unguarded
+  expose pypair pysentinel
+  pysentinel = .PyPeerSentinel~new(self, pypair, PyPair_Arm(pypair))
+-- the pair is over (the bridge): the class's UNINIT, once
+::method "PY.FINAL" unguarded
+  expose cself pysentinel
+  drop pysentinel
+  cself = .nil                         -- the Python object is gone
+  if self~hasMethod("PY.UNINIT") then do
+    signal on syntax name final
+    self~"PY.UNINIT"
+  end
+final: return
+-- the Python class that this class (or its nearest superclass) extends
+-- (.py~extend), or .nil: for Python code that makes the objects itself
+-- (json.dumps(x, cls=.MyEncoder~pyClass))
+::method pyClass class unguarded
+  return .PyObject~"PY.EXTENSIONOF"(self)
+-- the Python class that a class (or its nearest superclass) extends, or .nil
+::method "PY.EXTENSIONOF" class unguarded
+  use strict arg cls
+  do while cls \== .PyObject, cls~isSubclassOf(.PyObject)
+    ext = cls~"PY.CLASS"
+    if ext \== .nil then return ext
+    cls = cls~superClass
+  end
+  return .nil
+::method "PY.CLASS" class unguarded
+  expose pyclass
+  if var("PYCLASS") then return pyclass
+  return .nil
+::method "PY.CLASS=" class unguarded
+  expose pyclass
+  use strict arg pyclass
 -- uninit is Rexx, not native: it only queues the pointer; the bridge drops
 -- the Python reference later (see drainGraveyard in bridge.cpp: a native
 -- uninit releases the kernel lock inside ooRexx's runUninits loop, which
@@ -131,7 +192,25 @@
 ::method run unguarded
   if self~"PY.HAS"("RUN") then forward message "UNKNOWN" arguments (.array~of("RUN", arg(1, "A")))
   forward class (super)
+-- Object's REQUEST needs an argument: without one, it is Python's (the
+-- request of a socketserver or http.server handler)
+::method request unguarded
+  if arg() = 0, self~"PY.HAS"("REQUEST") then forward message "UNKNOWN" arguments (.array~of("REQUEST", .array~new))
+  forward class (super)
 ::method "PY.HAS" unguarded     external "LIBRARY rexxpython PyObj_Has"
+
+-- held only by a pair's Rexx object, and holding it: its UNINIT runs when Rexx
+-- no longer holds that object.  Like .PyObject's, it only queues (no native
+-- code in an UNINIT: ooRexx bug #2101); the bridge takes it from there.  A new
+-- one each round, as an object's UNINIT runs only once.
+::class PyPeerSentinel
+::method init
+  expose peer pair n
+  use strict arg peer, pair, n
+::method uninit
+  expose peer pair n
+  .PyObject~graveyard~queue(.array~of(peer, pair, n))
+::routine PyPair_Arm external "LIBRARY rexxpython PyPair_Arm"
 
 ::class Python public subclass PyObject
 ::method init
@@ -159,8 +238,8 @@
   return .context~package~findRoutine("PY.EXTEND")~callWith(arg(1, "A"))
 -- raise a Python exception (an instance, or a class to call with the rest of
 -- the arguments): SYNTAX 98.900 as when Python raises it, and Python gets it
--- as itself if the condition goes back there (a method of a class made by
--- .py~extend: IndexError ends a sequence, StopIteration an iterator)
+-- as itself if the condition goes back there (an override of a class that
+-- extends a Python class: IndexError ends a sequence, StopIteration an iterator)
 ::method raise unguarded
   use strict arg exc, ...
   if self~invoke("isinstance", exc, self~type)~string == 1 then
@@ -183,53 +262,47 @@
   return .py~sendWith("KW", arg(1, "A"))
 
 /*
- * Python classes with methods in Rexx (docs/design.md, *Subclassing*), as
- * BSF4ooRexx's bsf.createProxyClass does for Java:
+ * Rexx classes that extend Python classes (docs/design.md, *Subclassing*),
+ * as .js~extend does in ooRexx/WASM and .net~extend in ooRexx/.NET:
  *
- *   cls = .py~extend("threading.Thread", .Worker)     -- or py.extend(...)
- *   t = cls~new                                       -- a threading.Thread
+ *   t = .Worker~new(.py~kw("name", "worker"))         -- a threading.Thread
  *   t~start; t~join
  *
- *   ::class Worker
+ *   ::class Worker subclass PyObject
+ *   ::method activate class
+ *     .py~extend(self, "threading.Thread")            -- or py.extend(...)
  *   ::method run                          -- overrides Thread.run
- *     use arg slot                        -- always the last argument
- *     say "running in" slot~self~name     -- SELF: the Python object
+ *     say "running in" self~name          -- self: the object itself
  *
- * py.extend(base, rexx [, name]): base is a Python class, a dotted name
- * ("http.server.BaseHTTPRequestHandler"), or an Array of them; rexx is a
- * Rexx class (each Python object gets its own new Rexx object) or a Rexx
- * object (shared by all).  It returns the new Python class, for Rexx
- * (cls~new(args)) and for Python code that instantiates it itself.
- *
- * The Python object holds its Rexx object; the Rexx object does not hold
- * the Python object (it gets it in each call): no cycle, each side's
- * collector frees them.  Every public method of the Rexx class (and its
- * superclasses but Object) becomes a Python method, except INIT, UNINIT and
- * names with a dot; its Python name is: the ::ANNOTATE'd one
- * (::annotate method do_get python "do_GET"), else the lowercase one for
- * __dunder__ names, else the base classes' attribute that matches without
- * regard to case, else the lowercase one.  Each call gets as its last
- * argument a StringTable: SELF (the Python object), SUPER (super(cls,
- * self): SUPER~run is the base class's run) and KWARGS (a StringTable of the
- * keyword arguments).  The Rexx object is made first, with no arguments (its
- * INIT is Rexx's own); then the Python object, with the constructor's
- * arguments: by a Rexx method __new__ if the class has one (SELF is the
- * class; it calls the base's itself, slot~super~__new__(slot~self, ...)),
- * else by the base's __new__ (immutable bases, str, int, tuple, take their
- * value there); then Python's __init__ runs with the same arguments: a Rexx
- * method __init__ if the class has one (it calls the base's itself,
- * slot~super~__init__(...)), else the base's.  Instances come to Rexx as
- * .PyObjects, even those of a str or int subclass.
+ * py.extend(class, base): class is a subclass of PyObject; base is a Python
+ * class, a dotted name ("http.server.BaseHTTPRequestHandler"), or an Array
+ * of them.  It makes a Python class that extends base, named as the Rexx
+ * class, and answers it; once per class (its ACTIVATE class method).  Every
+ * public method of the class (and of its superclasses below PyObject)
+ * overrides the base's, except INIT, UNINIT, UNKNOWN and names with a dot;
+ * its Python name is: the ::ANNOTATE'd one (::annotate method do_get python
+ * "do_GET"), else the lowercase one for __dunder__ names, else the base
+ * classes' attribute that matches without regard to case, else the
+ * lowercase one.  Python calls an override with its positional arguments,
+ * and a .PyKwArgs last if it passes keyword arguments.  .Worker~new(args)
+ * makes the Python object: the class's INIT calls self~init:super(args),
+ * which runs the base's __new__ and __init__ with them (immutable bases,
+ * str, int, tuple, take their value there).  Python code that makes one
+ * itself (Worker(...)) gets the same: the Rexx object first, its INIT, then
+ * the Python object.  self~name:super(args) is the base's member, not the
+ * override.  The object comes back to Rexx as itself.  The pair lives while
+ * either side holds it, and the class's UNINIT runs once, when it is over.
  * The results of special methods are converted as Python requires
  * (__bool__ -> bool, __len__ -> int, __str__ -> str...).
  */
 ::routine py.extend public
-  use strict arg base, rexx, name=.nil
-  if rexx~isA(.Class) then class = rexx
-  else class = rexx~class
-  if name == .nil then name = class~id
+  use strict arg class, base
+  ok = class~isA(.Class)
+  if ok then ok = class \== .PyObject & class~isSubclassOf(.PyObject)
+  if \ok then
+    raise syntax 93.900 array ("py.extend(class, base): class must be a subclass of PyObject (::class X subclass PyObject), not" class)
   -- the bases, as Python classes
-  if base~isA(.Array) then bases = base
+  if base~isA(.Array) then bases = base~copy
   else bases = .array~of(base)
   do i = 1 to bases~items
     if bases[i]~isA(.String) then bases[i] = py.dottedName(bases[i])
@@ -238,7 +311,7 @@
   specs = .array~new
   seen = .Set~new
   c = class
-  do while c \== .Object, c \== .nil
+  do while c \== .PyObject
     s = c~methods(c)
     do while s~available
       m = s~index
@@ -246,7 +319,7 @@
       s~next
       if seen~hasIndex(m) then iterate
       seen~put(m)
-      if m == "INIT" | m == "UNINIT" | m~pos(".") > 0 | method~isPrivate then iterate
+      if m == "INIT" | m == "UNINIT" | m == "UNKNOWN" | m~pos(".") > 0 | method~isPrivate then iterate
       exact = method~annotation("python")
       if exact == .nil then exact = ""
       specs~append(m exact)
@@ -254,8 +327,12 @@
     c = c~superClass
   end
   helper = py.extendHelper()
-  return helper~make(.py~tuple(bases), .py~str(name), rexx, rexx~isA(.Class), specs,-
-                     .context~package~findRoutine("PY.DISPATCH"))
+  -- the Python class reaches its Rexx class only through a WeakReference:
+  -- the Rexx class holds the Python class, not the other way round
+  pyclass = helper~make(.py~tuple(bases), .py~str(class~id), specs, .WeakReference~new(class), -
+                        .context~package~findRoutine("PY.NEWFOR"))
+  class~"PY.CLASS="(pyclass)
+  return pyclass
 
 -- "a.b.C": the attribute C of the module a.b
 ::routine py.dottedName private
@@ -275,28 +352,16 @@
   .local["PY.EXTENDHELPER"] = helper
   return helper
 
--- a call from Python to a method of a class made by py.extend
-::routine py.dispatch private
-  use arg peer, name, pyArgs, self, super, kwargs
-  args = py.slotArgs(pyArgs, self, super, kwargs)
-  message = .Message~new(peer, name, "A", args)
-  message~send
-  if message~hasResult then return message~result
-  return .nil
-
-::routine py.slotArgs private
-  use arg pyArgs, self, super, kwargs
+-- Python makes an object of an extending class itself (Worker(...)): the
+-- Rexx object first, whose INIT makes the Python object
+::routine py.newFor private
+  use arg weak, pyArgs, kwargs
+  class = weak~value
+  if class == .nil then
+    raise syntax 93.900 array ("ooRexx/Python: the Rexx class of this Python class is gone")
   args = pyArgs~makeArray
-  slot = .StringTable~new
-  slot["SELF"] = self
-  slot["SUPER"] = super
-  kw = .StringTable~new
-  if kwargs \== .nil then do name over kwargs
-    kw[name] = kwargs[.py~str(name)]
-  end
-  slot["KWARGS"] = kw
-  args~append(slot)
-  return args
+  if kwargs \== .nil then args~append(.PyKwArgs~new(.array~of(kwargs)))
+  return class~sendWith("NEW", args)
 
 /*
  * Rexx's standard streams through Python's (docs/design.md, *Standard
@@ -530,15 +595,34 @@
   expose stream prefix
   return "a PyInputStream ("stream~string", "py.describe(prefix)")"
 
-::class PyKwArgs public                -- what .py~kw makes
+::class PyKwArgs public                -- what .py~kw makes (and what Python's keyword arguments are for an override)
 ::attribute names get
 ::attribute values get
+::method "[]"                           -- the value of a name (exact, else in any case), or .nil
+  expose names values
+  use strict arg name
+  do i = 1 to names~items
+    if names[i] == name then return values[i]
+  end
+  do i = 1 to names~items
+    if names[i]~caselessEquals(name) then return values[i]
+  end
+  return .nil
+::method items
+  expose names
+  return names~items
 ::method init
   expose names values
   use strict arg args
   names = .array~new
   values = .array~new
-  if args~items = 1, args[1]~isA(.MapCollection) then do
+  if args~items = 1, args[1]~isA(.PyObject) then do   -- a Python dict (keyword arguments from Python)
+    do name over args[1]
+      names~append(name)
+      values~append(args[1][name])
+    end
+  end
+  else if args~items = 1, args[1]~isA(.MapCollection) then do
     do with index name item value over args[1]
       names~append(name)
       values~append(value)
@@ -553,7 +637,7 @@
     end
   end
 
--- the Python half of py.extend: the class, its __init__ and its methods
+-- the Python half of py.extend: the class, its construction, its overrides
 ::resource extendpy
 import builtins
 
@@ -583,20 +667,32 @@ def _python_name(rexx_name, exact, bases):
                         '::annotate method %s python "..."' % (rexx_name, ', '.join(sorted(found)), low))
     return found.pop() if found else low
 
-def make(bases, name, rexx, is_class, specs, dispatch):
-    ns = {}
-    cls = None
+import threading
+import oorexx
 
-    def peer_of(self):
-        try:
-            return object.__getattribute__(self, '_oorexx_peer')
-        except AttributeError:
-            raise AttributeError('%s: its Rexx object is not made yet (__init__ has not run)' % name) from None
+_tls = threading.local()
+
+def _pending():
+    # the classes Python is making objects of on this thread (Worker(...)),
+    # whose Python objects the Rexx INITs make (_new)
+    try:
+        return _tls.pending
+    except AttributeError:
+        _tls.pending = []
+        return _tls.pending
+
+_RESERVED = ('__new__', '__init__', '__del__', '__init_subclass__', '__class_getitem__',
+             '__getattribute__', '__setattr__', '__delattr__', '__dict__', '__class__')
+
+def make(bases, name, specs, rexx_class, new_for):
+    ns = {}
+    overrides = {}                        # REXXNAME -> Python name
+    cls = None
 
     def method(py_name, rexx_name):
         convert = _CONVERT.get(py_name)
         def f(self, *args, **kwargs):
-            r = dispatch(peer_of(self), rexx_name, list(args), self, super(cls, self), kwargs)
+            r = oorexx._call_peer(self, rexx_name, args, kwargs)
             if convert is not None and r is not NotImplemented:
                 r = convert(r)
             return r
@@ -604,62 +700,77 @@ def make(bases, name, rexx, is_class, specs, dispatch):
         f.__qualname__ = name + '.' + py_name
         return f
 
-    rexx_new = None
     for spec in specs:
         rexx_name, _, exact = spec.partition(' ')
         py_name = _python_name(rexx_name, exact.strip(), bases)
-        if py_name == '__new__':
-            rexx_new = rexx_name
-        else:
-            ns[py_name] = method(py_name, rexx_name)
+        if py_name in _RESERVED:
+            raise TypeError('py.extend: %s (method %s) cannot be overridden from Rexx: '
+                            'the INIT and UNINIT of the Rexx class do that work' % (py_name, rexx_name))
+        ns[py_name] = method(py_name, rexx_name)
+        overrides[rexx_name] = py_name
 
-    def new_peer():
-        return rexx.new() if is_class else rexx
-
-    # Construction.  __new__ makes the Rexx object first, then the Python
-    # object: the Rexx class's __new__ (SELF is the class, SUPER
-    # super(cls, cls): SUPER~__new__(SELF, value) is the base's), else the
-    # base's, with the constructor's arguments (immutable bases, str, int,
-    # tuple, take their value there).  __init__ then runs: the Rexx one, or
-    # the base's.  The Rexx object exists before the base's __init__ (it may
-    # call overridden methods: socketserver's handlers do all their work
-    # there), and also for objects made without __init__.
-    rexx_init = ns.get('__init__')
+    # Construction.  The Rexx object comes first, and its INIT makes the
+    # Python object (self~init:super(args): _new, then _init).  When Python
+    # makes one itself (Worker(...)), __new__ asks Rexx for the Rexx object.
     def __new__(cls_, *args, **kwargs):
-        peer = new_peer()
-        base_new = super(cls, cls_).__new__
-        if rexx_new is not None:
-            obj = dispatch(peer, rexx_new, list(args), cls_, super(cls, cls_), kwargs)
-        elif base_new is object.__new__:
-            if (args or kwargs) and rexx_init is None and super(cls, cls_).__init__ is object.__init__:
-                raise TypeError('%s() takes no arguments' % name)
-            obj = object.__new__(cls_)
-        else:
-            obj = base_new(cls_, *args, **kwargs)
-        if isinstance(obj, cls):
-            try:
-                object.__getattribute__(obj, '_oorexx_peer')
-            except AttributeError:
-                object.__setattr__(obj, '_oorexx_peer', peer)
+        stack = _pending()
+        stack.append(cls_)
+        depth = len(stack)
+        try:
+            obj = new_for(rexx_class, list(args), kwargs or None)
+        finally:
+            if len(stack) == depth and stack[-1] is cls_:
+                stack.pop()               # INIT never called init:super
+        if not isinstance(obj, cls_):
+            raise TypeError('%s: its INIT must call self~init:super(...), which makes the '
+                            'Python object' % name)
         return obj
     ns['__new__'] = staticmethod(__new__)
 
     def __init__(self, *args, **kwargs):
-        try:
-            object.__getattribute__(self, '_oorexx_peer')
-        except AttributeError:
-            object.__setattr__(self, '_oorexx_peer', new_peer())
-        if rexx_init is not None:
-            rexx_init(self, *args, **kwargs)
-        elif super(cls, type(self)).__init__ is object.__init__:
-            object.__init__(self)        # the arguments were __new__'s
-        else:
-            super(cls, self).__init__(*args, **kwargs)
+        pass                              # done by _init, from the Rexx INIT
     ns['__init__'] = __init__
-    # instances come to Rexx as objects, even of a str or int subclass
-    ns['_oorexx_extended'] = True
 
+    def _new(pair, args, kwargs):
+        kwargs = kwargs or {}
+        klass = cls
+        stack = _pending()
+        if stack and isinstance(stack[-1], type) and issubclass(stack[-1], cls):
+            klass = stack.pop()           # Python is making it (Worker(...))
+        base = super(cls, klass)
+        if base.__new__ is object.__new__:
+            if (args or kwargs) and base.__init__ is object.__init__:
+                raise TypeError('%s() takes no arguments' % name)
+            obj = object.__new__(klass)
+        else:
+            obj = base.__new__(klass, *args, **kwargs)
+        object.__setattr__(obj, '_oorexx_pair', pair)
+        return obj
+    ns['_oorexx_new'] = staticmethod(_new)
+
+    def _init(obj, args, kwargs):
+        kwargs = kwargs or {}
+        if super(cls, type(obj)).__init__ is object.__init__:
+            return                        # object's gets none: they were __new__'s
+        super(cls, obj).__init__(*args, **kwargs)
+    ns['_oorexx_init'] = staticmethod(_init)
+
+    def __del__(self):
+        try:
+            oorexx._pair_dead(self)
+        except Exception:
+            pass                          # Python is shutting down
+        d = getattr(super(cls, self), '__del__', None)
+        if d is not None:
+            d()
+    ns['__del__'] = __del__
+
+    ns['_oorexx_overrides'] = overrides
+    if not any(issubclass(b, oorexx._Pair) for b in bases):
+        # (object goes after _Pair, which is an object too)
+        bases = tuple(b for b in bases if b is not object) + (oorexx._Pair,)
     import types
     cls = types.new_class(name, tuple(bases), {}, lambda d: d.update(ns))
+    cls._oorexx_class = cls
     return cls
 ::END

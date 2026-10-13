@@ -390,6 +390,12 @@ static void drainReleases(RexxThreadContext *tc)
 static PyObject *newRexxProxy(Inst *inst, RexxObjectPtr o, unsigned long key);
 static bool rexxProxyTarget(PyObject *o, Inst **inst, RexxObjectPtr *target);
 
+// pairs: a Rexx object and the Python object of a Rexx class that extends a
+// Python class (defined below, *Pairs*)
+static PyObject *pairType = NULL;         // oorexx._Pair, a base of every such Python class
+static unsigned long long pairId(PyObject *o);
+static bool pairCross(unsigned long long id, RexxObjectPtr *r, Inst **inst);
+
 /* phase 1: Rexx -> Val (no GIL) ------------------------------------------ */
 
 static void rexxToVal(RexxSide &side, RexxObjectPtr o, Val &v)
@@ -602,22 +608,27 @@ static bool isNumpyScalar(PyObject *o)
     return numpy;
 }
 
-// an instance of a class made by py.extend (python.cls) that subclasses str,
-// int, float or bytes: it has Rexx methods, so it is not a plain value
-static bool isExtendedValue(PyObject *o)
-{
-    if (PyUnicode_CheckExact(o) || PyLong_CheckExact(o) || PyFloat_CheckExact(o) ||
-        PyBytes_CheckExact(o) || PyBool_Check(o))
-        return false;
-    if (!PyUnicode_Check(o) && !PyLong_Check(o) && !PyFloat_Check(o) && !PyBytes_Check(o))
-        return false;
-    return PyObject_HasAttrString((PyObject *)Py_TYPE(o), "_oorexx_extended") == 1;
-}
-
 // Python -> Val; steals the reference to o.  keep: always a proxy.
 static void pyToVal(PyObject *o, Val &v, bool keep = false)
 {
-    if (!keep && isExtendedValue(o)) keep = true;
+    if (pairType != NULL && PyObject_TypeCheck(o, (PyTypeObject *)pairType))
+    {
+        // the Python object of a pair: its Rexx object, itself (a crossing;
+        // our reference to o is dropped once Rexx has it)
+        unsigned long long id = pairId(o);
+        RexxObjectPtr r;
+        Inst *inst;
+        if (id != 0 && pairCross(id, &r, &inst))
+        {
+            v.kind = Val::REXX;
+            v.robj = r;
+            v.inst = inst;
+            v.ref = o;
+            v.owned = true;
+            return;
+        }
+        keep = true;                      // its pair is over: a plain proxy
+    }
     if (o == Py_None && !keep)
     {
         v.kind = Val::NIL;
@@ -1375,6 +1386,325 @@ static PyObject *rexxSend(Inst *inst, RexxObjectPtr target, const std::string &m
         });
 }
 
+/* ------------------------------------------------------------------------ */
+/* Pairs: Rexx classes that extend Python classes                             */
+/* ------------------------------------------------------------------------ */
+
+/*
+ * docs/design.md, *Subclassing*.  An instance of a Rexx class that extends a
+ * Python class (::class Worker subclass PyObject; .py~extend(self, base)) is
+ * a pair: the Rexx object R and its Python object P.  R holds P (its CSELF,
+ * as any .PyObject), and P reaches R through the bridge (its _oorexx_pair:
+ * an entry here), for the overrides Python calls.  Each collector sees only
+ * its own half, so the link that keeps the other half alive points one way
+ * at a time:
+ *
+ *   REXX     Rexx holds R.  R holds P (a reference); the bridge knows R
+ *            without holding it.  R holds a sentinel (.PyPeerSentinel) that
+ *            holds R: its UNINIT runs when Rexx no longer holds R, and queues
+ *            (R, id, n) on the graveyard.
+ *   PYTHON   Rexx no longer holds R: the bridge holds R (the instance's keep
+ *            Directory) and R no longer holds P (its pointer stays, without
+ *            a reference), so Python's collector decides.  If P goes, its
+ *            __del__ says so: DEAD.  If P crosses over to Rexx again (it is
+ *            passed to Rexx, or Python calls an override), R holds P again:
+ *   BACK     waiting for a new sentinel, then REXX, and the bridge lets R go.
+ *   DEAD     P is gone: R's PY.FINAL (the class's UNINIT, once), and the
+ *            bridge lets R go for good.
+ *
+ * Crossings are counted: a sentinel's UNINIT that comes after a crossing it
+ * did not see (R was handed to Rexx after the collection that found the
+ * sentinel unreachable) only arms a new one.  R is never freed while the
+ * bridge knows it: in REXX it is held by Rexx or, between the collection and
+ * the drain, by the queue its sentinel put it on; in PYTHON and BACK by the
+ * keep Directory.  No ooRexx API call is made with pairsLock held (one may
+ * run UNINIT methods, which may need it), nor with the GIL held.
+ */
+struct Pair
+{
+    enum State { REXX, PYTHON, BACK, DEAD } state = REXX;
+    Inst *inst = NULL;
+    RexxObjectPtr r = NULLOBJECT;         // the Rexx object
+    PyObject *p = NULL;                   // the Python object
+    unsigned long long crossings = 0;     // times P crossed over to Rexx
+    unsigned long long armed = 0;         // crossings when the sentinel was made
+    unsigned long long sentinel = 0;      // the current sentinel's number
+    unsigned long keepKey = 0;            // PYTHON, BACK, DEAD: R in the keep Directory
+};
+static std::mutex pairsLock;
+static std::map<unsigned long long, Pair> pairs;
+static unsigned long long pairCounter = 0;
+static std::vector<unsigned long long> pairsToArm;     // BACK
+static std::vector<unsigned long long> pairsToEnd;     // DEAD
+static std::atomic<long> statPairs(0), statPairsEnded(0);
+
+// the pair of a Python object (with the GIL): its id, or 0
+static unsigned long long pairId(PyObject *o)
+{
+    PyObject *id = PyObject_GetAttrString(o, "_oorexx_pair");
+    if (id == NULL) { PyErr_Clear(); return 0; }
+    unsigned long long n = PyLong_Check(id) ? PyLong_AsUnsignedLongLong(id) : 0;
+    Py_DECREF(id);
+    if (PyErr_Occurred()) { PyErr_Clear(); return 0; }
+    return n;
+}
+
+// P crosses over to Rexx (with the GIL): R, which Rexx may hold from now on
+static bool pairCross(unsigned long long id, RexxObjectPtr *r, Inst **inst)
+{
+    std::lock_guard<std::mutex> guard(pairsLock);
+    auto it = pairs.find(id);
+    if (it == pairs.end() || it->second.state == Pair::DEAD || isClosed(it->second.inst)) return false;
+    Pair &e = it->second;
+    e.crossings++;
+    if (e.state == Pair::PYTHON)
+    {
+        Py_INCREF(e.p);                   // R holds P again
+        e.state = Pair::BACK;
+        pairsToArm.push_back(id);
+    }
+    *r = e.r;
+    *inst = e.inst;
+    return true;
+}
+
+static RexxDirectoryObject keepOf(Inst *inst)
+{
+    std::lock_guard<std::mutex> guard(instancesLock);
+    auto it = instances.find(inst->rexx);
+    return it != instances.end() && !isClosed(inst) ? it->second.keep : NULLOBJECT;
+}
+
+static unsigned long pin(RexxThreadContext *tc, Inst *inst, RexxObjectPtr r)
+{
+    RexxDirectoryObject keep = keepOf(inst);
+    if (keep == NULLOBJECT) return 0;
+    unsigned long key = ++keepCounter;
+    char buf[32];
+    keyText(key, buf, sizeof buf);
+    tc->DirectoryPut(keep, r, buf);
+    return key;
+}
+
+static void unpin(RexxThreadContext *tc, Inst *inst, unsigned long key)
+{
+    if (key == 0) return;
+    RexxDirectoryObject keep = keepOf(inst);
+    if (keep == NULLOBJECT) return;
+    char buf[32];
+    keyText(key, buf, sizeof buf);
+    tc->DirectoryRemove(keep, buf);
+}
+
+struct SentinelEvent
+{
+    RexxObjectPtr r;
+    unsigned long long id, n;
+};
+
+/*
+ * The pairs' events, by the thread that drains the graveyard (a Rexx thread,
+ * no GIL, no kernel lock between API calls): the sentinels it found (Rexx no
+ * longer holds those R), the pairs that crossed back (BACK) and the pairs
+ * that are over (DEAD).
+ */
+static void drainPairs(RexxThreadContext *tc, const std::vector<SentinelEvent> &events)
+{
+    std::vector<PyObject *> released;
+    for (const SentinelEvent &ev : events)
+    {
+        Inst *inst;
+        bool rearm;
+        {
+            std::lock_guard<std::mutex> guard(pairsLock);
+            auto it = pairs.find(ev.id);
+            if (it == pairs.end() || it->second.state != Pair::REXX || it->second.sentinel != ev.n) continue;
+            inst = it->second.inst;
+            rearm = it->second.crossings != it->second.armed;
+        }
+        if (!rearm)
+        {
+            unsigned long key = pin(tc, inst, ev.r);
+            {
+                std::lock_guard<std::mutex> guard(pairsLock);
+                auto it = pairs.find(ev.id);
+                if (it != pairs.end() && key != 0 && it->second.state == Pair::REXX &&
+                    it->second.sentinel == ev.n && it->second.crossings == it->second.armed)
+                {
+                    it->second.state = Pair::PYTHON;
+                    it->second.keepKey = key;
+                    released.push_back(it->second.p);
+                    key = 0;
+                }
+                else rearm = it != pairs.end() && it->second.state == Pair::REXX;
+            }
+            unpin(tc, inst, key);         // (0 if it is held now)
+        }
+        if (rearm)
+        {
+            tc->SendMessage0(ev.r, "PY.ARM");
+            if (tc->CheckCondition()) tc->ClearCondition();
+        }
+    }
+    if (!released.empty() && Py_IsInitialized())
+    {
+        Gil gil;                          // may run P's __del__: DEAD
+        for (PyObject *p : released) Py_DECREF(p);
+    }
+
+    std::vector<unsigned long long> ids;
+    {
+        std::lock_guard<std::mutex> guard(pairsLock);
+        ids.swap(pairsToArm);
+    }
+    for (unsigned long long id : ids)
+    {
+        RexxObjectPtr r;
+        Inst *inst;
+        unsigned long key;
+        {
+            std::lock_guard<std::mutex> guard(pairsLock);
+            auto it = pairs.find(id);
+            if (it == pairs.end() || it->second.state != Pair::BACK) continue;
+            it->second.state = Pair::REXX;
+            r = it->second.r;
+            inst = it->second.inst;
+            key = it->second.keepKey;
+            it->second.keepKey = 0;
+        }
+        tc->SendMessage0(r, "PY.ARM");    // a new sentinel, then the bridge lets R go
+        if (tc->CheckCondition()) tc->ClearCondition();
+        unpin(tc, inst, key);
+    }
+
+    ids.clear();
+    {
+        std::lock_guard<std::mutex> guard(pairsLock);
+        ids.swap(pairsToEnd);
+    }
+    for (unsigned long long id : ids)
+    {
+        RexxObjectPtr r;
+        Inst *inst;
+        unsigned long key;
+        {
+            std::lock_guard<std::mutex> guard(pairsLock);
+            auto it = pairs.find(id);
+            if (it == pairs.end()) continue;
+            r = it->second.r;
+            inst = it->second.inst;
+            key = it->second.keepKey;
+            pairs.erase(it);
+        }
+        statPairsEnded++;
+        if (!isClosed(inst))
+        {
+            tc->SendMessage0(r, "PY.FINAL");   // the class's UNINIT
+            if (tc->CheckCondition()) tc->ClearCondition();
+        }
+        unpin(tc, inst, key);
+    }
+}
+
+// oorexx._pair_dead(obj): P's __del__ (with the GIL)
+static PyObject *pairDead(PyObject *, PyObject *obj)
+{
+    unsigned long long id = pairId(obj);
+    if (id != 0)
+    {
+        std::lock_guard<std::mutex> guard(pairsLock);
+        auto it = pairs.find(id);
+        if (it != pairs.end() && it->second.state == Pair::PYTHON)
+        {
+            it->second.state = Pair::DEAD;
+            pairsToEnd.push_back(id);
+        }
+    }
+    Py_RETURN_NONE;
+}
+
+// oorexx._call_peer(obj, rexxName, args, kwargs): Python calls an override:
+// R~rexxName(args..., a .PyKwArgs if kwargs)
+static PyObject *pairCallPeer(PyObject *, PyObject *a)
+{
+    PyObject *obj, *name, *args, *kwargs;
+    if (!PyArg_UnpackTuple(a, "_call_peer", 4, 4, &obj, &name, &args, &kwargs)) return NULL;
+    if (!PyTuple_Check(args)) { PyErr_SetString(PyExc_TypeError, "_call_peer: args must be a tuple"); return NULL; }
+    unsigned long long id = pairId(obj);
+    RexxObjectPtr r;
+    Inst *inst;
+    if (id == 0 || !pairCross(id, &r, &inst))
+    {
+        PyErr_SetString(rexxErrorType, "the Rexx object of this Python object is gone");
+        return NULL;
+    }
+    std::string message = pyString(name);
+    bool kw = kwargs != Py_None && PyDict_Check(kwargs) && PyDict_Size(kwargs) > 0;
+    PyObject *all = args;
+    Py_INCREF(all);
+    if (kw)
+    {
+        PyObject *one = PyTuple_Pack(1, kwargs);
+        PyObject *joined = one != NULL ? PySequence_Concat(args, one) : NULL;
+        Py_XDECREF(one);
+        Py_DECREF(all);
+        if (joined == NULL) return NULL;
+        all = joined;
+    }
+    PyObject *result = intoRexx(inst, all, 0, NULL,
+        [&](RexxThreadContext *tc, RexxSide &side, RexxArrayObject rargs, std::string &error) -> RexxObjectPtr {
+            if (kw)
+            {
+                size_t n = tc->ArraySize(rargs);
+                if (side.kwClass == NULLOBJECT) { error = "python.cls is not loaded"; return NULLOBJECT; }
+                RexxObjectPtr k = tc->SendMessage1(side.kwClass, "NEW", tc->ArrayOfOne(tc->ArrayAt(rargs, n)));
+                if (k == NULLOBJECT) return NULLOBJECT;
+                tc->ArrayPut(rargs, k, n);
+            }
+            return tc->SendMessage(r, message.c_str(), rargs);
+        });
+    Py_DECREF(all);
+    return result;
+}
+
+static PyMethodDef pairFunctions[] =
+{
+    {"_call_peer", (PyCFunction)pairCallPeer, METH_VARARGS, "for python.cls: Python calls an override"},
+    {"_pair_dead", (PyCFunction)pairDead, METH_O, "for python.cls: a pair's Python object is gone"},
+    {NULL, NULL, 0, NULL}
+};
+
+// oorexx._Pair: a base of every Python class that a Rexx class extends (no
+// state: any base can take it as a mixin)
+static PyObject *makePairType()
+{
+    PyObject *slots = PyTuple_New(0);
+    PyObject *bases = PyTuple_Pack(1, (PyObject *)&PyBaseObject_Type);
+    PyObject *dict = PyDict_New();
+    PyObject *type = NULL;
+    PyObject *module = PyUnicode_FromString("oorexx");
+    if (slots != NULL && bases != NULL && dict != NULL && module != NULL &&
+        PyDict_SetItemString(dict, "__slots__", slots) == 0 &&
+        PyDict_SetItemString(dict, "__module__", module) == 0)
+        type = PyObject_CallFunction((PyObject *)&PyType_Type, "sOO", "_Pair", bases, dict);
+    Py_XDECREF(module);
+    Py_XDECREF(slots);
+    Py_XDECREF(bases);
+    Py_XDECREF(dict);
+    return type;
+}
+
+// interpreter closed: its pairs are over (their Rexx objects go with it)
+static void forgetPairs(Inst *h)
+{
+    std::lock_guard<std::mutex> guard(pairsLock);
+    for (auto it = pairs.begin(); it != pairs.end(); )
+    {
+        if (it->second.inst == h) it = pairs.erase(it);
+        else ++it;
+    }
+}
+
 static PyObject *rexxProxyCall(PyObject *self, PyObject *args, PyObject *kwargs)
 {
     if (kwargs != NULL && PyDict_Size(kwargs) > 0)
@@ -1710,6 +2040,16 @@ static bool fillModule(PyObject *m)
     PyObject_SetAttrString(m, "RexxError", rexxErrorType);
     PyObject_SetAttrString(m, "Interpreter", interpreterType);
     PyObject_SetAttrString(m, "CommandContext", commandContextType);
+    if (pairType == NULL) pairType = makePairType();
+    if (pairType == NULL) return false;
+    PyObject_SetAttrString(m, "_Pair", pairType);
+    for (PyMethodDef *d = pairFunctions; d->ml_name != NULL; d++)
+    {
+        PyObject *f = PyCFunction_NewEx(d, NULL, NULL);
+        if (f == NULL) return false;
+        PyObject_SetAttrString(m, d->ml_name, f);
+        Py_DECREF(f);
+    }
     return !PyErr_Occurred();
 }
 
@@ -2058,6 +2398,7 @@ static PyObject *interpreterClose(PyObject *self, PyObject *)
             if (it != instances.end()) keep = it->second.keep;
         }
         forgetInstance(h);
+        forgetPairs(h);
         Py_BEGIN_ALLOW_THREADS
         // the Rexx objects Python still holds through this instance's proxies
         // are let go (the proxies are unusable from now on); those another
@@ -2521,6 +2862,124 @@ RexxMethod1(RexxObjectPtr, PyObj_Pointer, CSELF, self)
     return context->NewPointer(self);
 }
 
+// a .PyObject whose Python object is not there: a pair whose INIT did not
+// call init:super, or whose Python object is gone (in its class's UNINIT)
+static RexxObjectPtr noPython(RexxMethodContext *context)
+{
+    context->RaiseException1(Rexx_Error_Execution_user_defined,
+        context->String("ooRexx/Python: this object has no Python object (its INIT must call "
+                        "self~init:super(...); in its class's UNINIT, the Python object is gone)"));
+    return NULLOBJECT;
+}
+
+/*
+ * ~"PY.PAIRNEW"(pyclass, args): a pair's Python object, made by the base's
+ * __new__ with args (python.cls, PyObject's INIT: self~init:super(args));
+ * answers (pointer, pair id).  See *Pairs*.
+ */
+RexxMethod3(RexxObjectPtr, PyPair_New, OSELF, self, RexxObjectPtr, pyclass, RexxArrayObject, rexxArgs_)
+{
+    RexxSide side;
+    if (!findClasses(context, side)) return NULLOBJECT;
+    if (!context->IsInstanceOf(pyclass, side.pyObjectClass)) return noPython(context);
+    RexxObjectPtr cp = context->SendMessage0(pyclass, "PY.POINTER");
+    PyObject *cls = cp != NULLOBJECT ? (PyObject *)context->PointerValue((RexxPointerObject)cp) : NULL;
+    if (cls == NULL) return noPython(context);
+    Args args;
+    rexxArgs(side, rexxArgs_, 1, args);
+    unsigned long long id;
+    {
+        std::lock_guard<std::mutex> guard(pairsLock);
+        id = ++pairCounter;
+        Pair &e = pairs[id];
+        e.inst = handleOf(side.inst);
+        e.r = self;
+    }
+    statPairs++;
+    PyError err;
+    PyObject *obj = NULL;
+    {
+        Gil gil;
+        PyObject *tuple = NULL, *dict = NULL;
+        if (!buildArgs(args, &tuple, &dict)) captureError(err);
+        else
+        {
+            obj = PyObject_CallMethod(cls, "_oorexx_new", "KOO", id, tuple, dict != NULL ? dict : Py_None);
+            if (obj == NULL) captureError(err);
+            else
+            {
+                std::lock_guard<std::mutex> guard(pairsLock);
+                pairs[id].p = obj;        // R's reference (its CSELF)
+            }
+        }
+        Py_XDECREF(tuple);
+        Py_XDECREF(dict);
+    }
+    if (err.set)
+    {
+        {
+            std::lock_guard<std::mutex> guard(pairsLock);
+            pairs.erase(id);
+        }
+        Val none;
+        return finish(side, none, err);
+    }
+    char buf[32];
+    snprintf(buf, sizeof buf, "%llu", id);
+    RexxArrayObject made = context->NewArray(2);
+    context->ArrayPut(made, context->NewPointer(obj), 1);
+    context->ArrayPut(made, context->String(buf), 2);
+    return made;
+}
+
+// ~"PY.PAIRINIT"(args): the base's __init__ with args, once the Rexx object
+// has its Python object (an __init__ may call overrides)
+RexxMethod2(RexxObjectPtr, PyPair_Init, RexxArrayObject, rexxArgs_, CSELF, self)
+{
+    if (self == NULL) return noPython(context);
+    RexxSide side;
+    if (!findClasses(context, side)) return NULLOBJECT;
+    Args args;
+    rexxArgs(side, rexxArgs_, 1, args);
+    PyError err;
+    Val none;
+    {
+        Gil gil;
+        PyObject *obj = selfObject(self);
+        PyObject *tuple = NULL, *dict = NULL;
+        if (!buildArgs(args, &tuple, &dict)) captureError(err);
+        else
+        {
+            PyObject *r = PyObject_CallMethod((PyObject *)Py_TYPE(obj), "_oorexx_init", "OOO",
+                                              obj, tuple, dict != NULL ? dict : Py_None);
+            if (r == NULL) captureError(err);
+            Py_XDECREF(r);
+        }
+        Py_XDECREF(tuple);
+        Py_XDECREF(dict);
+    }
+    if (err.set) return finish(side, none, err);
+    return NULLOBJECT;
+}
+
+// PyPair_Arm(id): a new sentinel's number (Rexx holds the pair's Rexx object)
+RexxRoutine1(RexxObjectPtr, PyPair_Arm, CSTRING, idText)
+{
+    unsigned long long id = strtoull(idText, NULL, 10), n = 0;
+    {
+        std::lock_guard<std::mutex> guard(pairsLock);
+        auto it = pairs.find(id);
+        if (it != pairs.end())
+        {
+            n = ++it->second.sentinel;
+            it->second.armed = it->second.crossings;
+        }
+    }
+    char buf[32];
+    snprintf(buf, sizeof buf, "%llu", n);
+    return context->String(buf);
+}
+
 /*
  * A .PyObject's uninit is Rexx code (python.cls) that only queues its pointer
  * on .PyObject~graveyard; the Python reference is dropped here, by the next
@@ -2539,16 +2998,51 @@ static void drainGraveyard(RexxThreadContext *tc, RexxObjectPtr graveyard)
 {
     if (graveyard == NULLOBJECT) return;
     std::vector<PyObject *> dead;
+    std::vector<SentinelEvent> sentinels;      // (R, pair, n): see *Pairs*
     for (;;)
     {
         RexxObjectPtr p = tc->SendMessage0(graveyard, "PULL");
         if (p == NULLOBJECT || p == tc->Nil()) break;
+        if (tc->IsArray(p))
+        {
+            RexxArrayObject a = (RexxArrayObject)p;
+            SentinelEvent ev;
+            ev.r = tc->ArrayAt(a, 1);
+            ev.id = strtoull(tc->ObjectToStringValue(tc->ArrayAt(a, 2)), NULL, 10);
+            ev.n = strtoull(tc->ObjectToStringValue(tc->ArrayAt(a, 3)), NULL, 10);
+            if (ev.r != NULLOBJECT) sentinels.push_back(ev);
+            continue;
+        }
         void *v = tc->PointerValue((RexxPointerObject)p);
         if (v != NULL) dead.push_back((PyObject *)v);
     }
-    if (dead.empty() || !Py_IsInitialized()) return;
-    Gil gil;
-    for (PyObject *o : dead) Py_DECREF(o);
+    if (!dead.empty() && Py_IsInitialized())
+    {
+        Gil gil;
+        for (PyObject *o : dead) Py_DECREF(o);
+    }
+    drainPairs(tc, sentinels);
+}
+
+// super(cls, o) if name is one that o's class (made by py.extend) overrides,
+// with its Python name in exact; else NULL (with the GIL; no error set)
+static PyObject *pairSuper(PyObject *o, const std::string &name, std::string &exact)
+{
+    PyObject *type = (PyObject *)Py_TYPE(o);
+    PyObject *overrides = PyObject_GetAttrString(type, "_oorexx_overrides");
+    if (overrides == NULL) { PyErr_Clear(); return NULL; }
+    PyObject *py = PyDict_Check(overrides) ? PyDict_GetItemString(overrides, name.c_str()) : NULL;
+    PyObject *base = NULL;
+    if (py != NULL)
+    {
+        exact = pyString(py);
+        PyObject *cls = PyObject_GetAttrString(type, "_oorexx_class");
+        if (cls != NULL) base = PyObject_CallFunctionObjArgs((PyObject *)&PySuper_Type, cls, o, NULL);
+        Py_XDECREF(cls);
+        if (base == NULL) PyErr_Clear();
+    }
+    Py_DECREF(overrides);
+    return base;
 }
 
 /*
@@ -2563,6 +3057,7 @@ static void drainGraveyard(RexxThreadContext *tc, RexxObjectPtr graveyard)
  */
 RexxMethod3(RexxObjectPtr, PyObj_Unknown, CSTRING, message, RexxArrayObject, rexxArgs_, CSELF, self)
 {
+    if (self == NULL) return noPython(context);
     RexxSide side;
     if (!findClasses(context, side)) return NULLOBJECT;
     std::string name = message;
@@ -2577,7 +3072,17 @@ RexxMethod3(RexxObjectPtr, PyObj_Unknown, CSTRING, message, RexxArrayObject, rex
         Gil gil;
         PyObject *o = selfObject(self);
         std::string exact;
-        bool found = resolveName(o, name, &exact, err);
+        bool found;
+        // a pair's Rexx object: a name its class overrides is the base's
+        // member (self~name:super(args) reaches here), through super()
+        PyObject *base = pairType != NULL && PyObject_TypeCheck(o, (PyTypeObject *)pairType)
+                         ? pairSuper(o, name, exact) : NULL;
+        if (base != NULL)
+        {
+            o = base;                     // (dropped below)
+            found = true;
+        }
+        else found = resolveName(o, name, &exact, err);
         if (!found && !err.set)
         {
             if (!assign && name == "NEW" && PyCallable_Check(o))
@@ -2619,6 +3124,7 @@ RexxMethod3(RexxObjectPtr, PyObj_Unknown, CSTRING, message, RexxArrayObject, rex
                 pyToVal(attr, result);
             }
         }
+        Py_XDECREF(base);
     }
     return finish(side, result, err);
 }
@@ -2626,6 +3132,7 @@ RexxMethod3(RexxObjectPtr, PyObj_Unknown, CSTRING, message, RexxArrayObject, rex
 // ~"PY.HAS"(rexxName): does the name resolve (docs/design.md, *Names*) to an attribute?
 RexxMethod2(logical_t, PyObj_Has, CSTRING, name, CSELF, self)
 {
+    if (self == NULL) return 0;
     Gil gil;
     std::string exact;
     PyError err;
@@ -2635,6 +3142,7 @@ RexxMethod2(logical_t, PyObj_Has, CSTRING, name, CSELF, self)
 // ~getattr(exactName)
 RexxMethod2(RexxObjectPtr, PyObj_GetAttr, CSTRING, name, CSELF, self)
 {
+    if (self == NULL) return noPython(context);
     RexxSide side;
     if (!findClasses(context, side)) return NULLOBJECT;
     Val result;
@@ -2650,6 +3158,7 @@ RexxMethod2(RexxObjectPtr, PyObj_GetAttr, CSTRING, name, CSELF, self)
 // ~setattr(exactName, value)
 RexxMethod3(RexxObjectPtr, PyObj_SetAttr, CSTRING, name, RexxObjectPtr, value, CSELF, self)
 {
+    if (self == NULL) return noPython(context);
     RexxSide side;
     if (!findClasses(context, side)) return NULLOBJECT;
     Val result;
@@ -2669,6 +3178,7 @@ RexxMethod3(RexxObjectPtr, PyObj_SetAttr, CSTRING, name, RexxObjectPtr, value, C
 // ~invoke(exactName | .nil, args...): call the attribute, or the object itself
 RexxMethod2(RexxObjectPtr, PyObj_Invoke, ARGLIST, all, CSELF, self)
 {
+    if (self == NULL) return noPython(context);
     RexxSide side;
     if (!findClasses(context, side)) return NULLOBJECT;
     RexxObjectPtr target = context->ArraySize(all) >= 1 ? context->ArrayAt(all, 1) : NULLOBJECT;
@@ -2708,6 +3218,7 @@ static PyObject *itemKey(const Args &keys)
 // o[keys...]
 RexxMethod2(RexxObjectPtr, PyObj_GetItem, ARGLIST, all, CSELF, self)
 {
+    if (self == NULL) return noPython(context);
     RexxSide side;
     if (!findClasses(context, side)) return NULLOBJECT;
     Args keys;
@@ -2727,6 +3238,7 @@ RexxMethod2(RexxObjectPtr, PyObj_GetItem, ARGLIST, all, CSELF, self)
 // o[keys...] = value  (Rexx passes the value first)
 RexxMethod2(RexxObjectPtr, PyObj_SetItem, ARGLIST, all, CSELF, self)
 {
+    if (self == NULL) return noPython(context);
     RexxSide side;
     if (!findClasses(context, side)) return NULLOBJECT;
     Val result;
@@ -2759,6 +3271,7 @@ RexxMethod2(RexxObjectPtr, PyObj_SetItem, ARGLIST, all, CSELF, self)
 // ~string: str(o)
 RexxMethod1(RexxObjectPtr, PyObj_String, CSELF, self)
 {
+    if (self == NULL) return noPython(context);
     std::string text;
     {
         Gil gil;
@@ -2770,6 +3283,7 @@ RexxMethod1(RexxObjectPtr, PyObj_String, CSELF, self)
 // ~makeArray: the items of iter(o), converted (DO OVER)
 RexxMethod1(RexxObjectPtr, PyObj_MakeArray, CSELF, self)
 {
+    if (self == NULL) return noPython(context);
     RexxSide side;
     if (!findClasses(context, side)) return NULLOBJECT;
     Val result;
@@ -2819,6 +3333,7 @@ static const char *operatorFunction(const std::string &op, bool unary)
 
 RexxMethod3(RexxObjectPtr, PyObj_Operator, NAME, message, ARGLIST, all, CSELF, self)
 {
+    if (self == NULL) return noPython(context);
     RexxSide side;
     if (!findClasses(context, side)) return NULLOBJECT;
     std::string op = message;
@@ -2855,6 +3370,7 @@ RexxMethod3(RexxObjectPtr, PyObj_Operator, NAME, message, ARGLIST, all, CSELF, s
 // ~hashCode: consistent with "==" (identity), for Rexx collections
 RexxMethod1(RexxObjectPtr, PyObj_HashCode, CSELF, self)
 {
+    if (self == NULL) return noPython(context);
     char buf[32];
     snprintf(buf, sizeof buf, "%p", self);
     return context->String(buf);
@@ -3049,6 +3565,7 @@ static void RexxEntry packageUnload(RexxThreadContext *)
         fprintf(stderr, "orxpy: global refs %ld, released %ld, pending %zu; Rexx proxies %ld, freed %ld\n",
                 statGlobalRefs.load(), statReleased.load(), pendingReleases.size(),
                 statProxies.load(), statProxiesFreed.load());
+        fprintf(stderr, "orxpy: pairs %ld, over %ld\n", statPairs.load(), statPairsEnded.load());
     }
     if (!Py_IsInitialized()) return;
     Gil gil;
@@ -3082,7 +3599,15 @@ static RexxMethodEntry bridgeMethods[] =
     REXX_METHOD(Py_Graveyard,    Py_Graveyard),
     REXX_METHOD(Py_Make,         Py_Make),
     REXX_METHOD(Py_Box,          Py_Box),
+    REXX_METHOD(PyPair_New,      PyPair_New),
+    REXX_METHOD(PyPair_Init,     PyPair_Init),
     REXX_LAST_METHOD()
+};
+
+static RexxRoutineEntry bridgeRoutines[] =
+{
+    REXX_TYPED_ROUTINE(PyPair_Arm, PyPair_Arm),
+    REXX_LAST_ROUTINE()
 };
 
 static RexxPackageEntry bridgePackage =
@@ -3093,7 +3618,7 @@ static RexxPackageEntry bridgePackage =
     "0.1",
     packageLoad,
     packageUnload,
-    NULL,
+    bridgeRoutines,
     bridgeMethods
 };
 

@@ -1,12 +1,12 @@
-/* 24-subclass.rex: Python classes with methods in Rexx.
+/* 24-subclass.rex: Rexx classes that extend Python classes.
  *
- * .py~extend(base, .RexxClass) makes a real Python subclass of base whose
- * methods are the Rexx class's: Python calls them (here threading.Thread's
- * start calls run, and list(), len(), "in" and reversed() call `__getitem__`
- * and `__len__`).  Each method gets a last argument, a StringTable: SELF is
- * the Python object, SUPER the base class (super() in Python), KWARGS the
- * keyword arguments.  .py~raise raises a Python exception: IndexError ends
- * a sequence.
+ * A subclass of PyObject extends a Python class with .py~extend, once, in
+ * its ACTIVATE class method; its methods override the base's, and Python
+ * calls them (here threading.Thread's start calls run, and list(), len(),
+ * "in" and reversed() call __getitem__ and __len__).  INIT passes the
+ * constructor's arguments to the base with self~init:super(...);
+ * self~name:super(...) is the base's own member.  .py~raise raises a
+ * Python exception: IndexError ends a sequence.
  *
  * Python:
  *   class Worker(threading.Thread):
@@ -21,27 +21,28 @@
  *   sq = Squares(5)
  *   print(list(sq), len(sq), 16 in sq, list(reversed(sq)))
  */
-Worker = .py~extend("threading.Thread", .Worker)
-w = Worker~new(.py~kw("name", "worker"))
+w = .Worker~new(.py~kw("name", "worker"))
 w~start; w~join
 
-Squares = .py~extend("collections.abc.Sequence", .Squares)
-sq = Squares~new(5)
+sq = .Squares~new(5)
 say .py~list(sq) .py~len(sq) .py~eval("lambda s: 16 in s")~new(sq) .py~list(.py~reversed(sq))
 
-::class Worker
+::class Worker subclass PyObject
+::method activate class
+  .py~extend(self, "threading.Thread")
 ::method run
-  use arg slot
-  say "hello from" slot~self~name
+  say "hello from" self~name
 
-::class Squares
-::method __init__
+::class Squares subclass PyObject
+::method activate class
+  .py~extend(self, "collections.abc.Sequence")
+::method init
   expose n
-  use arg n, slot
-  slot~super~__init__
+  use arg n
+  self~init:super
 ::method __getitem__
   expose n
-  use arg i, slot
+  use arg i
   if i >= n then .py~raise(.py~IndexError, i)
   return i * i
 ::method __len__

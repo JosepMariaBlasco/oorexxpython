@@ -761,24 +761,25 @@ WARNING demo: careful
 ```
 
 
-# `html.parser`, subclassed in Rexx (`.py~extend`) {#ex19-html-parser kicker="19-html-parser.rex"}
-
-Python's html.parser, with the handler written in Rexx. HTMLParser is used by subclassing: .py~extend makes a Python subclass of it whose handle_starttag is the Rexx method (24-subclass.rex has more).
+# `html.parser`, extended by a Rexx class (`.py~extend`) {#ex19-html-parser kicker="19-html-parser.rex"}
 
 ```rexx
-Links = .py~extend("html.parser.HTMLParser", .Links)
-Links~new~feed('<p><a href="https://rexxla.org">RexxLA</a> <a href="/x">x</a></p>')
+.Links~new~feed('<p><a href="https://rexxla.org">RexxLA</a> <a href="/x">x</a></p>')
 
-::class Links
+::class Links subclass PyObject
+::method activate class
+  .py~extend(self, "html.parser.HTMLParser")
 ::method handle_starttag
-  use arg tag, attrs, slot                    -- slot: always the last argument
+  use arg tag, attrs
   if tag == "a" then say .py~dict(attrs)["href"]
 
 ::requires "python.cls"
 ```
 
-::: row
-::: col-9
+# `html.parser`, extended by a Rexx class (`.py~extend`) {#ex19-html-parser-2 kicker="19-html-parser.rex"}
+
+Python's html.parser, with the handler written in Rexx. HTMLParser is used by subclassing: the Rexx class Links extends it (.py~extend), and its handle_starttag is the Rexx method (24-subclass.rex has more).
+
 [Python]{.label}
 
 ```python
@@ -789,8 +790,6 @@ class Links(HTMLParser):
 Links().feed('<p><a href="https://rexxla.org">RexxLA</a> <a href="/x">x</a></p>')
 ```
 
-:::
-::: col-3
 [Output]{.label}
 
 ```output
@@ -798,8 +797,6 @@ https://rexxla.org
 /x
 ```
 
-:::
-:::
 
 # Data science {.section .logo-oorexx}
 
@@ -992,30 +989,31 @@ best: Reus total: 800
 
 # Python classes in Rexx {.section .logo-oorexx}
 
-# `.py~extend`: a `threading.Thread` and a `collections.abc.Sequence` with their methods in Rexx; `.py~raise` {#ex24-subclass kicker="24-subclass.rex"}
+# `.py~extend`: Rexx classes that extend `threading.Thread` and `collections.abc.Sequence`; `.py~raise` {#ex24-subclass kicker="24-subclass.rex"}
 
 ```rexx
-Worker = .py~extend("threading.Thread", .Worker)
-w = Worker~new(.py~kw("name", "worker"))
+w = .Worker~new(.py~kw("name", "worker"))
 w~start; w~join
 
-Squares = .py~extend("collections.abc.Sequence", .Squares)
-sq = Squares~new(5)
+sq = .Squares~new(5)
 say .py~list(sq) .py~len(sq) .py~eval("lambda s: 16 in s")~new(sq) .py~list(.py~reversed(sq))
 
-::class Worker
+::class Worker subclass PyObject
+::method activate class
+  .py~extend(self, "threading.Thread")
 ::method run
-  use arg slot
-  say "hello from" slot~self~name
+  say "hello from" self~name
 
-::class Squares
-::method __init__
+::class Squares subclass PyObject
+::method activate class
+  .py~extend(self, "collections.abc.Sequence")
+::method init
   expose n
-  use arg n, slot
-  slot~super~__init__
+  use arg n
+  self~init:super
 ::method __getitem__
   expose n
-  use arg i, slot
+  use arg i
   if i >= n then .py~raise(.py~IndexError, i)
   return i * i
 ::method __len__
@@ -1025,9 +1023,9 @@ say .py~list(sq) .py~len(sq) .py~eval("lambda s: 16 in s")~new(sq) .py~list(.py~
 ::requires "python.cls"
 ```
 
-# `.py~extend`: a `threading.Thread` and a `collections.abc.Sequence` with their methods in Rexx; `.py~raise` {#ex24-subclass-2 kicker="24-subclass.rex"}
+# `.py~extend`: Rexx classes that extend `threading.Thread` and `collections.abc.Sequence`; `.py~raise` {#ex24-subclass-2 kicker="24-subclass.rex"}
 
-Python classes with methods in Rexx. .py~extend(base, .RexxClass) makes a real Python subclass of base whose methods are the Rexx class's: Python calls them (here threading.Thread's start calls run, and list(), len(), "in" and reversed() call `__getitem__` and `__len__`). Each method gets a last argument, a StringTable: SELF is the Python object, SUPER the base class (super() in Python), KWARGS the keyword arguments. .py~raise raises a Python exception: IndexError ends a sequence.
+Rexx classes that extend Python classes. A subclass of PyObject extends a Python class with .py~extend, once, in its ACTIVATE class method; its methods override the base's, and Python calls them (here threading.Thread's start calls run, and list(), len(), "in" and reversed() call __getitem__ and __len__). INIT passes the constructor's arguments to the base with self~init:super(...); self~name:super(...) is the base's own member. .py~raise raises a Python exception: IndexError ends a sequence.
 
 ::: row
 ::: col-5
@@ -1059,35 +1057,35 @@ hello from worker
 :::
 :::
 
-# `.py~extend` on immutable bases: a `str` with a Rexx `__new__`, an `int` with a method {#ex25-immutable kicker="25-immutable.rex"}
+# `.py~extend` on immutable bases: a `str` whose value INIT sets, an `int` with a method {#ex25-immutable kicker="25-immutable.rex"}
 
 ```rexx
-Tag = .py~extend("str", .Tag)
-b = Tag~new("b")
+b = .Tag~new("b")
 say b || "bold" || b~close .py~isinstance(b, .py~getattr("str"))
 
-Celsius = .py~extend("int", .Celsius)
-say Celsius~new(100)~fahrenheit
+say .Celsius~new(100)~fahrenheit
 
-::class Tag
-::method __new__
-  use arg name, slot
-  return slot~super~__new__(slot~self, "<" || name || ">")
+::class Tag subclass PyObject
+::method activate class
+  .py~extend(self, "str")
+::method init
+  use arg name
+  self~init:super("<" || name || ">")
 ::method close
-  use arg slot
-  return "</" || slot~self~string~substr(2)
+  return "</" || self~string~substr(2)
 
-::class Celsius
+::class Celsius subclass PyObject
+::method activate class
+  .py~extend(self, "int")
 ::method fahrenheit
-  use arg slot
-  return slot~self * 9 / 5 + 32
+  return self * 9 / 5 + 32
 
 ::requires "python.cls"
 ```
 
-# `.py~extend` on immutable bases: a `str` with a Rexx `__new__`, an `int` with a method {#ex25-immutable-2 kicker="25-immutable.rex"}
+# `.py~extend` on immutable bases: a `str` whose value INIT sets, an `int` with a method {#ex25-immutable-2 kicker="25-immutable.rex"}
 
-Rexx methods on a str, an int or a tuple. An immutable Python object gets its value in __new__, not __init__: .py~extend passes the constructor's arguments to the base's __new__, so Tag~new("b") is a str whose value is "b". A Rexx method __new__ can change the value first: SELF is then the class, and SUPER~__new__ is the base's. Such objects stay Python objects in Rexx, with their methods.
+Rexx methods on a str, an int or a tuple. An immutable Python object gets its value when it is made, in __new__: INIT's self~init:super(...) passes it there, so Tag~new("b") can make a str whose value is "<b>". The object is a str in Python and a Tag in Rexx, with the methods of both.
 
 ::: row
 ::: col-9
@@ -1324,7 +1322,8 @@ ooRexx 1
   `True` and `False` (pandas' `inplace=`, 23). For a function without
   annotations that insists on a real `bool`, `py.box("bool", 1)` makes
   `True`.
-- A method of a class made by `.py~extend` gets one argument more than
-  Python passes, last: a StringTable with `SELF` (the Python object),
-  `SUPER` (its base class, as Python's `super()`) and `KWARGS` (19, 24).
+- A Rexx class that extends a Python class is a subclass of `PyObject` that
+  calls `.py~extend(self, base)` in its `ACTIVATE` class method. Its INIT
+  passes the arguments to the base with `self~init:super(...)`, and
+  `self~name:super(...)` is the base's own member (19, 24, 25).
 :::
