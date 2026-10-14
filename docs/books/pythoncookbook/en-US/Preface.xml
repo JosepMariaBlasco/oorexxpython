@@ -1,0 +1,35 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<!DOCTYPE preface PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "pythoncookbook.ent">
+%BOOK_ENTITIES;
+]>
+<!-- Licensed under the Apache License, Version 2.0. -->
+<preface id="pref-pythoncookbook-Preface">
+<title>Preface</title>
+
+<para>ooRexx/Python is a bridge between Open Object Rexx and Python 3, both
+ways: an ooRexx program uses Python modules as Rexx objects, and a Python
+program runs Rexx code and uses Rexx objects as Python objects. This book
+shows how, through short programs, each showing one thing.</para>
+
+<para>Every recipe is one of the samples that come with the bridge: the
+program, the Python it replaces, how to run it, what it prints, and what
+happens. The book is made from the samples themselves, and every sample is
+run, and its output checked, with every Python from 3.9 on, on Linux, macOS
+and Windows, so what the book says a program prints is what it prints.</para>
+
+<para>The book is for ooRexx programmers who want Python's libraries, and for
+Python programmers who want Rexx. It is not long: read the first three
+chapters, then whichever recipe you need. Each recipe ends with the place in
+<citetitle pubwork="book">ooRexx and Python: Reference</citetitle> that has the
+details.</para>
+
+<section id="ckConventions"><title>The Samples</title>
+<para>The samples are in the <filename>samples</filename> folder of the
+project's repository, and the installer copies them into ooRexx's samples
+folder, under <filename>python</filename>. Their names start with a number:
+01 to 27 are ooRexx using Python, 30 to 34 Python using ooRexx. Python's
+output (a list, a float) is shown as Python prints it.</para>
+</section>
+
+</preface>

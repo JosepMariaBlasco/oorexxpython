@@ -1,0 +1,67 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "pythoncookbook.ent">
+%BOOK_ENTITIES;
+]>
+<!-- Licensed under the Apache License, Version 2.0. -->
+<chapter id="ckSubclassing"><title>Rexx Classes that Extend Python Classes</title>
+<indexterm><primary>subclassing</primary></indexterm>
+<indexterm><primary>extend</primary></indexterm>
+
+<para>Many Python libraries are used by subclassing: you write a class that
+extends one of theirs, and they call your methods. With the bridge, that class
+is a Rexx class.</para>
+
+<section id="ckHtmlParser"><title>A Handler Written in Rexx</title>
+<indexterm><primary>html.parser module</primary></indexterm>
+<para><emphasis role="bold">You want</emphasis> Python's HTML parser to call
+your Rexx code for each tag.</para>
+<?sample 19-html-parser.rex?>
+<para><emphasis role="bold">How it works.</emphasis> The class is a subclass
+of <classname>PyObject</classname>, and its <methodname>activate</methodname>
+class method calls <computeroutput>.py~extend(self, base)</computeroutput>,
+with the base as a dotted name. From then on its methods override the base's:
+<literal>HTMLParser</literal>'s <methodname>feed</methodname> calls
+<methodname>handle_starttag</methodname>, which is the Rexx method. Python
+passes the arguments as it would to its own method: here the tag, and the
+attributes as a list of pairs.</para>
+</section>
+
+<section id="ckSubclass"><title>A Thread, and a Sequence</title>
+<para><emphasis role="bold">You want</emphasis> a Python thread whose work is
+a Rexx method, and a Python sequence whose items a Rexx method
+computes.</para>
+<?sample 24-subclass.rex?>
+<para><emphasis role="bold">How it works.</emphasis>
+<literal>threading.Thread</literal>'s <methodname>start</methodname> runs
+<methodname>run</methodname> on a new thread: the Rexx method, which Python
+calls on its thread. <literal>Worker</literal> has no
+<methodname>init</methodname>: <methodname>new</methodname>'s arguments, the
+keyword <literal>name</literal> here, go to the base.</para>
+<para><literal>collections.abc.Sequence</literal> needs
+<literal>__getitem__</literal> and <literal>__len__</literal>, and makes
+<literal>in</literal>, <literal>reversed</literal> and iteration from them.
+<methodname>init</methodname> keeps the size, then calls
+<computeroutput>self~init:super</computeroutput>, which makes the Python
+object: until then there is none. A sequence ends with
+<literal>IndexError</literal>, which <computeroutput>.py~raise</computeroutput>
+raises; it reaches Python as itself.</para>
+</section>
+
+<section id="ckImmutable"><title>Methods on a str or an int</title>
+<para><emphasis role="bold">You want</emphasis> Rexx methods on a value
+Python sees as a <literal>str</literal> or an <literal>int</literal>.</para>
+<?sample 25-immutable.rex?>
+<para><emphasis role="bold">How it works.</emphasis> An immutable object
+gets its value when it is made: <computeroutput>self~init:super("&lt;" || name || "&gt;")</computeroutput>
+passes it to <literal>str</literal>'s <literal>__new__</literal>. The object is
+a <literal>str</literal> in Python, whose text Rexx's <literal>||</literal>
+joins, and a <literal>Tag</literal> in Rexx, with
+<methodname>close</methodname>. <literal>Celsius</literal> has
+no <methodname>init</methodname>, so <literal>100</literal> goes to
+<literal>int</literal>; in <methodname>fahrenheit</methodname>,
+<computeroutput>self * 9</computeroutput> is Python's multiplication of the
+<literal>int</literal>.</para>
+</section>
+
+</chapter>

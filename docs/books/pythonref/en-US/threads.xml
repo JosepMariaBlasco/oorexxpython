@@ -1,0 +1,50 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "pythonref.ent">
+%BOOK_ENTITIES;
+]>
+<!-- Licensed under the Apache License, Version 2.0. -->
+<chapter id="threads"><title>Threads</title>
+<indexterm><primary>threads</primary></indexterm>
+<indexterm><primary>GIL</primary></indexterm>
+<indexterm><primary>kernel lock</primary></indexterm>
+
+<para>Any Rexx thread may use any <classname>PyObject</classname>, and any
+Python thread any interpreter and any <classname>oorexx.RexxObject</classname>.
+Rexx threads (<literal>START</literal>, <literal>REPLY</literal>) and Python
+threads (<literal>threading</literal>, a thread pool) can call each other at
+once, in both directions, with callbacks.</para>
+
+<para>Two global locks meet: Python's GIL, which a thread must hold to run
+Python code, and ooRexx's kernel lock, which a thread must hold to run Rexx
+code. The bridge never holds one while it waits for the other: a call to
+Python releases ooRexx's kernel lock, so other Rexx threads run while Python
+works, and a call to Rexx releases the GIL, so other Python threads run while
+Rexx works.</para>
+
+<para>A Python thread that uses an interpreter attaches to it for the call, and
+detaches after. The methods of <classname>PyObject</classname> are
+unguarded, so a proxy is never locked by a thread that is in Python.</para>
+
+<para>Using one interpreter from several threads at once needs ooRexx 5.3.0:
+ooRexx 5.2.0 crashes there, inside the interpreter.</para>
+
+<example id="ex.threads" condition="oorexx53">
+<title>A Python thread pool calling a Rexx routine</title>
+<programlisting language="python">import concurrent.futures, oorexx
+
+with oorexx.Interpreter() as rexx:
+    square = rexx.routine("return arg(1) ** 2")
+    with concurrent.futures.ThreadPoolExecutor(4) as pool:
+        print(sum(pool.map(square, range(100))))</programlisting>
+<screen>328350</screen>
+</example>
+
+<section id="threadsAddress"><title>ADDRESS Environments and Threads</title>
+<para>Register ADDRESS environments when the interpreter is created
+(<literal>command_environments=</literal>), or before other threads run Rexx
+in it: ooRexx changes its table of environments without its lock
+(ooRexx bug #2111).</para>
+</section>
+
+</chapter>

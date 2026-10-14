@@ -1,0 +1,50 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "pythoncookbook.ent">
+%BOOK_ENTITIES;
+]>
+<!-- Licensed under the Apache License, Version 2.0. -->
+<chapter id="ckCallbacks"><title>Callbacks and Threads</title>
+<indexterm><primary>callbacks</primary></indexterm>
+<indexterm><primary>threads</primary></indexterm>
+
+<section id="ckCallback"><title>Rexx Code Called from Python</title>
+<para><emphasis role="bold">You want</emphasis> to give Python a function
+written in Rexx: a sort key, a function to map, an object to call.</para>
+<?sample 07-callbacks.rex?>
+<para><emphasis role="bold">How it works.</emphasis> A Rexx object passed to
+Python goes by reference: in Python it is an <literal>oorexx.RexxObject</literal>.
+Calling it sends it the message <literal>CALL</literal>, so a Rexx Routine
+(<computeroutput>.context~package~findRoutine("byLength")</computeroutput>)
+works wherever Python wants a function. Python's
+<computeroutput>acct.balance()</computeroutput> sends the Rexx message
+<literal>BALANCE</literal> to the Rexx object. A Rexx string is not an
+object to Python: it goes as a <literal>str</literal>, so Python's
+<computeroutput>o.upper()</computeroutput> is <literal>str</literal>'s.</para>
+<para>The routines' arguments and results cross by the usual rule: the Rexx
+<literal>length</literal> goes back to <methodname>sorted</methodname> as an
+<literal>int</literal>.</para>
+<para><emphasis role="bold">See also</emphasis> <citetitle>Reference</citetitle>,
+<emphasis>Values</emphasis> and <emphasis>RexxObject Class</emphasis>.</para>
+</section>
+
+<section id="ckThreads"><title>Rexx Threads and Python Threads</title>
+<para><emphasis role="bold">You want</emphasis> Rexx threads that call
+Python, and a Python thread pool that calls Rexx.</para>
+<?sample 09-threads.rex?>
+<para><emphasis role="bold">How it works.</emphasis> Any Rexx thread may use
+Python, and any Python thread may call Rexx. Each runtime has a global lock,
+Python's GIL and ooRexx's kernel lock, and the bridge never holds one while
+waiting for the other: while Python works, other Rexx threads run, and while
+Rexx works, other Python threads run. So four Rexx threads
+(<literal>START</literal>) can call Python at once, and four threads of
+Python's pool can call the same Rexx routine at once. This needs ooRexx 5.3.0:
+5.2.0 crashes when an interpreter is used from several threads at once.</para>
+<para><computeroutput>cf~ThreadPoolExecutor(4)</computeroutput> calls the
+class with an argument, which makes an instance, as
+<computeroutput>~new(4)</computeroutput> would.</para>
+<para><emphasis role="bold">See also</emphasis> <citetitle>Reference</citetitle>,
+<emphasis>Threads</emphasis>.</para>
+</section>
+
+</chapter>

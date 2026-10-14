@@ -1,0 +1,30 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<!DOCTYPE appendix PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "pythonref.ent">
+%BOOK_ENTITIES;
+]>
+<!-- Licensed under the Apache License, Version 2.0. -->
+<appendix id="relation"><title>Relation to BSF4ooRexx and .JSObject</title>
+<indexterm><primary>BSF4ooRexx</primary></indexterm>
+<para>The design follows Rony G. Flatscher's BSF4ooRexx, moved from Java to
+Python. <classname>PyObject</classname> is to Python objects what
+<literal>BSF.CLS</literal>'s proxies are to Java objects, and
+<classname>oorexx.RexxObject</classname> what <literal>RexxProxy</literal> is
+to Rexx objects in Java, with the same <methodname>sendMessage</methodname>
+methods. <methodname>box</methodname> takes BSF4ooRexx's argument order, the
+routines are named as <literal>bsf.import</literal> and
+<literal>bsf.redirectTo</literal>, and the standard streams take
+<literal>bsf.redirectTo</literal>'s arguments and its prefixes.
+<classname>PyArrayProxy</classname> is <literal>BSF_Array_Reference</literal>'s
+counterpart.</para>
+<para>Its sister in the ooRexx/WASM project, <literal>.JSObject</literal>,
+shares the shape: proxies by reference, names in any case with an exact form,
+and Rexx classes that extend classes of the other side
+(<computeroutput>.py~extend</computeroutput>,
+<computeroutput>.js~extend</computeroutput>, as ooRexx/.NET's
+<computeroutput>.net~extend</computeroutput>).</para>
+<para>Python departs from both where Python itself differs: it never turns a
+string into a number, so the bridge converts numbers
+(<xref linkend="valuesToPython"/>), and <computeroutput>o[k]</computeroutput>
+is its own indexing, from 0.</para>
+</appendix>

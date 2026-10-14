@@ -1,0 +1,241 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "pythonref.ent">
+%BOOK_ENTITIES;
+]>
+<!-- Licensed under the Apache License, Version 2.0. -->
+<chapter id="streams"><title>Standard Streams</title>
+<indexterm><primary>streams</primary>
+<secondary>standard</secondary></indexterm>
+<indexterm><primary>prefixes</primary></indexterm>
+
+<para>When Python creates an interpreter, Rexx's standard streams go through
+Python's, as BSF4ooRexx sends them through Java's: <literal>SAY</literal>,
+trace output, error messages, <computeroutput>.output~lineout</computeroutput>
+and everything else written to <literal>.output</literal>,
+<literal>.error</literal> and <literal>.traceOutput</literal> reaches
+<literal>sys.stdout</literal> and <literal>sys.stderr</literal>, and
+<literal>PULL</literal> and <literal>LINEIN</literal> read
+<literal>sys.stdin</literal>. The Python streams are looked up at every
+call, so Rexx's output is seen in Jupyter, or wherever Python sends its own
+(<literal>contextlib.redirect_stdout</literal>).
+<computeroutput>oorexx.Interpreter(stdio=False)</computeroutput> keeps Rexx's
+own streams.</para>
+
+<para>Each line carries BSF4ooRexx's prefix, so that Rexx's lines stand out
+in a log or a notebook: <literal>REXXout&gt;</literal>,
+<literal>REXXerr&gt;</literal>, <literal>REXXtrc&gt;</literal>, and, as the
+prompt before reading, <literal>REXXin?&gt;</literal> and
+<literal>REXXdbgIn?&gt;</literal>. <computeroutput>prefixes=False</computeroutput>
+leaves them out; a dict gives the prefixes of the streams it names
+(<literal>"input"</literal>, <literal>"output"</literal>,
+<literal>"error"</literal>, <literal>"debuginput"</literal>,
+<literal>"traceoutput"</literal>), and the others have none. From Rexx,
+<computeroutput>.output~current~prefix = .nil</computeroutput> removes one.
+Each line is a single <literal>write</literal>, so lines from several threads
+do not mix.</para>
+
+<example id="ex.streams-python">
+<title>Rexx's output through Python's</title>
+<programlisting language="python">import io, contextlib, oorexx
+
+with oorexx.Interpreter() as rexx:
+    rexx.routine("say 'hello'")()
+    buffer = io.StringIO()
+    with contextlib.redirect_stdout(buffer):
+        rexx.routine("say 'captured'")()
+    print(repr(buffer.getvalue()))
+with oorexx.Interpreter(prefixes={"output": "rexx> "}) as rexx:
+    rexx.routine("say 'custom'")()
+with oorexx.Interpreter(prefixes=False) as rexx:
+    rexx.routine("say 'plain'")()</programlisting>
+<screen>REXXout&gt;hello
+'REXXout&gt;captured\n'
+rexx&gt; custom
+plain</screen>
+</example>
+
+<para>A program started by <command>rexx</command> keeps Rexx's streams, and
+can send them to Python's with <computeroutput>call py.redirectTo</computeroutput>
+(<xref linkend="rtnPyRedirectTo" xrefstyle="select:title"/>), and back with
+<computeroutput>call py.redirectTo "R"</computeroutput>.</para>
+
+<example id="ex.streams-rexx">
+<title>py.redirectTo</title>
+<programlisting language="rexx">say "Rexx's own"
+call py.redirectTo
+say "through Python's sys.stdout"
+.output~current~prefix = .nil
+say "without the prefix"
+call py.redirectTo "R"
+say "Rexx's own again"
+
+::requires "python.cls"</programlisting>
+<screen>Rexx's own
+REXXout&gt;through Python's sys.stdout
+without the prefix
+Rexx's own again</screen>
+</example>
+
+<!-- ===================================================================== -->
+<section id="clsPyOutputStream"><title>PyOutputStream Class</title>
+<indexterm><primary>PyOutputStream class</primary></indexterm>
+<indexterm><primary>class</primary>
+<secondary>PyOutputStream class</secondary></indexterm>
+<para>A subclass of Rexx's <classname>OutputStream</classname> that writes to
+a Python text stream, with the methods of BSF4ooRexx's
+<literal>BSF.OutputStream</literal>. The stream is the name of one of the
+streams of Python's <literal>sys</literal> (<literal>"stdout"</literal>,
+<literal>"stderr"</literal>), looked up at every write, or a Python file
+object. Each line starts with the prefix, also after every line feed inside
+it. Its methods are unguarded.</para>
+
+<section id="mthPyOutputStreamNew"><title>new (Class Method)</title>
+<indexterm><primary>new method</primary><secondary>of PyOutputStream class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/pyoutputstream_new.svg" scale="55" /></imageobject></mediaobject>
+<para>Returns a stream that writes to <emphasis role="italic">stream</emphasis>
+(default <literal>"stdout"</literal>), with <emphasis role="italic">prefix</emphasis>
+(default &nil;, none).</para>
+</section>
+<section id="mthPyOutputStreamArrayOut"><title>arrayOut</title>
+<indexterm><primary>arrayOut method</primary><secondary>of PyOutputStream class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/pyoutputstream_arrayout.svg" scale="55" /></imageobject></mediaobject>
+<para>Writes each item of <emphasis role="italic">array</emphasis> as a line.
+Returns 0.</para>
+</section>
+<section id="mthPyOutputStreamCharOut"><title>charOut</title>
+<indexterm><primary>charOut method</primary><secondary>of PyOutputStream class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/pyoutputstream_charout.svg" scale="55" /></imageobject></mediaobject>
+<para>Writes <emphasis role="italic">string</emphasis>, without a line end.
+The prefix goes before it if it starts a line. Returns 0.</para>
+</section>
+<section id="mthPyOutputStreamClose"><title>close</title>
+<indexterm><primary>close method</primary><secondary>of PyOutputStream class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/pyoutputstream_close.svg" scale="55" /></imageobject></mediaobject>
+<para>Does nothing, and returns 0: the Python stream stays open.</para>
+</section>
+<section id="mthPyOutputStreamFile"><title>file</title>
+<indexterm><primary>file method</primary><secondary>of PyOutputStream class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/pyoutputstream_file.svg" scale="55" /></imageobject></mediaobject>
+<para>Returns the Python stream it writes to now (for a name, the current
+<literal>sys</literal> stream), or &nil; when it is &None; (as
+<literal>sys.stdout</literal> is under <command>pythonw</command>).</para>
+</section>
+<section id="mthPyOutputStreamLineOut"><title>lineOut</title>
+<indexterm><primary>lineOut method</primary><secondary>of PyOutputStream class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/pyoutputstream_lineout.svg" scale="55" /></imageobject></mediaobject>
+<para>Writes <emphasis role="italic">line</emphasis> (default empty) and a
+line end, in one write. Returns 0.</para>
+</section>
+<section id="mthPyOutputStreamPrefix"><title>prefix</title>
+<indexterm><primary>prefix method</primary><secondary>of PyOutputStream class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/pyoutputstream_prefix.svg" scale="55" /></imageobject></mediaobject>
+<para>Returns the prefix, or &nil; for none.</para>
+</section>
+<section id="mthPyOutputStreamPrefixSet"><title>prefix=</title>
+<indexterm><primary>prefix= method</primary><secondary>of PyOutputStream class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/pyoutputstream_prefixset.svg" scale="55" /></imageobject></mediaobject>
+<para>Sets the prefix; &nil; for none.</para>
+</section>
+<section id="mthPyOutputStreamSay"><title>say</title>
+<indexterm><primary>say method</primary><secondary>of PyOutputStream class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/pyoutputstream_say.svg" scale="55" /></imageobject></mediaobject>
+<para>The same as <xref linkend="mthPyOutputStreamLineOut" xrefstyle="select:title"/>.</para>
+</section>
+<section id="mthPyOutputStreamStream"><title>stream</title>
+<indexterm><primary>stream method</primary><secondary>of PyOutputStream class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/pyoutputstream_stream.svg" scale="55" /></imageobject></mediaobject>
+<para>Returns the stream given to <methodname>new</methodname>: a name, or a
+Python file object.</para>
+</section>
+<section id="mthPyOutputStreamString"><title>string</title>
+<indexterm><primary>string method</primary><secondary>of PyOutputStream class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/pyoutputstream_string.svg" scale="55" /></imageobject></mediaobject>
+<para>Returns a description: <computeroutput>a PyOutputStream (stdout, prefix REXXout&gt;)</computeroutput>.</para>
+</section>
+</section>
+
+<!-- ===================================================================== -->
+<section id="clsPyInputStream"><title>PyInputStream Class</title>
+<indexterm><primary>PyInputStream class</primary></indexterm>
+<indexterm><primary>class</primary>
+<secondary>PyInputStream class</secondary></indexterm>
+<para>A subclass of Rexx's <classname>InputStream</classname> that reads a
+Python text stream, with the methods of BSF4ooRexx's
+<literal>BSF.InputStream</literal>: <literal>"stdin"</literal>, looked up at
+every read, or a Python file object. Before reading a line, it writes its
+prefix to <literal>.output</literal> as a prompt. Its methods are
+unguarded.</para>
+
+<section id="mthPyInputStreamNew"><title>new (Class Method)</title>
+<indexterm><primary>new method</primary><secondary>of PyInputStream class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/pyinputstream_new.svg" scale="55" /></imageobject></mediaobject>
+<para>Returns a stream that reads <emphasis role="italic">stream</emphasis>
+(default <literal>"stdin"</literal>), with <emphasis role="italic">prefix</emphasis>
+(default &nil;, none) as its prompt.</para>
+</section>
+<section id="mthPyInputStreamArrayIn"><title>arrayIn</title>
+<indexterm><primary>arrayIn method</primary><secondary>of PyInputStream class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/pyinputstream_arrayin.svg" scale="55" /></imageobject></mediaobject>
+<para>Returns a Rexx Array of the remaining lines, without their line
+ends.</para>
+</section>
+<section id="mthPyInputStreamCharIn"><title>charIn</title>
+<indexterm><primary>charIn method</primary><secondary>of PyInputStream class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/pyinputstream_charin.svg" scale="55" /></imageobject></mediaobject>
+<para>Returns the next <emphasis role="italic">length</emphasis> characters
+(default 1); <emphasis role="italic">start</emphasis> is ignored, as a Python
+stream is read in order. Returns an empty string at the end.</para>
+</section>
+<section id="mthPyInputStreamChars"><title>chars</title>
+<indexterm><primary>chars method</primary><secondary>of PyInputStream class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/pyinputstream_chars.svg" scale="55" /></imageobject></mediaobject>
+<para>Returns 1: a Python stream cannot tell how much is left, so it answers
+as a terminal does.</para>
+</section>
+<section id="mthPyInputStreamClose"><title>close</title>
+<indexterm><primary>close method</primary><secondary>of PyInputStream class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/pyinputstream_close.svg" scale="55" /></imageobject></mediaobject>
+<para>Does nothing, and returns 0.</para>
+</section>
+<section id="mthPyInputStreamFile"><title>file</title>
+<indexterm><primary>file method</primary><secondary>of PyInputStream class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/pyinputstream_file.svg" scale="55" /></imageobject></mediaobject>
+<para>Returns the Python stream it reads now, or &nil; when it is
+&None;.</para>
+</section>
+<section id="mthPyInputStreamLineIn"><title>lineIn</title>
+<indexterm><primary>lineIn method</primary><secondary>of PyInputStream class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/pyinputstream_linein.svg" scale="55" /></imageobject></mediaobject>
+<para>Writes the prefix to <literal>.output</literal>, as a prompt, then reads
+a line and returns it without its line end. Returns an empty string at the
+end.</para>
+</section>
+<section id="mthPyInputStreamLines"><title>lines</title>
+<indexterm><primary>lines method</primary><secondary>of PyInputStream class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/pyinputstream_lines.svg" scale="55" /></imageobject></mediaobject>
+<para>Returns 1, as <xref linkend="mthPyInputStreamChars" xrefstyle="select:title"/>.</para>
+</section>
+<section id="mthPyInputStreamPrefix"><title>prefix</title>
+<indexterm><primary>prefix method</primary><secondary>of PyInputStream class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/pyinputstream_prefix.svg" scale="55" /></imageobject></mediaobject>
+<para>Returns the prefix, or &nil; for none.</para>
+</section>
+<section id="mthPyInputStreamPrefixSet"><title>prefix=</title>
+<indexterm><primary>prefix= method</primary><secondary>of PyInputStream class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/pyinputstream_prefixset.svg" scale="55" /></imageobject></mediaobject>
+<para>Sets the prefix; &nil; for none.</para>
+</section>
+<section id="mthPyInputStreamStream"><title>stream</title>
+<indexterm><primary>stream method</primary><secondary>of PyInputStream class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/pyinputstream_stream.svg" scale="55" /></imageobject></mediaobject>
+<para>Returns the stream given to <methodname>new</methodname>.</para>
+</section>
+<section id="mthPyInputStreamString"><title>string</title>
+<indexterm><primary>string method</primary><secondary>of PyInputStream class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/pyinputstream_string.svg" scale="55" /></imageobject></mediaobject>
+<para>Returns a description: <computeroutput>a PyInputStream (stdin, prefix REXXin?&gt;)</computeroutput>.</para>
+</section>
+</section>
+
+</chapter>

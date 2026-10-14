@@ -76,7 +76,7 @@ Keyword arguments go in a marker as the last argument: `plt~plot(x, y, .py~kw("c
 | `a + b`, `-a`, `a < b`, `a // b`... | Python's operators |
 | `a = b`, `a \= b` | `a == b`, `a != b` |
 | `a == b`, `a \== b` | `a is b`, `a is not b` |
-| `o~hashCode` | consistent with `=`, so a `.PyObject` can be the index of a Rexx collection |
+| `o~hashCode` | consistent with `==` (identity), so a `.PyObject` can be the index of a Rexx collection |
 | `o~copy`, `o~send`, `o~start`, `o~run`, `o~request` | Python's, when the object has that attribute (`request` with no arguments); Rexx's Object methods otherwise |
 
 ## Values

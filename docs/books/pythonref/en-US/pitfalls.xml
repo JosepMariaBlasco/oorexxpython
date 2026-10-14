@@ -1,0 +1,66 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<!DOCTYPE appendix PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "pythonref.ent">
+%BOOK_ENTITIES;
+]>
+<!-- Licensed under the Apache License, Version 2.0. -->
+<appendix id="pitfalls"><title>Pitfalls</title>
+<indexterm><primary>pitfalls</primary></indexterm>
+<para>The bridge's rules are few, and each follows from a difference between
+the two languages. These are the places where they surprise.</para>
+<variablelist>
+<varlistentry><term><computeroutput>o~name</computeroutput> calls a method</term>
+<listitem><para>Without arguments, a function or a method is called, not
+returned: <computeroutput>server~handle_request</computeroutput> runs it. To
+pass a method as a value (a callback, a thread's target), take it with
+<computeroutput>o~getattr("handle_request")</computeroutput>.</para></listitem></varlistentry>
+<varlistentry><term>Names in any case can pick the wrong attribute</term>
+<listitem><para>Of <literal>logging.info</literal> and
+<literal>logging.INFO</literal>, the lowercase one wins, so
+<computeroutput>logging~INFO</computeroutput> calls the function (and fails,
+as it wants a message). The constant is
+<computeroutput>logging~getattr("INFO")</computeroutput>.</para></listitem></varlistentry>
+<varlistentry><term>Text that looks like a number becomes a number</term>
+<listitem><para><literal>"2026"</literal> goes as the <literal>int</literal>
+2026, which <computeroutput>os.path.join("dir", "2026")</computeroutput>
+refuses, and <computeroutput>d["1"]</computeroutput> is
+<computeroutput>d[1]</computeroutput>. Use <computeroutput>.py~str("2026")</computeroutput>,
+or import the module as <literal>"string"</literal>
+(<xref linkend="valuesStrings"/>).</para></listitem></varlistentry>
+<varlistentry><term>Positions count from 0</term>
+<listitem><para><computeroutput>o[0]</computeroutput> is the first item of a
+Python list or tuple, and <computeroutput>server_address[1]</computeroutput>
+the port. <xref linkend="mthPyObjectMakeArrayProxy" xrefstyle="select:title"/>
+counts from 1.</para></listitem></varlistentry>
+<varlistentry><term>Rexx methods win</term>
+<listitem><para><methodname>class</methodname>, <methodname>isA</methodname>,
+<methodname>string</methodname>, <methodname>hasMethod</methodname> and the
+other methods of Rexx's Object are Rexx's: <computeroutput>l~class</computeroutput>
+is <classname>PyObject</classname>, Python's is
+<computeroutput>l~getattr("__class__")</computeroutput>.
+<methodname>copy</methodname>, <methodname>send</methodname>,
+<methodname>start</methodname>, <methodname>run</methodname> and
+<methodname>request</methodname> are the exception
+(<xref linkend="mthPyObjectCopy" xrefstyle="select:title"/>).</para></listitem></varlistentry>
+<varlistentry><term>A class is not called</term>
+<listitem><para><computeroutput>.py~dict</computeroutput> is the class
+<literal>dict</literal>, not an empty dict: classes are returned, so that
+their attributes can be reached. Make an instance with
+<computeroutput>.py~dict~new</computeroutput>.</para></listitem></varlistentry>
+<varlistentry><term>Python's <literal>str</literal>, <literal>int</literal> and <literal>float</literal> on &py; are the bridge's</term>
+<listitem><para><computeroutput>.py~str(x)</computeroutput> keeps the result as
+a <classname>PyObject</classname>, and <computeroutput>.py~str</computeroutput>
+without an argument is an empty one, not the class: to name the class, as a
+base or a type, write <literal>"str"</literal>
+(<computeroutput>.py~extend(self, "str")</computeroutput>) or
+<computeroutput>.py~getattr("str")</computeroutput>.</para></listitem></varlistentry>
+<varlistentry><term>Operators need the Python object on the left</term>
+<listitem><para><computeroutput>a * 2</computeroutput> is numpy's;
+<computeroutput>2 * a</computeroutput> is Rexx's, which needs a number
+(<xref linkend="msgOperators"/>).</para></listitem></varlistentry>
+<varlistentry><term>Bytes are strings</term>
+<listitem><para>Python's <literal>bytes</literal> come to Rexx as Rexx
+strings, and a Rexx string goes as a <literal>str</literal> (or a number):
+to write to a binary stream, <computeroutput>.py~box("bytes", text)</computeroutput>.</para></listitem></varlistentry>
+</variablelist>
+</appendix>

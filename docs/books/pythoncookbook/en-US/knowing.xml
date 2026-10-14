@@ -1,0 +1,86 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "pythoncookbook.ent">
+%BOOK_ENTITIES;
+]>
+<!-- Licensed under the Apache License, Version 2.0. -->
+<chapter id="ckKnowing"><title>Things Worth Knowing</title>
+<indexterm><primary>pitfalls</primary></indexterm>
+
+<para>The bridge has few rules. These are the ones that show up in the
+recipes, on one page.</para>
+
+<table id="ckCheatSheet" frame="all" pgwide="1">
+<title>ooRexx using Python, at a glance</title>
+<tgroup cols="2">
+<colspec colwidth="2*"/><colspec colwidth="3*"/>
+<thead><row><entry>Rexx</entry><entry>Python</entry></row></thead>
+<tbody>
+<row><entry><computeroutput>m = .py~import("math")</computeroutput></entry><entry><computeroutput>import math</computeroutput></entry></row>
+<row><entry><computeroutput>.py~len(x)</computeroutput>, <computeroutput>.py~sorted(x)</computeroutput></entry><entry>the builtins: <computeroutput>len(x)</computeroutput>, <computeroutput>sorted(x)</computeroutput></entry></row>
+<row><entry><computeroutput>o~name(a, b)</computeroutput>, <computeroutput>o~name</computeroutput></entry><entry><computeroutput>o.name(a, b)</computeroutput>; <computeroutput>o.name</computeroutput>, called if it is a function</entry></row>
+<row><entry><computeroutput>c~new(a)</computeroutput>, <computeroutput>m~Counter(a)</computeroutput></entry><entry><computeroutput>c(a)</computeroutput>, <computeroutput>m.Counter(a)</computeroutput>: a class called makes an instance</entry></row>
+<row><entry><computeroutput>o~getattr("INFO")</computeroutput></entry><entry><computeroutput>o.INFO</computeroutput>, by its exact name</entry></row>
+<row><entry><computeroutput>f(x, .py~kw("sep", "-"))</computeroutput></entry><entry><computeroutput>f(x, sep="-")</computeroutput></entry></row>
+<row><entry><computeroutput>o[0]</computeroutput>, <computeroutput>o[i, j]</computeroutput>, <computeroutput>o[.py~slice(1, .nil)]</computeroutput></entry><entry><computeroutput>o[0]</computeroutput>, <computeroutput>o[i, j]</computeroutput>, <computeroutput>o[1:]</computeroutput></entry></row>
+<row><entry><computeroutput>do x over o</computeroutput></entry><entry><computeroutput>for x in o</computeroutput></entry></row>
+<row><entry><computeroutput>a + b</computeroutput>, <computeroutput>a &gt; 2</computeroutput>, <computeroutput>a % b</computeroutput></entry><entry><computeroutput>a + b</computeroutput>, <computeroutput>a &gt; 2</computeroutput>, <computeroutput>a // b</computeroutput> (the meaning is kept)</entry></row>
+<row><entry><computeroutput>(1, 2)</computeroutput></entry><entry><computeroutput>[1, 2]</computeroutput>: a Rexx Array goes as a list</entry></row>
+<row><entry><computeroutput>.py~str(2026)</computeroutput>, <computeroutput>py.box("float", 1)</computeroutput></entry><entry><computeroutput>"2026"</computeroutput>, <computeroutput>1.0</computeroutput></entry></row>
+<row><entry><computeroutput>signal on syntax</computeroutput></entry><entry><computeroutput>except</computeroutput>: SYNTAX 98.900</entry></row>
+<row><entry><computeroutput>::class C subclass PyObject</computeroutput> and <computeroutput>.py~extend(self, base)</computeroutput></entry><entry><computeroutput>class C(base)</computeroutput></entry></row>
+</tbody>
+</tgroup>
+</table>
+
+<itemizedlist>
+<listitem><para><emphasis role="bold">Names in any case.</emphasis>
+<computeroutput>o~name</computeroutput> finds <literal>name</literal>,
+<literal>Name</literal> or <literal>NAME</literal>, the lowercase one first:
+<computeroutput>logging~INFO</computeroutput> finds the function
+<literal>logging.info</literal>, and the constant needs
+<computeroutput>logging~getattr("INFO")</computeroutput>
+(<xref linkend="ckLogging"/>).</para></listitem>
+<listitem><para><emphasis role="bold">Functions are called, classes are
+not.</emphasis> An attribute that is a function or a method is called when
+used without arguments; a class is not:
+<computeroutput>io~StringIO~new</computeroutput> makes an instance
+(<xref linkend="ckCsv"/>). To pass a method as a value, take it with
+<methodname>getattr</methodname>.</para></listitem>
+<listitem><para><emphasis role="bold">Numbers go as numbers.</emphasis> A Rexx
+string that is a number goes as an <literal>int</literal> or a
+<literal>float</literal>; text that must stay text needs
+<computeroutput>.py~str(x)</computeroutput>, or a module imported as
+<literal>"string"</literal> (<xref linkend="ckValuesText"/>).</para></listitem>
+<listitem><para><emphasis role="bold"><literal>.true</literal> is 1.</emphasis>
+It goes to Python as the <literal>int</literal> 1, except to a parameter
+annotated <literal>bool</literal>, where it goes as <literal>True</literal>
+(pandas' <literal>inplace=</literal>, <xref linkend="ckPandas"/>). For a
+function without annotations that insists on a real <literal>bool</literal>,
+<computeroutput>py.box("bool", 1)</computeroutput> makes
+<literal>True</literal> (<xref linkend="ckJson"/>).</para></listitem>
+<listitem><para><emphasis role="bold">Python counts from 0.</emphasis>
+<computeroutput>o[0]</computeroutput> is the first item;
+<computeroutput>o~makeArrayProxy</computeroutput> counts from 1
+(<xref linkend="ckArrayProxy"/>).</para></listitem>
+<listitem><para><emphasis role="bold">The Python object on the left.</emphasis>
+Rexx's operators are Python's when the left operand is the Python object:
+<computeroutput>a * 10</computeroutput>, not
+<computeroutput>10 * a</computeroutput> (<xref linkend="ckNumpy"/>).</para></listitem>
+<listitem><para><emphasis role="bold">Rexx's methods win.</emphasis>
+<methodname>class</methodname>, <methodname>string</methodname>,
+<methodname>isA</methodname> and the other methods of Rexx's Object are
+Rexx's: <computeroutput>o~class</computeroutput> is
+<classname>PyObject</classname>; Python's type is
+<computeroutput>.py~type(o)</computeroutput>.</para></listitem>
+<listitem><para><emphasis role="bold">Extending a Python class.</emphasis> The
+Rexx class is a subclass of <classname>PyObject</classname> that calls
+<computeroutput>.py~extend(self, base)</computeroutput> in its
+<methodname>activate</methodname> class method; its
+<methodname>init</methodname> passes the arguments to the base with
+<computeroutput>self~init:super(...)</computeroutput>, and
+<computeroutput>self~name:super(...)</computeroutput> is the base's own
+member (<xref linkend="ckSubclassing"/>).</para></listitem>
+</itemizedlist>
+
+</chapter>

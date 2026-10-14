@@ -1,0 +1,26 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<!DOCTYPE legalnotice PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "pythonref.ent">
+%BOOK_ENTITIES;
+]>
+<!-- Licensed under the Apache License, Version 2.0. -->
+<legalnotice>
+    <para>
+        Copyright <trademark class="copyright"></trademark> &YEAR; &HOLDER;.
+    </para>
+    <para>
+        This documentation is part of ooRexx/Python, and is made available
+        under the terms of the Apache License, Version 2.0, as the rest of
+        the project. A copy is in the file <filename>LICENSE</filename> of
+        the project's repository, and at the following address:
+        <ulink url="https://www.apache.org/licenses/LICENSE-2.0">https://www.apache.org/licenses/LICENSE-2.0</ulink>.
+    </para>
+    <para>
+        The project is at
+        <ulink url="https://github.com/JosepMariaBlasco/oorexxpython">https://github.com/JosepMariaBlasco/oorexxpython</ulink>.
+    </para>
+    <para>
+        The design of the bridge follows Rony G. Flatscher's BSF4ooRexx,
+        moved from Java to Python.
+    </para>
+</legalnotice>

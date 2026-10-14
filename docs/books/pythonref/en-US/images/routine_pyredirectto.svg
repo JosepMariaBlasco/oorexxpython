@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1509" height="359">
+         <defs>
+            <style type="text/css">
+               @namespace "http://www.w3.org/2000/svg";
+               .line                 {fill: none; stroke: #1F1F1F;}
+               .bold-line            {stroke: #0A0A0A; shape-rendering: crispEdges; stroke-width:
+               2; }
+               .thin-line            {stroke: #0F0F0F; shape-rendering: crispEdges}
+               .filled               {fill: #1F1F1F; stroke: none;}
+               text.terminal         {font-family: Verdana, Sans-serif;
+               font-size: 12px;
+               fill: #0A0A0A;
+               font-weight: bold;
+               }
+               text.nonterminal      {font-family: Verdana, Sans-serif; font-style: italic;
+               font-size: 12px;
+               fill: #0D0D0D;
+               }
+               text.regexp           {font-family: Verdana, Sans-serif;
+               font-size: 12px;
+               fill: #0F0F0F;
+               }
+               rect, circle, polygon {fill: #1F1F1F; stroke: #1F1F1F;}
+               rect.terminal         {fill: #CCCCCC; stroke: #1F1F1F;}
+               rect.nonterminal      {fill: #E3E3E3; stroke: #1F1F1F;}
+               rect.text             {fill: none; stroke: none;}
+               polygon.regexp        {fill: #EFEFEF; stroke: #1F1F1F;}
+
+            </style>
+         </defs>
+
+         <polygon points="11 17 3 13 3 21"></polygon>
+         <polygon points="19 17 11 13 11 21"></polygon>
+         <rect x="33" y="3" width="110" height="32" rx="10"></rect>
+         <rect x="31" y="1" width="110" height="32" class="terminal" rx="10"></rect>
+         <text class="terminal" x="41" y="21">py.redirectTo</text>
+         <rect x="45" y="89" width="26" height="32" rx="10"></rect>
+         <rect x="43" y="87" width="26" height="32" class="terminal" rx="10"></rect>
+         <text class="terminal" x="53" y="107">(</text>
+         <rect x="111" y="89" width="36" height="32" rx="10"></rect>
+         <rect x="109" y="87" width="36" height="32" class="terminal" rx="10"></rect>
+         <text class="terminal" x="119" y="107">'R'</text>
+         <rect x="111" y="133" width="36" height="32" rx="10"></rect>
+         <rect x="109" y="131" width="36" height="32" class="terminal" rx="10"></rect>
+         <text class="terminal" x="119" y="151">'P'</text>
+         <rect x="187" y="165" width="24" height="32" rx="10"></rect>
+         <rect x="185" y="163" width="24" height="32" class="terminal" rx="10"></rect>
+         <text class="terminal" x="195" y="183">,</text><a xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="#input" xlink:title="input">
+            <rect x="251" y="197" width="52" height="32"></rect>
+            <rect x="249" y="195" width="52" height="32" class="nonterminal"></rect>
+            <text class="nonterminal" x="259" y="215">input</text></a><rect x="363" y="197" width="24" height="32" rx="10"></rect>
+         <rect x="361" y="195" width="24" height="32" class="terminal" rx="10"></rect>
+         <text class="terminal" x="371" y="215">,</text><a xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="#output" xlink:title="output">
+            <rect x="427" y="229" width="62" height="32"></rect>
+            <rect x="425" y="227" width="62" height="32" class="nonterminal"></rect>
+            <text class="nonterminal" x="435" y="247">output</text></a><rect x="549" y="229" width="24" height="32" rx="10"></rect>
+         <rect x="547" y="227" width="24" height="32" class="terminal" rx="10"></rect>
+         <text class="terminal" x="557" y="247">,</text><a xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="#error" xlink:title="error">
+            <rect x="613" y="261" width="50" height="32"></rect>
+            <rect x="611" y="259" width="50" height="32" class="nonterminal"></rect>
+            <text class="nonterminal" x="621" y="279">error</text></a><rect x="723" y="261" width="24" height="32" rx="10"></rect>
+         <rect x="721" y="259" width="24" height="32" class="terminal" rx="10"></rect>
+         <text class="terminal" x="731" y="279">,</text><a xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="#debugInput" xlink:title="debugInput">
+            <rect x="787" y="293" width="94" height="32"></rect>
+            <rect x="785" y="291" width="94" height="32" class="nonterminal"></rect>
+            <text class="nonterminal" x="795" y="311">debugInput</text></a><rect x="941" y="293" width="24" height="32" rx="10"></rect>
+         <rect x="939" y="291" width="24" height="32" class="terminal" rx="10"></rect>
+         <text class="terminal" x="949" y="311">,</text><a xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="#traceOutput" xlink:title="traceOutput">
+            <rect x="1005" y="325" width="96" height="32"></rect>
+            <rect x="1003" y="323" width="96" height="32" class="nonterminal"></rect>
+            <text class="nonterminal" x="1013" y="343">traceOutput</text></a><rect x="1161" y="325" width="24" height="32" rx="10"></rect>
+         <rect x="1159" y="323" width="24" height="32" class="terminal" rx="10"></rect>
+         <text class="terminal" x="1169" y="343">,</text><a xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="#prefixes" xlink:title="prefixes">
+            <rect x="1205" y="325" width="70" height="32"></rect>
+            <rect x="1203" y="323" width="70" height="32" class="nonterminal"></rect>
+            <text class="nonterminal" x="1213" y="343">prefixes</text></a><rect x="1435" y="89" width="26" height="32" rx="10"></rect>
+         <rect x="1433" y="87" width="26" height="32" class="terminal" rx="10"></rect>
+         <text class="terminal" x="1443" y="107">)</text>
+         <path class="line" d="m19 17 h2 m0 0 h10 m110 0 h10 m2 0 l2 0 m2 0 l2 0 m2 0 l2 0 m-162 54 l2 0 m2 0 l2 0 m2 0 l2 0 m22 0 h10 m0 0 h1426 m-1456 0 h20 m1436 0 h20 m-1476 0 q10 0 10 10 m1456 0 q0 -10 10 -10 m-1466 10 v12 m1456 0 v-12 m-1456 12 q0 10 10 10 m1436 0 q10 0 10 -10 m-1446 10 h10 m26 0 h10 m20 0 h10 m36 0 h10 m0 0 h1248 m-1324 0 h20 m1304 0 h20 m-1344 0 q10 0 10 10 m1324 0 q0 -10 10 -10 m-1334 10 v24 m1324 0 v-24 m-1324 24 q0 10 10 10 m1304 0 q10 0 10 -10 m-1314 10 h10 m36 0 h10 m20 0 h10 m0 0 h1198 m-1228 0 h20 m1208 0 h20 m-1248 0 q10 0 10 10 m1228 0 q0 -10 10 -10 m-1238 10 v12 m1228 0 v-12 m-1228 12 q0 10 10 10 m1208 0 q10 0 10 -10 m-1218 10 h10 m24 0 h10 m20 0 h10 m0 0 h62 m-92 0 h20 m72 0 h20 m-112 0 q10 0 10 10 m92 0 q0 -10 10 -10 m-102 10 v12 m92 0 v-12 m-92 12 q0 10 10 10 m72 0 q10 0 10 -10 m-82 10 h10 m52 0 h10 m40 -32 h10 m0 0 h1002 m-1032 0 h20 m1012 0 h20 m-1052 0 q10 0 10 10 m1032 0 q0 -10 10 -10 m-1042 10 v12 m1032 0 v-12 m-1032 12 q0 10 10 10 m1012 0 q10 0 10 -10 m-1022 10 h10 m24 0 h10 m20 0 h10 m0 0 h72 m-102 0 h20 m82 0 h20 m-122 0 q10 0 10 10 m102 0 q0 -10 10 -10 m-112 10 v12 m102 0 v-12 m-102 12 q0 10 10 10 m82 0 q10 0 10 -10 m-92 10 h10 m62 0 h10 m40 -32 h10 m0 0 h796 m-826 0 h20 m806 0 h20 m-846 0 q10 0 10 10 m826 0 q0 -10 10 -10 m-836 10 v12 m826 0 v-12 m-826 12 q0 10 10 10 m806 0 q10 0 10 -10 m-816 10 h10 m24 0 h10 m20 0 h10 m0 0 h60 m-90 0 h20 m70 0 h20 m-110 0 q10 0 10 10 m90 0 q0 -10 10 -10 m-100 10 v12 m90 0 v-12 m-90 12 q0 10 10 10 m70 0 q10 0 10 -10 m-80 10 h10 m50 0 h10 m40 -32 h10 m0 0 h602 m-632 0 h20 m612 0 h20 m-652 0 q10 0 10 10 m632 0 q0 -10 10 -10 m-642 10 v12 m632 0 v-12 m-632 12 q0 10 10 10 m612 0 q10 0 10 -10 m-622 10 h10 m24 0 h10 m20 0 h10 m0 0 h104 m-134 0 h20 m114 0 h20 m-154 0 q10 0 10 10 m134 0 q0 -10 10 -10 m-144 10 v12 m134 0 v-12 m-134 12 q0 10 10 10 m114 0 q10 0 10 -10 m-124 10 h10 m94 0 h10 m40 -32 h10 m0 0 h364 m-394 0 h20 m374 0 h20 m-414 0 q10 0 10 10 m394 0 q0 -10 10 -10 m-404 10 v12 m394 0 v-12 m-394 12 q0 10 10 10 m374 0 q10 0 10 -10 m-384 10 h10 m24 0 h10 m20 0 h10 m0 0 h106 m-136 0 h20 m116 0 h20 m-156 0 q10 0 10 10 m136 0 q0 -10 10 -10 m-146 10 v12 m136 0 v-12 m-136 12 q0 10 10 10 m116 0 q10 0 10 -10 m-126 10 h10 m96 0 h10 m40 -32 h10 m0 0 h124 m-154 0 h20 m134 0 h20 m-174 0 q10 0 10 10 m154 0 q0 -10 10 -10 m-164 10 v12 m154 0 v-12 m-154 12 q0 10 10 10 m134 0 q10 0 10 -10 m-144 10 h10 m24 0 h10 m0 0 h10 m70 0 h10 m140 -236 h10 m26 0 h10 m23 -32 h-3"></path>
+         <polygon points="1499 71 1507 67 1507 75"></polygon>
+         <polygon points="1499 71 1491 67 1491 75"></polygon>
+</svg>

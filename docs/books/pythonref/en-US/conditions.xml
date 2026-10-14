@@ -1,0 +1,106 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "pythonref.ent">
+%BOOK_ENTITIES;
+]>
+<!-- Licensed under the Apache License, Version 2.0. -->
+<chapter id="conditions"><title>Errors and Conditions</title>
+<indexterm><primary>conditions</primary></indexterm>
+<indexterm><primary>exceptions</primary></indexterm>
+
+<section id="condPythonInRexx"><title>Python Exceptions in Rexx</title>
+<indexterm><primary>SYNTAX condition</primary>
+<secondary>98.900</secondary></indexterm>
+<para>A Python exception raised by a call from Rexx is the condition SYNTAX
+98.900, whose message is <literal>Python error: </literal> followed by the
+exception's type and text: <literal>Python error: TypeError: ...</literal>.
+Its condition object has, in the <literal>ADDITIONAL</literal> Array:</para>
+<variablelist>
+<varlistentry><term><computeroutput>additional[1]</computeroutput></term>
+<listitem><para>the message.</para></listitem></varlistentry>
+<varlistentry><term><computeroutput>additional[2]</computeroutput></term>
+<listitem><para>the traceback, as Python formats it.</para></listitem></varlistentry>
+<varlistentry><term><computeroutput>additional[3]</computeroutput></term>
+<listitem><para>the exception itself, a <classname>PyObject</classname>.</para></listitem></varlistentry>
+</variablelist>
+<para>Rexx code traps it as any SYNTAX condition, with
+<computeroutput>signal on syntax</computeroutput> or
+<computeroutput>call on syntax</computeroutput>.</para>
+
+<example id="ex.conditions-trap">
+<title>A Python exception, trapped in Rexx</title>
+<programlisting language="rexx">signal on syntax
+say .py~int("seven")
+exit
+syntax:
+  c = condition("O")
+  say c~code
+  say c~message
+  e = c~additional[3]                   -- the exception
+  say .py~type(e)~getattr("__name__") e~args
+
+::requires "python.cls"</programlisting>
+<screen>98.900
+Python error: ValueError: invalid literal for int() with base 10: 'seven'.
+ValueError ("invalid literal for int() with base 10: 'seven'",)</screen>
+</example>
+</section>
+
+<section id="condRaise"><title>Raising Python Exceptions from Rexx</title>
+<para><xref linkend="mthPythonRaise" xrefstyle="select:title"/> raises a
+Python exception from Rexx code: an exception object, or an exception class
+called with the remaining arguments. In Rexx it is the same SYNTAX 98.900 as
+when Python raises it.</para>
+<example id="ex.conditions-raise">
+<title>.py~raise</title>
+<programlisting language="rexx">signal on syntax
+.py~raise(.py~KeyError, "missing")
+syntax:
+  say condition("O")~message
+  say .py~isinstance(condition("O")~additional[3], .py~KeyError)
+
+::requires "python.cls"</programlisting>
+<screen>Python error: KeyError: 'missing'.
+1</screen>
+</example>
+</section>
+
+<section id="condRoundTrip"><title>Exceptions that Go Back to Python</title>
+<para>A Python exception that goes through Rexx code back to Python is raised
+again as itself. Python calls Rexx (a callback, an override of a class that
+extends a Python class, a routine), the Rexx code calls Python, which raises;
+if the Rexx code does not trap the condition, the Python caller gets the
+original exception, with its traceback. Python's protocols depend on it: a
+sequence ends with <literal>IndexError</literal>, an iterator with
+<literal>StopIteration</literal>, a mapping says "missing" with
+<literal>KeyError</literal>.</para>
+</section>
+
+<section id="condRexxInPython"><title>Rexx Conditions in Python</title>
+<indexterm><primary>RexxError</primary></indexterm>
+<para>Any other Rexx condition that reaches Python, an error in Rexx code that
+Python called, is an <xref linkend="clsRexxError" xrefstyle="select:title"/>,
+whose text is Rexx's message:
+<literal>Rexx error 42.3: Arithmetic overflow; divisor must not be zero.</literal></para>
+<example id="ex.conditions-python">
+<title>Rexx errors and Python exceptions, seen from Python</title>
+<programlisting language="python">import oorexx
+
+with oorexx.Interpreter() as rexx:
+    try:
+        rexx.eval("1 / 0")
+    except oorexx.RexxError as e:
+        print(type(e).__name__, isinstance(e, RuntimeError))
+        print(e)
+    item = rexx.routine("use arg d, k; return d[k]")
+    try:
+        item({}, "nope")                # Python's KeyError, through Rexx
+    except KeyError as e:
+        print("KeyError", e)</programlisting>
+<screen>RexxError True
+Rexx error 42.3: Arithmetic overflow; divisor must not be zero.
+KeyError 'nope'</screen>
+</example>
+</section>
+
+</chapter>

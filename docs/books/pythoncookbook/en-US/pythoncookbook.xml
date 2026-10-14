@@ -1,0 +1,32 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "pythoncookbook.ent">
+%BOOK_ENTITIES;
+]>
+<!--
+    ooRexx and Python: Cookbook.
+
+    Licensed under the Apache License, Version 2.0.
+
+    Built with ooRexx's documentation tools (docs/trunk/tools/bldoc_orx):
+    see scripts/build-books.sh.  A line <?sample NN-name.rex?> is replaced,
+    when the book is built, by that sample of samples/ (its program, the
+    Python it replaces, and its output: scripts/book-samples.rex), so the
+    book shows the samples as they are, which tests/rexx/Samples.testGroup
+    runs and checks.
+-->
+<book>
+	<xi:include href="Book_Info.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="Preface.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="start.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="values.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="objects.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="errors.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="callbacks.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="stdlib.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="datascience.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="subclassing.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="frompython.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<xi:include href="knowing.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+	<index />
+</book>

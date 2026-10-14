@@ -235,6 +235,9 @@ is a failure). `PYTHONS="3.9 3.13"` and `TESTS=Threads.testGroup` choose;
   for Rexx and Python programmers (a living document, for discussion).
 - `docs/design.md` — how the bridge works and why: names, values, keyword
   arguments, threads and locks, lifetime.
+- `docs/books/` — two books in the format of ooRexx's own, built with its
+  documentation tools: *Reference* (`pythonref`, in the style of `rexxref`)
+  and *Cookbook* (`pythoncookbook`, one recipe per sample); see its README.
 - `notes/oorexx-bugs.md` — the ooRexx bugs the bridge's tests found, and
   what the code does about each.
 

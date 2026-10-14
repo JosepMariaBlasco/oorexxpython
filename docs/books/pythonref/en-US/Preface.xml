@@ -1,0 +1,38 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<!DOCTYPE preface PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "pythonref.ent">
+%BOOK_ENTITIES;
+]>
+<!-- Licensed under the Apache License, Version 2.0. -->
+<preface id="pref-pythonref-Preface">
+<title>Preface</title>
+
+<para>This book describes ooRexx/Python, a native bridge between Open Object
+Rexx and Python 3 that works both ways. An ooRexx program uses Python
+modules (the standard library, numpy, pandas, matplotlib, anything
+installed) as Rexx objects; a Python program creates ooRexx interpreters,
+runs Rexx code, and uses Rexx objects as Python objects.</para>
+
+<para>This book is a reference rather than a tutorial. It assumes you know
+ooRexx, and enough Python to read the documentation of the Python modules you
+want to use. Its companion, <citetitle pubwork="book">ooRexx/Python:
+Cookbook</citetitle>, introduces the main concepts through short programs
+that can be run as they are.</para>
+
+<para>Sections that document a concept carry a small example: a complete
+program, followed by what it prints. Every one of them is run, and its output
+checked, by the project's tests.</para>
+
+<xi:include href="Common_Content/diagrams.xml" xmlns:xi="http://www.w3.org/2001/XInclude" />
+
+<section id="relinf"><title>Related Information</title>
+<para>See also <citetitle pubwork="book">ooRexx and Python: Cookbook</citetitle>,
+<citetitle pubwork="book">Open Object Rexx: Reference</citetitle>, and the
+Python documentation at
+<ulink url="https://docs.python.org/3/">https://docs.python.org/3/</ulink>.
+How the bridge is built, and why each choice was made, is in the design
+document of the project's repository,
+<filename>docs/design.md</filename>.</para>
+</section>
+
+</preface>

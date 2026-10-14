@@ -1,0 +1,75 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "pythoncookbook.ent">
+%BOOK_ENTITIES;
+]>
+<!-- Licensed under the Apache License, Version 2.0. -->
+<chapter id="ckPython"><title>Python Using ooRexx</title>
+<indexterm><primary>oorexx module</primary></indexterm>
+
+<para>From Python, the bridge is the module <literal>oorexx</literal>:
+interpreters, Rexx objects, ADDRESS environments and Rexx's standard streams.
+<xref linkend="ckFromPython"/> showed how to run Rexx code; these recipes
+go further.</para>
+
+<section id="ckRexxObjects"><title>Rexx Objects in Python</title>
+<para><emphasis role="bold">You want</emphasis> to use Rexx objects from
+Python.</para>
+<?sample 31-rexx-objects.py?>
+<para><emphasis role="bold">How it works.</emphasis> A Rexx object comes to
+Python as an <literal>oorexx.RexxObject</literal>: <computeroutput>o.name(args)</computeroutput>
+sends the message <literal>NAME</literal>, <computeroutput>o[k]</computeroutput>
+is Rexx's <literal>[]</literal>, <computeroutput>len(o)</computeroutput> is
+<methodname>items</methodname>, and iterating it is <literal>DO OVER</literal>.
+Strings, numbers, <literal>.nil</literal> and Arrays are converted instead: an
+Array comes as a list, a copy, and a Rexx string that is a number, such as
+the <literal>20261007</literal> of <methodname>standardDate</methodname>, as a
+Python <literal>int</literal>, which <computeroutput>str()</computeroutput>
+makes text again.</para>
+</section>
+
+<section id="ckAddress"><title>An ADDRESS Environment in Python</title>
+<indexterm><primary>ADDRESS</primary></indexterm>
+<para><emphasis role="bold">You want</emphasis> Rexx programs to send
+commands to Python code.</para>
+<?sample 32-address.py?>
+<para><emphasis role="bold">How it works.</emphasis> A Python function of two
+arguments, the command and a context, is the environment: given to
+<literal>Interpreter</literal> in <literal>command_environments</literal>, or
+added later with <methodname>add_command_environment</methodname>. What it
+returns is <literal>RC</literal>. Through the context it sets the variables of
+the code that issued the command (<methodname>set_var</methodname>), reads
+<literal>ADDRESS ... WITH INPUT</literal> lines and writes
+<literal>WITH OUTPUT</literal> ones.</para>
+</section>
+
+<section id="ckStdio"><title>Rexx's Output in Python</title>
+<indexterm><primary>streams</primary></indexterm>
+<para><emphasis role="bold">You want</emphasis> to capture what Rexx code
+says, or to feed it input.</para>
+<?sample 33-stdio.py?>
+<para><emphasis role="bold">How it works.</emphasis> In an interpreter Python
+creates, Rexx's standard streams go through Python's
+<literal>sys.stdout</literal>, <literal>sys.stderr</literal> and
+<literal>sys.stdin</literal>, looked up at every line, so
+<literal>contextlib.redirect_stdout</literal>, a notebook or a log captures
+them. Each line is marked as BSF4ooRexx marks it, <literal>REXXout&gt;</literal>
+or <literal>REXXerr&gt;</literal>; <literal>prefixes=False</literal> leaves the
+marks out. A Rexx program started by <command>rexx</command> can do the same
+with <computeroutput>call py.redirectTo</computeroutput>.</para>
+</section>
+
+<section id="ckSendMessage"><title>Messages by Name</title>
+<para><emphasis role="bold">You want</emphasis> to send a message whose name
+is in a variable, or is not a Python name.</para>
+<?sample 34-send-message.py?>
+<para><emphasis role="bold">How it works.</emphasis> BSF4ooRexx's
+<literal>RexxProxy</literal> methods: <methodname>sendMessage</methodname>
+takes the name as a string and the arguments in a list, and
+<methodname>sendMessage0</methodname> to <methodname>sendMessage5</methodname>
+take them one by one. <methodname>sendMessageScope</methodname> starts the
+method search at a class, as Rexx's <computeroutput>o~name:scope</computeroutput>:
+here the superclass's <methodname>describe</methodname>.</para>
+</section>
+
+</chapter>

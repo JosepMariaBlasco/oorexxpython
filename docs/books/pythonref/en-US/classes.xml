@@ -1,0 +1,1053 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "pythonref.ent">
+%BOOK_ENTITIES;
+]>
+<!-- Licensed under the Apache License, Version 2.0. -->
+<chapter id="classes"><title>Classes</title>
+<indexterm><primary>classes</primary>
+<secondary>of python.cls</secondary></indexterm>
+
+<para>This chapter describes the public classes of
+<filename>python.cls</filename>: <classname>Python</classname>, whose
+instance is the environment object &py;, <classname>PyObject</classname>,
+the class of every Python object in Rexx, <classname>PyArrayProxy</classname>
+and <classname>PyKwArgs</classname>. The stream classes,
+<classname>PyOutputStream</classname> and <classname>PyInputStream</classname>,
+are described in <xref linkend="streams"/>.</para>
+
+<!-- ===================================================================== -->
+<section id="clsPython"><title>Python Class</title>
+<indexterm><primary>Python class</primary></indexterm>
+<indexterm><primary>class</primary>
+<secondary>Python class</secondary></indexterm>
+<indexterm><primary>.py</primary></indexterm>
+
+<para>The <classname>Python</classname> class is a subclass of
+<classname>PyObject</classname> whose single instance, made when
+<filename>python.cls</filename> is loaded, is the environment object
+&py;. It is Python's <literal>builtins</literal> module: every message
+that is not one of the methods below is Python's builtin of that name,
+unchanged. <computeroutput>.py~len(x)</computeroutput> is
+<computeroutput>len(x)</computeroutput>,
+<computeroutput>.py~sorted(x)</computeroutput> is
+<computeroutput>sorted(x)</computeroutput>, and
+<computeroutput>.py~IndexError</computeroutput> is the exception class.</para>
+
+<table id="ooRexxPythonClass" frame="all" pgwide="1">
+<title>Python Class</title>
+<tgroup cols="1">
+<tbody>
+ <row><entry align="center"><emphasis role="bold">PyObject</emphasis></entry></row>
+ <row><entry>Methods inherited from the <xref linkend="clsPyObject" xrefstyle="select:title"/></entry></row>
+ <row><entry align="center"><emphasis role="bold">Python</emphasis></entry></row>
+ <row><entry>
+  <simplelist columns="3">
+   <member><xref linkend="mthPythonBuiltin" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPythonBox" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPythonDecimal" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPythonEval" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPythonExec" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPythonExtend" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPythonFloat" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPythonImport" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPythonInt" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPythonKw" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPythonMain" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPythonRaise" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPythonRedirectTo" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPythonStr" xrefstyle="select:title"/></member>
+  </simplelist>
+ </entry></row>
+</tbody>
+</tgroup>
+</table>
+
+<section id="mthPythonBuiltin"><title>Builtins</title>
+<indexterm><primary>builtins</primary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/python_builtin.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Any other message is Python's builtin of that name, as for any
+<classname>PyObject</classname> (see <xref linkend="messages"/>): a function
+is called, with the arguments if any; a class or an exception class is
+returned. <computeroutput>.py~list</computeroutput> is the class
+<literal>list</literal>; <computeroutput>.py~list(x)</computeroutput> calls it.
+To build a list, a tuple or a set from items, pass a Rexx Array:
+<computeroutput>.py~list((1, 2))</computeroutput>,
+<computeroutput>.py~tuple(("a", 1))</computeroutput>.</para>
+<para>Python's builtins <literal>str</literal>, <literal>int</literal> and
+<literal>float</literal> are the methods below, which keep the result as a
+<classname>PyObject</classname>.</para>
+
+<example id="ex.python-builtins">
+<title>Python's builtins</title>
+<programlisting language="rexx">say .py~len("abc") .py~max(3, 7, 5) .py~sorted((3, 1, 2))
+say .py~list(.py~range(4)) .py~tuple(("a", 1)) .py~round(2.567, 2)
+say .py~isinstance(.py~list~new, .py~list) .py~hex(255)
+
+::requires "python.cls"</programlisting>
+<screen>3 7 [1, 2, 3]
+[0, 1, 2, 3] ('a', 1) 2.57
+1 0xff</screen>
+</example>
+</section>
+
+<section id="mthPythonBox"><title>box</title>
+<indexterm><primary>box method</primary>
+<secondary>of Python class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/python_box.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Returns a Python object of the given <emphasis role="italic">type</emphasis>,
+made from the text of <emphasis role="italic">value</emphasis>, never through
+the number rule (<xref linkend="valuesToPython"/>), and kept as a
+<classname>PyObject</classname>, so that passing it on keeps its type.
+The argument order is BSF4ooRexx's <literal>box</literal>.
+<emphasis role="italic">type</emphasis> is one of:</para>
+<variablelist>
+<varlistentry><term><literal>"str"</literal></term><listitem><para>the text.</para></listitem></varlistentry>
+<varlistentry><term><literal>"int"</literal>, <literal>"float"</literal>, <literal>"complex"</literal></term><listitem><para>Python's <literal>int</literal>, <literal>float</literal> or <literal>complex</literal> of the text.</para></listitem></varlistentry>
+<varlistentry><term><literal>"bool"</literal></term><listitem><para><literal>True</literal> for <literal>1</literal>, <literal>False</literal> for <literal>0</literal>; any other value is an error.</para></listitem></varlistentry>
+<varlistentry><term><literal>"bytes"</literal></term><listitem><para>the bytes of the Rexx string.</para></listitem></varlistentry>
+<varlistentry><term><literal>"decimal"</literal>, <literal>"fraction"</literal></term><listitem><para><literal>decimal.Decimal</literal> or <literal>fractions.Fraction</literal> of the text.</para></listitem></varlistentry>
+<varlistentry><term>a <classname>PyObject</classname></term><listitem><para>a Python class or function, called with the text as a <literal>str</literal>.</para></listitem></varlistentry>
+</variablelist>
+<para>The type names are case-insensitive. See also
+<xref linkend="mthPythonStr" xrefstyle="select:title"/> and
+<xref linkend="rtnPyBox" xrefstyle="select:title"/>.</para>
+
+<example id="ex.python-box">
+<title>Python class &mdash; box method</title>
+<programlisting language="rexx">kind = .py~eval("lambda x: type(x).__name__")
+say kind~new(.py~box("str", 42)) kind~new(.py~box("float", 2))
+say .py~box("bytes", "ab") .py~box("bool", 1) .py~box("complex", "1+2j")
+say .py~box("decimal", "0.1") + .py~box("decimal", "0.2")
+say .py~box(.py~import("pathlib")~PurePosixPath, "/tmp")~name
+
+::requires "python.cls"</programlisting>
+<screen>str float
+b'ab' True (1+2j)
+0.3
+tmp</screen>
+</example>
+</section>
+
+<section id="mthPythonDecimal"><title>decimal</title>
+<indexterm><primary>decimal method</primary>
+<secondary>of Python class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/python_decimal.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Returns <computeroutput>decimal.Decimal(value)</computeroutput>, kept as
+a <classname>PyObject</classname>. A Rexx number goes as its text, so every
+digit is kept: Rexx numbers can have more digits than a Python
+<literal>float</literal>.</para>
+<example id="ex.python-decimal">
+<title>Python class &mdash; decimal method</title>
+<programlisting language="rexx">numeric digits 30
+x = 1 / 3
+say .py~float(x) .py~decimal(x)
+
+::requires "python.cls"</programlisting>
+<screen>0.3333333333333333 0.333333333333333333333333333333</screen>
+</example>
+</section>
+
+<section id="mthPythonEval"><title>eval</title>
+<indexterm><primary>eval method</primary>
+<secondary>of Python class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/python_eval.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Returns the value of the Python <emphasis role="italic">expression</emphasis>,
+evaluated with Python's <literal>eval</literal> in the namespace of the module
+<literal>__main__</literal> (see <xref linkend="mthPythonMain" xrefstyle="select:title"/>).
+The value follows <xref linkend="valuesFromPython"/>.</para>
+</section>
+
+<section id="mthPythonExec"><title>exec</title>
+<indexterm><primary>exec method</primary>
+<secondary>of Python class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/python_exec.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Runs the Python <emphasis role="italic">code</emphasis>, one statement or
+many (lines separated by line feeds), with Python's <literal>exec</literal> in
+the namespace of the module <literal>__main__</literal>. Returns &nil;. What
+the code defines stays in <literal>__main__</literal>, for later
+<methodname>eval</methodname>s and <methodname>exec</methodname>s and through
+<computeroutput>.py~main</computeroutput>.</para>
+<example id="ex.python-eval-exec">
+<title>Python class &mdash; eval, exec and main methods</title>
+<programlisting language="rexx">.py~exec("def area(r): return 3 * r * r" || "0a"x || "unit = 'cm2'")
+say .py~eval("area(2)") .py~main~unit
+area = .py~main~getattr("area")         -- the function, as a value
+say area~new(3)
+
+::requires "python.cls"</programlisting>
+<screen>12 cm2
+27</screen>
+</example>
+</section>
+
+<section id="mthPythonExtend"><title>extend</title>
+<indexterm><primary>extend method</primary>
+<secondary>of Python class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/python_extend.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Makes the Rexx <emphasis role="italic">class</emphasis>, a subclass of
+<classname>PyObject</classname>, extend the Python class
+<emphasis role="italic">base</emphasis>, and returns the Python class it makes
+for it. The same as the routine <xref linkend="rtnPyExtend" xrefstyle="select:title"/>;
+see <xref linkend="extend"/>.</para>
+</section>
+
+<section id="mthPythonFloat"><title>float</title>
+<indexterm><primary>float method</primary>
+<secondary>of Python class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/python_float.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Returns Python's <computeroutput>float(value)</computeroutput>, kept as a
+<classname>PyObject</classname>.</para>
+</section>
+
+<section id="mthPythonImport"><title>import</title>
+<indexterm><primary>import method</primary>
+<secondary>of Python class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/python_import.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Imports the Python module <emphasis role="italic">name</emphasis> and
+returns it, as a <classname>PyObject</classname>. A dotted name returns the
+submodule: <computeroutput>.py~import("matplotlib.pyplot")</computeroutput>
+is <computeroutput>import matplotlib.pyplot</computeroutput>, the module
+<literal>pyplot</literal>. A module is imported once per process, as in
+Python: later imports return the same module.</para>
+<para><emphasis role="italic">type</emphasis> says how Rexx strings go to the
+module: <literal>"number"</literal>, the default, follows the number rule;
+<literal>"string"</literal> sends every Rexx string as a
+<literal>str</literal> in the calls made through the module and through
+everything reached from it. See <xref linkend="valuesStrings"/>.</para>
+<para>See also <xref linkend="rtnPyImport" xrefstyle="select:title"/>.</para>
+<example id="ex.python-import">
+<title>Python class &mdash; import method</title>
+<programlisting language="rexx">math = .py~import("math")
+say math~factorial(25)                  -- Python's int: no digits lost
+say .py~import("os.path")~getattr("__name__") \== ""
+json = .py~import("json")
+say json~dumps(.py~list((1, "two", .nil)))
+
+::requires "python.cls"</programlisting>
+<screen>15511210043330985984000000
+1
+[1, "two", null]</screen>
+</example>
+</section>
+
+<section id="mthPythonInt"><title>int</title>
+<indexterm><primary>int method</primary>
+<secondary>of Python class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/python_int.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Returns Python's <computeroutput>int(value [, base])</computeroutput>,
+kept as a <classname>PyObject</classname>.</para>
+</section>
+
+<section id="mthPythonKw"><title>kw</title>
+<indexterm><primary>kw method</primary>
+<secondary>of Python class</secondary></indexterm>
+<indexterm><primary>keyword arguments</primary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/python_kw.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Returns a <xref linkend="clsPyKwArgs" xrefstyle="select:title"/>, the
+marker for keyword arguments, to be passed as the last argument of a call to
+Python. It is made from names and values in pairs, or from a
+<emphasis role="italic">collection</emphasis>: a Directory, a StringTable or
+any other MapCollection, whose indexes are the names. The names go to Python
+as written, in their case. See <xref linkend="msgKeywords"/> and
+<xref linkend="rtnPyKw" xrefstyle="select:title"/>.</para>
+</section>
+
+<section id="mthPythonMain"><title>main</title>
+<indexterm><primary>main method</primary>
+<secondary>of Python class</secondary></indexterm>
+<indexterm><primary>__main__</primary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/python_main.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Returns the module <literal>__main__</literal>, where
+<methodname>eval</methodname> and <methodname>exec</methodname> run. When a
+Python program runs the Rexx code, it is that program's main module.</para>
+</section>
+
+<section id="mthPythonRaise"><title>raise</title>
+<indexterm><primary>raise method</primary>
+<secondary>of Python class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/python_raise.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Raises a Python exception from Rexx code: <emphasis role="italic">exception</emphasis>
+is an exception object, or an exception class, which is called with the
+remaining arguments: <computeroutput>.py~raise(.py~IndexError, i)</computeroutput>.
+In Rexx it is the condition SYNTAX 98.900, as when Python raises it, and Rexx
+code can trap it as any SYNTAX condition; if it goes back to Python, Python
+gets the exception itself. See <xref linkend="conditions"/>.</para>
+</section>
+
+<section id="mthPythonRedirectTo"><title>redirectTo</title>
+<indexterm><primary>redirectTo method</primary>
+<secondary>of Python class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/python_redirectto.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Sends Rexx's standard streams to Python's. The same as the routine
+<xref linkend="rtnPyRedirectTo" xrefstyle="select:title"/>, with the same
+arguments; see <xref linkend="streams"/>.</para>
+</section>
+
+<section id="mthPythonStr"><title>str</title>
+<indexterm><primary>str method</primary>
+<secondary>of Python class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/python_str.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Returns Python's <computeroutput>str(value)</computeroutput>, kept as a
+<classname>PyObject</classname>, so that text that looks like a number goes
+to Python as text: <computeroutput>d[.py~str("1")]</computeroutput> is
+<computeroutput>d["1"]</computeroutput>, where <computeroutput>d["1"]</computeroutput>
+would be <computeroutput>d[1]</computeroutput>.</para>
+<example id="ex.python-str">
+<title>Python class &mdash; str method</title>
+<programlisting language="rexx">d = .py~dict~new
+d[.py~str("1")] = "text"
+d[1] = "number"
+say d
+
+::requires "python.cls"</programlisting>
+<screen>{'1': 'text', 1: 'number'}</screen>
+</example>
+</section>
+</section>
+
+<!-- ===================================================================== -->
+<section id="clsPyObject"><title>PyObject Class</title>
+<indexterm><primary>PyObject class</primary></indexterm>
+<indexterm><primary>class</primary>
+<secondary>PyObject class</secondary></indexterm>
+
+<para>A <classname>PyObject</classname> is a Python object, by reference:
+the proxy holds the Python object, and keeps it alive while Rexx holds the
+proxy. Rexx programs do not make them with <methodname>new</methodname>: the
+bridge makes one for every Python object that comes to Rexx and is not a
+simple value (<xref linkend="valuesFromPython"/>). A Python object that comes
+to Rexx several times may come as different proxies; they compare
+<literal>==</literal>, because <literal>==</literal> is Python's
+<literal>is</literal>.</para>
+<para>Subclasses of <classname>PyObject</classname> are Rexx classes that
+extend Python classes; see <xref linkend="extend"/>.</para>
+<para>All its methods are unguarded: a proxy has no Rexx state that changes,
+and Python's state is protected by Python's own lock.</para>
+
+<table id="ooRexxPyObjectClass" frame="all" pgwide="1">
+<title>PyObject Class</title>
+<tgroup cols="1">
+<tbody>
+ <row><entry align="center"><emphasis role="bold">Object</emphasis></entry></row>
+ <row><entry>Methods inherited from Rexx's Object class (but see <xref linkend="mthPyObjectCopy" xrefstyle="select:title"/>)</entry></row>
+ <row><entry align="center"><emphasis role="bold">PyObject</emphasis></entry></row>
+ <row><entry>
+  <simplelist>
+   <member><xref linkend="mthPyObjectPyClass" xrefstyle="select:title"/></member>
+  </simplelist>
+  <simplelist columns="3">
+   <member><xref linkend="mthPyObjectArithmetic" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPyObjectComparison" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPyObjectLogical" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPyObjectAtGet" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPyObjectPutSet" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPyObjectCopy" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPyObjectGetAttr" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPyObjectHashCode" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPyObjectInvoke" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPyObjectMakeArray" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPyObjectMakeArrayProxy" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPyObjectNew" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPyObjectSetAttr" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPyObjectString" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPyObjectUnknown" xrefstyle="select:title"/></member>
+  </simplelist>
+ </entry></row>
+</tbody>
+</tgroup>
+</table>
+
+<section id="mthPyObjectPyClass"><title>pyClass (Class Method)</title>
+<indexterm><primary>pyClass method</primary>
+<secondary>of PyObject class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyobject_pyclass.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Sent to a subclass of <classname>PyObject</classname> that extends a
+Python class, returns the Python class that
+<xref linkend="rtnPyExtend" xrefstyle="select:title"/> made for it (or for its
+nearest superclass that has one); &nil; if there is none. Python code that
+makes the objects itself needs it:
+<computeroutput>json~dumps(x, .py~kw("cls", .MyEncoder~pyClass))</computeroutput>.</para>
+</section>
+
+<section id="mthPyObjectArithmetic"><title>Arithmetic Methods</title>
+<indexterm><primary>arithmetic methods</primary>
+<secondary>of PyObject class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyobject_arithmetic.svg" scale="55" />
+</imageobject></mediaobject>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyobject_prefix.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Python's operators, applied to the Python object and the argument (or
+to the object alone, for the prefix operators):
+<literal>+</literal>, <literal>-</literal>, <literal>*</literal>,
+<literal>/</literal>, <literal>**</literal> are Python's;
+<literal>%</literal>, Rexx's integer division, is Python's <literal>//</literal>;
+<literal>//</literal>, Rexx's remainder, is Python's <literal>%</literal>;
+the prefix <literal>\</literal> is Python's <literal>not</literal>.
+The result follows <xref linkend="valuesFromPython"/>: a Python number
+comes back as a Rexx string, a numpy array as a
+<classname>PyObject</classname>. See <xref linkend="msgOperators"/>.</para>
+</section>
+
+<section id="mthPyObjectComparison"><title>Comparison Methods</title>
+<indexterm><primary>comparison methods</primary>
+<secondary>of PyObject class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyobject_comparison.svg" scale="55" />
+</imageobject></mediaobject>
+<para><literal>=</literal>, <literal>\=</literal>, <literal>&lt;&gt;</literal>,
+<literal>&gt;&lt;</literal>, <literal>&lt;</literal>, <literal>&gt;</literal>,
+<literal>&lt;=</literal> and <literal>&gt;=</literal> are Python's
+<literal>==</literal>, <literal>!=</literal>, <literal>&lt;</literal>,
+<literal>&gt;</literal>, <literal>&lt;=</literal> and <literal>&gt;=</literal>.
+<literal>==</literal> and <literal>\==</literal> are Python's
+<literal>is</literal> and <literal>is not</literal>: the same Python object,
+however it came to Rexx. Comparing numpy arrays gives an array of
+<literal>bool</literal>s, a boolean mask:
+<computeroutput>a[a &gt; 2]</computeroutput>.</para>
+</section>
+
+<section id="mthPyObjectLogical"><title>Logical Methods</title>
+<indexterm><primary>logical methods</primary>
+<secondary>of PyObject class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyobject_logical.svg" scale="55" />
+</imageobject></mediaobject>
+<para><literal>&amp;</literal>, <literal>|</literal> and
+<literal>&amp;&amp;</literal> are Python's <literal>&amp;</literal>,
+<literal>|</literal> and <literal>^</literal>: for sets, intersection, union
+and symmetric difference; for numpy's boolean arrays, element by element.</para>
+</section>
+
+<section id="mthPyObjectAtGet"><title>[]</title>
+<indexterm><primary>[] method</primary>
+<secondary>of PyObject class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyobject_atget.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Returns Python's <computeroutput>o[index]</computeroutput>. Several
+indexes are a tuple: <computeroutput>m[0, 1]</computeroutput> is
+<computeroutput>m[(0, 1)]</computeroutput>. Positions count from 0, and
+negative positions from the end, as in Python. Indexes follow the number rule
+even when the object comes from a module imported as
+<literal>"string"</literal>. See <xref linkend="msgItems"/>.</para>
+</section>
+
+<section id="mthPyObjectPutSet"><title>[]=</title>
+<indexterm><primary>[]= method</primary>
+<secondary>of PyObject class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyobject_putset.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Python's <computeroutput>o[index] = value</computeroutput>.</para>
+</section>
+
+<section id="mthPyObjectCopy"><title>copy, send, start, run, request</title>
+<indexterm><primary>copy method</primary>
+<secondary>of PyObject class</secondary></indexterm>
+<indexterm><primary>start method</primary>
+<secondary>of PyObject class</secondary></indexterm>
+<indexterm><primary>run method</primary>
+<secondary>of PyObject class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyobject_objectmethods.svg" scale="55" />
+</imageobject></mediaobject>
+<para>These are methods of Rexx's <classname>Object</classname> class that
+Python objects commonly have too: <literal>dict.copy</literal>, a
+generator's <literal>send</literal>, <literal>threading.Thread</literal>'s
+<literal>start</literal> and <literal>run</literal>, the
+<literal>request</literal> of a <literal>socketserver</literal> handler.
+When the Python object has an attribute of that name, the message is
+Python's, as any other attribute; otherwise it is Rexx's.
+<methodname>request</methodname> is Python's only when it has no arguments,
+since Rexx's needs one.</para>
+<example id="ex.pyobject-copy">
+<title>PyObject class &mdash; copy is Python's when the object has it</title>
+<programlisting language="rexx">d = .py~dict~new(.py~kw("a", 1))
+e = d~copy                              -- dict.copy
+e["b"] = 2
+say d e
+
+::requires "python.cls"</programlisting>
+<screen>{'a': 1} {'a': 1, 'b': 2}</screen>
+</example>
+</section>
+
+<section id="mthPyObjectGetAttr"><title>getattr</title>
+<indexterm><primary>getattr method</primary>
+<secondary>of PyObject class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyobject_getattr.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Returns the attribute <emphasis role="italic">name</emphasis>, with its
+exact name, as Python's <computeroutput>getattr(o, name)</computeroutput>:
+the attribute itself, never called. Use it when two names differ only in case
+(<computeroutput>logging~getattr("INFO")</computeroutput>), for names Rexx
+cannot write as symbols (<computeroutput>o~getattr("__class__")</computeroutput>),
+and to take a function or a method as a value.</para>
+</section>
+
+<section id="mthPyObjectHashCode"><title>hashCode</title>
+<indexterm><primary>hashCode method</primary>
+<secondary>of PyObject class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyobject_hashcode.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Returns a hash code consistent with <literal>==</literal>, Python's
+identity, so that a <classname>PyObject</classname> can be the index of a
+Rexx Table, Set or Bag: two proxies of the same Python object find the same
+item.</para>
+</section>
+
+<section id="mthPyObjectInvoke"><title>invoke</title>
+<indexterm><primary>invoke method</primary>
+<secondary>of PyObject class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyobject_invoke.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Calls the attribute <emphasis role="italic">name</emphasis>, with its
+exact name, with the arguments (a <classname>PyKwArgs</classname> last for
+keyword arguments), and returns the result. With &nil; as the name, calls
+the object itself, as <xref linkend="mthPyObjectNew" xrefstyle="select:title"/>.</para>
+</section>
+
+<section id="mthPyObjectMakeArray"><title>makeArray</title>
+<indexterm><primary>makeArray method</primary>
+<secondary>of PyObject class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyobject_makearray.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Returns a Rexx Array of the items that iterating the object gives
+(Python's <computeroutput>list(o)</computeroutput>, as a Rexx Array): a
+list's or a tuple's items, a dict's keys, a file's lines. It is what
+<computeroutput>do x over o</computeroutput> uses. The Array is a copy.</para>
+<example id="ex.pyobject-makearray">
+<title>PyObject class &mdash; makeArray method</title>
+<programlisting language="rexx">d = .py~dict~new(.py~kw("x", 1, "y", 2))
+a = d~makeArray
+say a~items a[1] a[2]
+do k over d
+  say k d[k]
+end
+
+::requires "python.cls"</programlisting>
+<screen>2 x y
+x 1
+y 2</screen>
+</example>
+</section>
+
+<section id="mthPyObjectMakeArrayProxy"><title>makeArrayProxy</title>
+<indexterm><primary>makeArrayProxy method</primary>
+<secondary>of PyObject class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyobject_makearrayproxy.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Returns a <xref linkend="clsPyArrayProxy" xrefstyle="select:title"/>
+for the object, a sequence (a list, a tuple, a one-dimensional numpy array):
+the sequence seen as a Rexx Array, counting from 1, that reads and writes
+through to the Python object.</para>
+</section>
+
+<section id="mthPyObjectNew"><title>new</title>
+<indexterm><primary>new method</primary>
+<secondary>of PyObject class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyobject_new.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Calls the object itself, Python's <computeroutput>o(args)</computeroutput>,
+when it has no attribute <literal>new</literal>: a class makes an instance,
+a function is called. This is an instance method of each
+<classname>PyObject</classname>, not the class method of
+<classname>PyObject</classname>.</para>
+<example id="ex.pyobject-new">
+<title>PyObject class &mdash; new method</title>
+<programlisting language="rexx">fractions = .py~import("fractions")
+half = fractions~Fraction~new(1, 2)     -- an instance
+say half half + fractions~Fraction~new(1, 3)
+square = .py~eval("lambda x: x * x")
+say square~new(12)                      -- a function, called
+
+::requires "python.cls"</programlisting>
+<screen>1/2 5/6
+144</screen>
+</example>
+</section>
+
+<section id="mthPyObjectSetAttr"><title>setattr</title>
+<indexterm><primary>setattr method</primary>
+<secondary>of PyObject class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyobject_setattr.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Sets the attribute <emphasis role="italic">name</emphasis>, with its
+exact name, as Python's <computeroutput>setattr(o, name, value)</computeroutput>.
+Unlike <computeroutput>o~name = value</computeroutput>, it can create an
+attribute: Rexx cannot tell the case of a new name.</para>
+</section>
+
+<section id="mthPyObjectString"><title>string</title>
+<indexterm><primary>string method</primary>
+<secondary>of PyObject class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyobject_string.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Returns Python's <computeroutput>str(o)</computeroutput>, as a Rexx
+string: what <computeroutput>say o</computeroutput> shows.</para>
+</section>
+
+<section id="mthPyObjectUnknown"><title>unknown</title>
+<indexterm><primary>unknown method</primary>
+<secondary>of PyObject class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyobject_unknown.svg" scale="55" />
+</imageobject></mediaobject>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyobject_unknownset.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Every other message is the Python attribute of that name, looked up
+without regard to case (<xref linkend="msgNames"/>):</para>
+<itemizedlist>
+<listitem><para><computeroutput>o~name(args)</computeroutput> calls it with
+the arguments;</para></listitem>
+<listitem><para><computeroutput>o~name</computeroutput> calls it with no
+arguments when it is a function or a method, and returns it otherwise
+(classes and modules are returned);</para></listitem>
+<listitem><para><computeroutput>o~name = value</computeroutput> sets it; the
+attribute must exist (<xref linkend="mthPyObjectSetAttr" xrefstyle="select:title"/>
+creates one).</para></listitem>
+</itemizedlist>
+<para>A name that matches no attribute is a Python
+<literal>AttributeError</literal>, raised as SYNTAX 98.900.</para>
+</section>
+</section>
+
+<!-- ===================================================================== -->
+<section id="clsPyArrayProxy"><title>PyArrayProxy Class</title>
+<indexterm><primary>PyArrayProxy class</primary></indexterm>
+<indexterm><primary>class</primary>
+<secondary>PyArrayProxy class</secondary></indexterm>
+
+<para>A <classname>PyArrayProxy</classname> is a Python sequence (a list, a
+tuple, a one-dimensional numpy array) seen as a Rexx Array, counting from 1,
+as BSF4ooRexx's <literal>BSF_Array_Reference</literal> is for a Java array.
+It holds the Python object and reads and writes through it: nothing is
+copied. Positions go from 1 to <methodname>items</methodname>; outside them,
+<methodname>[]</methodname> and <methodname>at</methodname> return &nil;, as
+a Rexx Array's do, and <methodname>[]=</methodname> and
+<methodname>put</methodname> at <computeroutput>items + 1</computeroutput>
+append. Writing needs a sequence that can change: a list, not a tuple.</para>
+<para>It is made with <computeroutput>o~makeArrayProxy</computeroutput>, or
+<computeroutput>.PyArrayProxy~new(o)</computeroutput>.</para>
+
+<table id="ooRexxPyArrayProxyClass" frame="all" pgwide="1">
+<title>PyArrayProxy Class</title>
+<tgroup cols="1">
+<tbody>
+ <row><entry align="center"><emphasis role="bold">Object</emphasis></entry></row>
+ <row><entry>Methods inherited from Rexx's Object class</entry></row>
+ <row><entry align="center"><emphasis role="bold">PyArrayProxy</emphasis></entry></row>
+ <row><entry>
+  <simplelist>
+   <member><xref linkend="mthPyArrayProxyNew" xrefstyle="select:title"/></member>
+  </simplelist>
+  <simplelist columns="3">
+   <member><xref linkend="mthPyArrayProxyAtGet" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPyArrayProxyPutSet" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPyArrayProxyAllIndexes" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPyArrayProxyAllItems" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPyArrayProxyAppend" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPyArrayProxyAt" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPyArrayProxyDelete" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPyArrayProxyDimension" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPyArrayProxyFirst" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPyArrayProxyFirstItem" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPyArrayProxyHasIndex" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPyArrayProxyIsEmpty" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPyArrayProxyItems" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPyArrayProxyLast" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPyArrayProxyLastItem" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPyArrayProxyMakeArray" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPyArrayProxyPut" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPyArrayProxyPyObject" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPyArrayProxyRemove" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPyArrayProxySize" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPyArrayProxyString" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPyArrayProxySupplier" xrefstyle="select:title"/></member>
+  </simplelist>
+ </entry></row>
+</tbody>
+</tgroup>
+</table>
+
+<example id="ex.pyarrayproxy">
+<title>A Python list as a Rexx Array</title>
+<programlisting language="rexx">l = .py~list((10, 20, 30))
+a = l~makeArrayProxy
+say a[1] a~items a[4]                   -- from 1; outside: .nil
+a[2] = 21                               -- writes through to the list
+a~append(40)
+say l
+do x over a; say x; end
+say a~remove(1) l
+
+::requires "python.cls"</programlisting>
+<screen>10 3 The NIL object
+[10, 21, 30, 40]
+10
+21
+30
+40
+10 [21, 30, 40]</screen>
+</example>
+
+<section id="mthPyArrayProxyNew"><title>new (Class Method)</title>
+<indexterm><primary>new method</primary>
+<secondary>of PyArrayProxy class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyarrayproxy_new.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Returns a <classname>PyArrayProxy</classname> for
+<emphasis role="italic">pyobject</emphasis>, a <classname>PyObject</classname>
+that is a sequence. The same as <computeroutput>pyobject~makeArrayProxy</computeroutput>.</para>
+</section>
+
+<section id="mthPyArrayProxyAtGet"><title>[]</title>
+<indexterm><primary>[] method</primary>
+<secondary>of PyArrayProxy class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyarrayproxy_atget.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Returns the item at <emphasis role="italic">position</emphasis>, from 1;
+&nil; outside 1 to <methodname>items</methodname>. The position must be a
+whole number.</para>
+</section>
+
+<section id="mthPyArrayProxyPutSet"><title>[]=</title>
+<indexterm><primary>[]= method</primary>
+<secondary>of PyArrayProxy class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyarrayproxy_putset.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Replaces the item at <emphasis role="italic">position</emphasis>, from
+1, or appends it when the position is <computeroutput>items + 1</computeroutput>.
+Any other position is an error.</para>
+</section>
+
+<section id="mthPyArrayProxyAllIndexes"><title>allIndexes</title>
+<indexterm><primary>allIndexes method</primary>
+<secondary>of PyArrayProxy class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyarrayproxy_allindexes.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Returns a Rexx Array of the positions, 1 to
+<methodname>items</methodname>.</para>
+</section>
+
+<section id="mthPyArrayProxyAllItems"><title>allItems</title>
+<indexterm><primary>allItems method</primary>
+<secondary>of PyArrayProxy class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyarrayproxy_allitems.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Returns a Rexx Array of the items, a copy. The same as
+<methodname>makeArray</methodname>.</para>
+</section>
+
+<section id="mthPyArrayProxyAppend"><title>append</title>
+<indexterm><primary>append method</primary>
+<secondary>of PyArrayProxy class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyarrayproxy_append.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Appends <emphasis role="italic">item</emphasis> to the sequence, and
+returns its position, the new number of items.</para>
+</section>
+
+<section id="mthPyArrayProxyAt"><title>at</title>
+<indexterm><primary>at method</primary>
+<secondary>of PyArrayProxy class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyarrayproxy_at.svg" scale="55" />
+</imageobject></mediaobject>
+<para>The same as <xref linkend="mthPyArrayProxyAtGet" xrefstyle="select:title"/>.</para>
+</section>
+
+<section id="mthPyArrayProxyDelete"><title>delete</title>
+<indexterm><primary>delete method</primary>
+<secondary>of PyArrayProxy class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyarrayproxy_delete.svg" scale="55" />
+</imageobject></mediaobject>
+<para>The same as <xref linkend="mthPyArrayProxyRemove" xrefstyle="select:title"/>.</para>
+</section>
+
+<section id="mthPyArrayProxyDimension"><title>dimension</title>
+<indexterm><primary>dimension method</primary>
+<secondary>of PyArrayProxy class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyarrayproxy_dimension.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Without an argument, returns 1: the proxy has one dimension. With
+<emphasis role="italic">n</emphasis>, returns the size of dimension
+<emphasis role="italic">n</emphasis>: <methodname>items</methodname> for 1,
+0 for any other.</para>
+</section>
+
+<section id="mthPyArrayProxyFirst"><title>first</title>
+<indexterm><primary>first method</primary>
+<secondary>of PyArrayProxy class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyarrayproxy_first.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Returns 1, the first position, or &nil; if the sequence is empty.</para>
+</section>
+
+<section id="mthPyArrayProxyFirstItem"><title>firstItem</title>
+<indexterm><primary>firstItem method</primary>
+<secondary>of PyArrayProxy class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyarrayproxy_firstitem.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Returns the first item, or &nil; if the sequence is empty.</para>
+</section>
+
+<section id="mthPyArrayProxyHasIndex"><title>hasIndex</title>
+<indexterm><primary>hasIndex method</primary>
+<secondary>of PyArrayProxy class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyarrayproxy_hasindex.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Returns &true; if <emphasis role="italic">position</emphasis> is a whole
+number from 1 to <methodname>items</methodname>, &false; otherwise.</para>
+</section>
+
+<section id="mthPyArrayProxyIsEmpty"><title>isEmpty</title>
+<indexterm><primary>isEmpty method</primary>
+<secondary>of PyArrayProxy class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyarrayproxy_isempty.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Returns &true; if the sequence has no items, &false; otherwise.</para>
+</section>
+
+<section id="mthPyArrayProxyItems"><title>items</title>
+<indexterm><primary>items method</primary>
+<secondary>of PyArrayProxy class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyarrayproxy_items.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Returns the number of items, Python's <computeroutput>len(o)</computeroutput>.</para>
+</section>
+
+<section id="mthPyArrayProxyLast"><title>last</title>
+<indexterm><primary>last method</primary>
+<secondary>of PyArrayProxy class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyarrayproxy_last.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Returns the last position, <methodname>items</methodname>, or &nil; if
+the sequence is empty.</para>
+</section>
+
+<section id="mthPyArrayProxyLastItem"><title>lastItem</title>
+<indexterm><primary>lastItem method</primary>
+<secondary>of PyArrayProxy class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyarrayproxy_lastitem.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Returns the last item, or &nil; if the sequence is empty.</para>
+</section>
+
+<section id="mthPyArrayProxyMakeArray"><title>makeArray</title>
+<indexterm><primary>makeArray method</primary>
+<secondary>of PyArrayProxy class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyarrayproxy_makearray.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Returns a Rexx Array of the items, a copy. <computeroutput>do x over a</computeroutput>
+uses it.</para>
+</section>
+
+<section id="mthPyArrayProxyPut"><title>put</title>
+<indexterm><primary>put method</primary>
+<secondary>of PyArrayProxy class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyarrayproxy_put.svg" scale="55" />
+</imageobject></mediaobject>
+<para>The same as <xref linkend="mthPyArrayProxyPutSet" xrefstyle="select:title"/>.</para>
+</section>
+
+<section id="mthPyArrayProxyPyObject"><title>pyObject</title>
+<indexterm><primary>pyObject method</primary>
+<secondary>of PyArrayProxy class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyarrayproxy_pyobject.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Returns the Python sequence, the <classname>PyObject</classname> the
+proxy reads and writes.</para>
+</section>
+
+<section id="mthPyArrayProxyRemove"><title>remove</title>
+<indexterm><primary>remove method</primary>
+<secondary>of PyArrayProxy class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyarrayproxy_remove.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Removes the item at <emphasis role="italic">position</emphasis> and
+returns it; the items after it move one position down. Returns &nil; if there
+is no such position.</para>
+</section>
+
+<section id="mthPyArrayProxySize"><title>size</title>
+<indexterm><primary>size method</primary>
+<secondary>of PyArrayProxy class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyarrayproxy_size.svg" scale="55" />
+</imageobject></mediaobject>
+<para>The same as <xref linkend="mthPyArrayProxyItems" xrefstyle="select:title"/>.</para>
+</section>
+
+<section id="mthPyArrayProxyString"><title>string</title>
+<indexterm><primary>string method</primary>
+<secondary>of PyArrayProxy class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyarrayproxy_string.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Returns <computeroutput>a PyArrayProxy</computeroutput> followed by the
+Python sequence's string value.</para>
+</section>
+
+<section id="mthPyArrayProxySupplier"><title>supplier</title>
+<indexterm><primary>supplier method</primary>
+<secondary>of PyArrayProxy class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyarrayproxy_supplier.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Returns a Supplier of the items, with their positions as indexes (a
+snapshot).</para>
+</section>
+</section>
+
+<!-- ===================================================================== -->
+<section id="clsPyKwArgs"><title>PyKwArgs Class</title>
+<indexterm><primary>PyKwArgs class</primary></indexterm>
+<indexterm><primary>class</primary>
+<secondary>PyKwArgs class</secondary></indexterm>
+<indexterm><primary>keyword arguments</primary></indexterm>
+
+<para>A <classname>PyKwArgs</classname> holds keyword arguments: names and
+values, in order. As the last argument of a call to Python it is the
+keyword arguments of the call (<xref linkend="msgKeywords"/>);
+<xref linkend="mthPythonKw" xrefstyle="select:title"/> and
+<xref linkend="rtnPyKw" xrefstyle="select:title"/> make them. When Python
+calls a method of a Rexx class that extends a Python class with keyword
+arguments, the method gets them as a <classname>PyKwArgs</classname>, its
+last argument (<xref linkend="extendCall"/>).</para>
+
+<table id="ooRexxPyKwArgsClass" frame="all" pgwide="1">
+<title>PyKwArgs Class</title>
+<tgroup cols="1">
+<tbody>
+ <row><entry align="center"><emphasis role="bold">Object</emphasis></entry></row>
+ <row><entry>Methods inherited from Rexx's Object class</entry></row>
+ <row><entry align="center"><emphasis role="bold">PyKwArgs</emphasis></entry></row>
+ <row><entry>
+  <simplelist>
+   <member><xref linkend="mthPyKwArgsNew" xrefstyle="select:title"/></member>
+  </simplelist>
+  <simplelist columns="3">
+   <member><xref linkend="mthPyKwArgsAtGet" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPyKwArgsItems" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPyKwArgsNames" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPyKwArgsValues" xrefstyle="select:title"/></member>
+  </simplelist>
+ </entry></row>
+</tbody>
+</tgroup>
+</table>
+
+<section id="mthPyKwArgsNew"><title>new (Class Method)</title>
+<indexterm><primary>new method</primary>
+<secondary>of PyKwArgs class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pykwargs_new.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Takes one argument, a Rexx Array with the arguments of
+<xref linkend="mthPythonKw" xrefstyle="select:title"/>: names and values in
+pairs, a MapCollection, or a Python dict. Programs use
+<computeroutput>.py~kw(...)</computeroutput> instead.</para>
+</section>
+
+<section id="mthPyKwArgsAtGet"><title>[]</title>
+<indexterm><primary>[] method</primary>
+<secondary>of PyKwArgs class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pykwargs_atget.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Returns the value of the argument <emphasis role="italic">name</emphasis>:
+the one with that exact name, else one with that name in any case, else
+&nil;.</para>
+</section>
+
+<section id="mthPyKwArgsItems"><title>items</title>
+<indexterm><primary>items method</primary>
+<secondary>of PyKwArgs class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pykwargs_items.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Returns the number of keyword arguments.</para>
+</section>
+
+<section id="mthPyKwArgsNames"><title>names</title>
+<indexterm><primary>names method</primary>
+<secondary>of PyKwArgs class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pykwargs_names.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Returns a Rexx Array of the names, in order.</para>
+</section>
+
+<section id="mthPyKwArgsValues"><title>values</title>
+<indexterm><primary>values method</primary>
+<secondary>of PyKwArgs class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pykwargs_values.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Returns a Rexx Array of the values, in the order of the names.</para>
+</section>
+</section>
+
+</chapter>

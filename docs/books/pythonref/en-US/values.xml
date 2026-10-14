@@ -1,0 +1,251 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "pythonref.ent">
+%BOOK_ENTITIES;
+]>
+<!-- Licensed under the Apache License, Version 2.0. -->
+<chapter id="values"><title>Values</title>
+<indexterm><primary>values</primary></indexterm>
+<indexterm><primary>conversion of values</primary></indexterm>
+
+<para>Objects cross between Rexx and Python by reference: a Python list used
+from Rexx is the list itself, and a Rexx Directory used from Python is the
+Directory itself. Only the simplest values, strings and numbers, are
+converted, because each language has its own: a Rexx string is not a Python
+<literal>str</literal>, and Python's <literal>int</literal>,
+<literal>float</literal> and <literal>str</literal> are three different
+types where Rexx has one.</para>
+
+<section id="valuesFromPython"><title>Python Values in Rexx</title>
+<indexterm><primary>values</primary>
+<secondary>from Python to Rexx</secondary></indexterm>
+<para>What a Python call returns, an attribute's value, an item, comes to
+Rexx as follows:</para>
+<itemizedlist>
+<listitem><para>Python's <literal>str</literal>, <literal>int</literal>,
+<literal>float</literal> and <literal>bytes</literal> come back as Rexx
+strings, with their value. A <literal>bool</literal> comes back as
+<literal>1</literal> or <literal>0</literal>, Rexx's &true; and
+&false;.</para></listitem>
+<listitem><para>numpy's scalars (<literal>numpy.float64</literal>,
+<literal>numpy.int64</literal> and the like) come back as their values,
+as Rexx strings.</para></listitem>
+<listitem><para>&None; comes back as &nil;.</para></listitem>
+<listitem><para>Everything else comes back as a
+<xref linkend="clsPyObject" xrefstyle="select:title"/>, by reference:
+lists, tuples, dicts, sets, numpy arrays, functions, classes, modules, and
+instances of any class.</para></listitem>
+</itemizedlist>
+
+<example id="ex.values-from-python">
+<title>Python values in Rexx</title>
+<programlisting language="rexx">say .py~len("abc") .py~abs(-2.5) .py~bool(1) .py~eval("b'bytes'")
+say (.py~eval("None") == .nil)
+np = .py~import("numpy")
+x = np~float64(2.5)
+say x x~class~id                        -- a numpy scalar: a Rexx string
+l = .py~eval("[1, 2]")
+say l l~class~id                        -- a list: a PyObject
+
+::requires "python.cls"</programlisting>
+<screen>3 2.5 1 bytes
+1
+2.5 String
+[1, 2] PYOBJECT</screen>
+</example>
+</section>
+
+<section id="valuesToPython"><title>Rexx Values in Python</title>
+<indexterm><primary>values</primary>
+<secondary>from Rexx to Python</secondary></indexterm>
+<indexterm><primary>number rule</primary></indexterm>
+<para>The arguments of a call to Python, a value assigned to an attribute or
+an item, go to Python as follows:</para>
+<itemizedlist>
+<listitem><para>A Rexx string goes as:</para>
+  <itemizedlist>
+  <listitem><para>an <literal>int</literal> when it is a whole number written
+  canonically: <literal>0</literal>, <literal>42</literal>,
+  <literal>-7</literal>, with no leading zeros, blanks or plus
+  sign;</para></listitem>
+  <listitem><para>a <literal>float</literal> when it is any other Rexx number
+  with a decimal point or an exponent: <literal>3.14</literal>,
+  <literal>1E3</literal>;</para></listitem>
+  <listitem><para>a <literal>str</literal> otherwise:
+  <literal>"007"</literal>, <literal>" 5"</literal>,
+  <literal>"+5"</literal>, and any text.</para></listitem>
+  </itemizedlist></listitem>
+<listitem><para>&nil; goes as &None;.</para></listitem>
+<listitem><para>A Rexx Array goes as a Python <literal>list</literal>, a
+copy, its items converted by the same rules (nested Arrays as nested
+lists).</para></listitem>
+<listitem><para>A <classname>PyObject</classname> goes as its Python
+object.</para></listitem>
+<listitem><para>Any other Rexx object goes by reference, as an
+<xref linkend="clsRexxObject" xrefstyle="select:title"/>, and comes back to
+Rexx as the object itself.</para></listitem>
+</itemizedlist>
+
+<para>This is the <emphasis role="italic">number rule</emphasis>. It looks
+only at the value, never at the function that receives it, so that it can be
+applied by reading the program. Python never turns a string into a number by
+itself, so numbers must go as numbers: <computeroutput>math~sqrt(2)</computeroutput>,
+<computeroutput>random~randint(1, 6)</computeroutput>,
+<computeroutput>row[0]</computeroutput> and numpy depend on it. Its one
+pitfall is text that looks like a number, such as the file name
+<literal>"2026"</literal>; see <xref linkend="valuesStrings"/>.</para>
+
+<example id="ex.values-to-python">
+<title>Rexx values in Python</title>
+<programlisting language="rexx">kind = .py~eval("lambda x: type(x).__name__")   -- the type's name
+say kind~new(42) kind~new(-7) kind~new(3.14) kind~new(1E3)
+say kind~new("007") kind~new(" 5") kind~new("+5") kind~new("abc")
+say kind~new((1, 2)) kind~new(.nil) kind~new(.directory~new)
+
+::requires "python.cls"</programlisting>
+<screen>int int float float
+str str str str
+list NoneType RexxObject</screen>
+</example>
+
+<example id="ex.values-identity">
+<title>A Rexx object goes to Python and comes back as itself</title>
+<programlisting language="rexx">d = .directory~new
+l = .py~list((d,))                      -- a Python list holding the Directory
+say (l[0] == d) l[0]~class~id
+
+::requires "python.cls"</programlisting>
+<screen>1 Directory</screen>
+</example>
+</section>
+
+<section id="valuesBool"><title>Parameters Annotated bool</title>
+<indexterm><primary>bool</primary></indexterm>
+<para>Rexx's &true; and &false; are the strings <literal>1</literal> and
+<literal>0</literal>, so by the number rule they go to Python as
+<literal>int</literal>s. One exception is taken from the called function's own
+annotations: a <literal>1</literal> or <literal>0</literal> passed to a
+parameter annotated <literal>bool</literal> goes as <literal>True</literal> or
+<literal>False</literal>, so that &true; works for pandas'
+<literal>inplace=</literal>. For a function without annotations that insists
+on a real <literal>bool</literal>, <computeroutput>.py~box("bool", 1)</computeroutput>
+makes <literal>True</literal>.</para>
+
+<example id="ex.values-bool">
+<title>1 and 0 to a parameter annotated bool</title>
+<programlisting language="rexx">.py~exec("def flag(on: bool): return repr(on)")
+flag = .py~main~getattr("flag")
+say flag~new(1) flag~new(.false) flag~new(2)
+plain = .py~eval("lambda on: repr(on)")
+say plain~new(1)
+
+::requires "python.cls"</programlisting>
+<screen>True False 2
+1</screen>
+</example>
+</section>
+
+<section id="valuesForcing"><title>Choosing the Python Type</title>
+<indexterm><primary>values</primary>
+<secondary>choosing the Python type</secondary></indexterm>
+<para>When the number rule picks the wrong type, the type can be given:</para>
+<itemizedlist>
+<listitem><para><xref linkend="mthPythonStr" xrefstyle="select:title"/>,
+<xref linkend="mthPythonInt" xrefstyle="select:title"/>,
+<xref linkend="mthPythonFloat" xrefstyle="select:title"/> and
+<xref linkend="mthPythonDecimal" xrefstyle="select:title"/>
+make the Python <literal>str</literal>, <literal>int</literal>,
+<literal>float</literal> or <literal>decimal.Decimal</literal> and keep it as
+a <classname>PyObject</classname>, so that it is not converted back into a
+Rexx string. <methodname>decimal</methodname> keeps all of Rexx's
+digits.</para></listitem>
+<listitem><para><xref linkend="mthPythonBox" xrefstyle="select:title"/>
+makes an object of any type from the text of a value, never through the
+number rule.</para></listitem>
+</itemizedlist>
+
+<example id="ex.values-forcing">
+<title>Choosing the type</title>
+<programlisting language="rexx">kind = .py~eval("lambda x: type(x).__name__")
+say kind~new(.py~str(2026)) kind~new(.py~int("12")) kind~new(.py~float(1))
+say .py~decimal("1") / .py~decimal("3")
+say .py~box("bytes", "ab") .py~box("fraction", "3/4") .py~box("bool", 1)
+
+::requires "python.cls"</programlisting>
+<screen>str int float
+0.3333333333333333333333333333
+b'ab' 3/4 True</screen>
+</example>
+</section>
+
+<section id="valuesStrings"><title>Modules that Want Strings</title>
+<indexterm><primary>import</primary>
+<secondary>as "string"</secondary></indexterm>
+<para>For a module that works mostly with text that may look like a number
+(file names, identifiers, codes), <computeroutput>.py~import(name, "string")</computeroutput>
+sends every Rexx string as a <literal>str</literal>, whatever it looks like.
+It applies to the calls made through that module and through everything
+reached from it: its attributes (<computeroutput>os~path</computeroutput>),
+what its calls return, and their items. Positions and keys in
+<computeroutput>o[k]</computeroutput> keep the number rule, so that
+<computeroutput>l[0]</computeroutput> works on a list it returned; the
+<literal>bool</literal> exception stays. <literal>"number"</literal>, the
+default, is the number rule.</para>
+<para>The mark changes what the module receives, not what it returns: a
+module imported as <literal>"string"</literal> that needs a number gets the
+text (<computeroutput>json~dumps(x, .py~kw("indent", 0))</computeroutput>
+would get the text <literal>"0"</literal>), and must be given one with
+<methodname>int</methodname> or <methodname>box</methodname>.</para>
+
+<example id="ex.values-string-module">
+<title>A module imported as "string"</title>
+<programlisting language="rexx">os = .py~import("posixpath", "string")
+say os~join("archive", "2026")
+plain = .py~import("posixpath")
+signal on syntax
+say plain~join("archive", "2026")       -- 2026 goes as an int
+exit
+syntax: say condition("O")~message
+
+::requires "python.cls"</programlisting>
+<screen>archive/2026
+Python error: TypeError: join() argument must be str, bytes, or os.PathLike object, not 'int'.</screen>
+</example>
+</section>
+
+<section id="valuesFromRexx"><title>Rexx Values in Python Programs</title>
+<indexterm><primary>values</primary>
+<secondary>results of Rexx code in Python</secondary></indexterm>
+<para>The number rule applies the other way too, to what Rexx returns to
+Python (the results of <methodname>eval</methodname>, of a routine, of a
+message to a Rexx object) and to the arguments Rexx passes when Python calls
+it back: a Rexx string that is a number by the rule comes as an
+<literal>int</literal> or a <literal>float</literal>, any other as a
+<literal>str</literal>; &nil; as &None;; an Array as a <literal>list</literal>
+(a copy); a <classname>PyObject</classname> as its Python object; and any
+other Rexx object as an <classname>oorexx.RexxObject</classname>, by
+reference. A Python object that goes to Rexx and back is the object
+itself.</para>
+
+<example id="ex.values-from-rexx">
+<title>Rexx values in Python</title>
+<programlisting language="python">import oorexx
+
+with oorexx.Interpreter() as rexx:
+    for e in ['42', '"007"', '3.14', '.nil', '.array~of(1, "a")', '.directory~new']:
+        v = rexx.eval(e)
+        print(e, '->', type(v).__name__, repr(v))
+    same = rexx.routine("return arg(1)")
+    d = {}
+    print(same(d) is d)</programlisting>
+<screen>42 -> int 42
+"007" -> str '007'
+3.14 -> float 3.14
+.nil -> NoneType None
+.array~of(1, "a") -> list [1, 'a']
+.directory~new -> RexxObject &lt;Rexx a Directory&gt;
+True</screen>
+</example>
+</section>
+
+</chapter>

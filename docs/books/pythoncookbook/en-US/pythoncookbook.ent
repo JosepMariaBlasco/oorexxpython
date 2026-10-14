@@ -1,0 +1,13 @@
+<!ENTITY PRODUCT "ooRexx/Python">
+<!ENTITY BOOKID "pythoncookbook">
+<!ENTITY YEAR "2026">
+<!ENTITY HOLDER "Josep Maria Blasco">
+<!ENTITY VERSION "0.1.0-preview.12">
+<!ENTITY EDITION "(set by scripts/build-books.sh)">
+<!ENTITY Rexx "ooRexx">
+<!ENTITY nil "<literal>.nil</literal>">
+<!ENTITY true "<literal>.true</literal>">
+<!ENTITY false "<literal>.false</literal>">
+<!ENTITY py "<literal>.py</literal>">
+<!ENTITY None "<literal>None</literal>">
+<!ENTITY PyObject "<classname>PyObject</classname>">

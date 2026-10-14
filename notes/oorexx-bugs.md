@@ -50,7 +50,7 @@ Tickets filed for other reasons that also touch the bridge:
   without the kernel lock. Registering an ADDRESS environment with
   `Interpreter.add_command_environment` while Rexx runs on another thread of
   the same instance can corrupt the heap: register environments when the
-  interpreter is created (`environments=`) or before other threads run Rexx.
+  interpreter is created (`command_environments=`) or before other threads run Rexx.
 - [#2112](https://sourceforge.net/p/oorexx/bugs/2112/) (open): resolving an
   ADDRESS environment missing from the instance's table, while other threads
   run Rexx, can register a freed handler. Environments registered through

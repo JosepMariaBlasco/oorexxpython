@@ -1,0 +1,119 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "pythoncookbook.ent">
+%BOOK_ENTITIES;
+]>
+<!-- Licensed under the Apache License, Version 2.0. -->
+<chapter id="ckObjects"><title>Talking to Python Objects</title>
+<indexterm><primary>messages</primary></indexterm>
+
+<para>A Python object in Rexx is used with Rexx messages: an attribute is a
+message, a call is a message with arguments, and items, operators and
+<literal>DO OVER</literal> are Python's. This chapter shows the forms.</para>
+
+<section id="ckNames"><title>Python Names from Rexx</title>
+<indexterm><primary>names</primary><secondary>case of</secondary></indexterm>
+<para><emphasis role="bold">You want</emphasis> to reach Python's names,
+which are case-sensitive, from Rexx, whose symbols are uppercase.</para>
+<?sample 03-names.rex?>
+<para><emphasis role="bold">How it works.</emphasis> Rexx sends
+<literal>COUNTER</literal> and <literal>MOST_COMMON</literal>; the bridge
+looks the name up without regard to case, so it finds
+<literal>Counter</literal> and <literal>most_common</literal>. When several
+names match, the one in lowercase wins, if it is the only one.
+<computeroutput>o~getattr("name")</computeroutput> takes the exact name, and
+returns the attribute itself, never called: here the method, which
+<computeroutput>~new(1)</computeroutput> then calls. <methodname>new</methodname>
+on a Python object calls it, as Python's <computeroutput>o(...)</computeroutput>
+does: a class makes an instance, a function or a method runs.</para>
+<para>A function used without arguments is called
+(<computeroutput>math~pi</computeroutput> is a value, but
+<computeroutput>uuid~uuid4</computeroutput> calls the function); a class or a
+module is returned, so that its attributes can be reached:
+<computeroutput>np~linalg~det(m)</computeroutput>,
+<computeroutput>io~StringIO~new</computeroutput>.</para>
+<para><emphasis role="bold">See also</emphasis> <citetitle>Reference</citetitle>,
+<emphasis>Messages to Python Objects</emphasis>.</para>
+</section>
+
+<section id="ckKeywords"><title>Keyword Arguments</title>
+<indexterm><primary>keyword arguments</primary></indexterm>
+<para><emphasis role="bold">You want</emphasis> to pass
+<literal>key=</literal>, <literal>reverse=True</literal>,
+<literal>base=16</literal>: Python's keyword arguments.</para>
+<?sample 04-keywords.rex?>
+<para><emphasis role="bold">How it works.</emphasis> Rexx has no keyword
+arguments, so they go in a marker, the last argument of the call:
+<computeroutput>.py~kw(name, value, ...)</computeroutput>, or the routine
+<computeroutput>py.kw(...)</computeroutput>, or
+<computeroutput>.py~kw(aDirectory)</computeroutput> to make them from a
+Directory. The names go as written, in their case. Only the marker is taken
+as keywords: a Directory at the end of the arguments, without
+<methodname>kw</methodname>, is passed as itself.</para>
+<para><literal>.true</literal> is the Rexx string <literal>1</literal>, so it
+goes to <literal>reverse</literal> as the <literal>int</literal> 1, which
+Python takes as true; a parameter that a Python function annotates as
+<literal>bool</literal> gets <literal>True</literal> instead
+(<xref linkend="ckPandas"/>). A Rexx Array, such as <literal>words</literal>
+here, goes to Python as a list.</para>
+<para><emphasis role="bold">See also</emphasis> <citetitle>Reference</citetitle>,
+<emphasis>Keyword Arguments</emphasis>.</para>
+</section>
+
+<section id="ckItems"><title>Items and Iteration</title>
+<indexterm><primary>items</primary></indexterm>
+<para><emphasis role="bold">You want</emphasis> a dict's values, a list's
+items, and to loop over them.</para>
+<?sample 05-items.rex?>
+<para><emphasis role="bold">How it works.</emphasis>
+<computeroutput>o[k]</computeroutput> and <computeroutput>o[k] = v</computeroutput>
+are Python's indexing, and <computeroutput>do x over o</computeroutput> is
+Python's <computeroutput>for x in o</computeroutput>: over a dict, its keys.
+A Rexx Array goes to Python as a list, nested Arrays as nested lists. A list's
+positions count from 0, as in Python: it is Python's object, and Python's
+indexing (negative positions, slices, numpy's tuples) needs it.</para>
+<para>The average is Rexx's arithmetic, on the Rexx strings that
+<methodname>sum</methodname> and <methodname>len</methodname> return; so it
+has Rexx's nine digits.</para>
+<para><emphasis role="bold">See also</emphasis> <citetitle>Reference</citetitle>,
+<emphasis>Items and Slices</emphasis>.</para>
+</section>
+
+<section id="ckSlices"><title>Slices</title>
+<indexterm><primary>slices</primary></indexterm>
+<para><emphasis role="bold">You want</emphasis> Python's
+<literal>o[start:stop:step]</literal>.</para>
+<?sample 22-slices.rex?>
+<para><emphasis role="bold">How it works.</emphasis> Rexx has no
+<literal>:</literal> in brackets, so a slice is made with Python's builtin
+<literal>slice</literal>: <computeroutput>.py~slice(2, 8, 2)</computeroutput>
+is <literal>2:8:2</literal>, and <literal>.nil</literal> leaves a part out.
+Assigning to a slice replaces it. Several indexes in brackets are a tuple, as
+numpy wants: <computeroutput>m[.py~slice(0, 2), 1]</computeroutput> is
+<literal>m[0:2, 1]</literal>.</para>
+<para>The text is made a Python <literal>str</literal> first: a Rexx string's
+own <literal>[]</literal> is Rexx's, which does not slice.</para>
+<para><emphasis role="bold">See also</emphasis> <citetitle>Reference</citetitle>,
+<emphasis>Items and Slices</emphasis>.</para>
+</section>
+
+<section id="ckArrayProxy"><title>A Python List as a Rexx Array</title>
+<indexterm><primary>makeArrayProxy</primary></indexterm>
+<para><emphasis role="bold">You want</emphasis> to use a Python list the Rexx
+way, counting from 1.</para>
+<?sample 26-array-proxy.rex?>
+<para><emphasis role="bold">How it works.</emphasis>
+<computeroutput>o~makeArrayProxy</computeroutput> returns a
+<classname>PyArrayProxy</classname>: an object with the methods of a Rexx
+Array (<literal>[]</literal>, <methodname>at</methodname>,
+<methodname>put</methodname>, <methodname>items</methodname>,
+<methodname>append</methodname>, <methodname>remove</methodname>,
+<literal>DO OVER</literal>...), counting from 1, that reads and writes the
+Python list itself: nothing is copied, and the list changes. It works on any
+Python sequence: a list, a tuple (read only), a one-dimensional numpy
+array.</para>
+<para><emphasis role="bold">See also</emphasis> <citetitle>Reference</citetitle>,
+<emphasis>PyArrayProxy Class</emphasis>.</para>
+</section>
+
+</chapter>

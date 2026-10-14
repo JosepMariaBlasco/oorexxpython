@@ -1,0 +1,61 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "pythoncookbook.ent">
+%BOOK_ENTITIES;
+]>
+<!-- Licensed under the Apache License, Version 2.0. -->
+<chapter id="ckData"><title>Data Science</title>
+<indexterm><primary>data science</primary></indexterm>
+
+<para>numpy, matplotlib and pandas are what many people come to Python for.
+They are installed apart from Python
+(<command>pip install numpy matplotlib pandas</command>), in the Python that
+Rexx uses.</para>
+
+<section id="ckNumpy"><title>numpy Arrays</title>
+<indexterm><primary>numpy</primary></indexterm>
+<para><emphasis role="bold">You want</emphasis> array arithmetic.</para>
+<?sample 20-numpy.rex?>
+<para><emphasis role="bold">How it works.</emphasis> Rexx's operators on a
+Python object are Python's, so <computeroutput>a * 10</computeroutput>
+multiplies every element, and <computeroutput>a &gt; 2</computeroutput> is an
+array of truth values, a boolean mask, which selects elements in
+<computeroutput>a[a &gt; 2]</computeroutput>. The Python object must be on the
+left: <computeroutput>10 * a</computeroutput> would be Rexx's arithmetic.
+<computeroutput>m[1, 0]</computeroutput> is numpy's <literal>m[1, 0]</literal>,
+row 1, column 0, from 0. numpy's scalars come back as Rexx strings, like
+Python's numbers.</para>
+</section>
+
+<section id="ckMatplotlib"><title>A Chart</title>
+<indexterm><primary>matplotlib</primary></indexterm>
+<para><emphasis role="bold">You want</emphasis> a chart, saved as an
+image.</para>
+<?sample 21-matplotlib.rex?>
+<para><emphasis role="bold">How it works.</emphasis> The
+<literal>Agg</literal> backend draws without a screen, into a file.
+<computeroutput>.py~import("matplotlib.pyplot")</computeroutput> is the
+<literal>pyplot</literal> module. Keyword arguments, <literal>label=</literal>,
+go with <computeroutput>.py~kw</computeroutput>, and
+<computeroutput>2 * np~pi</computeroutput> is Rexx's arithmetic on numpy's
+π, which comes back as a Rexx string.</para>
+</section>
+
+<section id="ckPandas"><title>A pandas DataFrame</title>
+<indexterm><primary>pandas</primary></indexterm>
+<para><emphasis role="bold">You want</emphasis> a table: new columns,
+selections, groups.</para>
+<?sample 23-pandas.rex?>
+<para><emphasis role="bold">How it works.</emphasis> A column is
+<computeroutput>df["sales"]</computeroutput>, and Rexx's operators on it are
+pandas': <computeroutput>df["sales"] * 0.21</computeroutput> is a new column,
+and <computeroutput>df["sales"] &gt; 100</computeroutput> a boolean mask that
+selects rows. <literal>inplace=</literal> is annotated as a
+<literal>bool</literal> in pandas, so <literal>.true</literal>, the Rexx
+string <literal>1</literal>, goes to it as <literal>True</literal>: the bridge
+reads the annotation of the parameter a <literal>1</literal> or a
+<literal>0</literal> goes to. <computeroutput>DO OVER</computeroutput> the
+index of a grouped Series gives its labels.</para>
+</section>
+
+</chapter>

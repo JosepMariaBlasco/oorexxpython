@@ -1,0 +1,226 @@
+/* ooRexx and Python: Reference. The syntax diagrams, in the W3C EBNF of the
+   Railroad Diagram Generator (as ooRexx's books): scripts/build-books.sh
+   with DIAGRAMS=1 makes one SVG per production, named as the production.
+   Licensed under the Apache License, Version 2.0. */
+
+python_box ::= 'box(' type ',' value ')'
+
+python_builtin ::= name ( '(' ( argument ( ',' argument )* )? ')' )?
+
+python_decimal ::= 'decimal(' value ')'
+
+python_eval ::= 'eval(' expression ')'
+
+python_exec ::= 'exec(' code ')'
+
+python_extend ::= 'extend(' class ',' base ')'
+
+python_float ::= 'float(' value ')'
+
+python_import ::= 'import(' name ( ',' type )? ')'
+
+python_int ::= 'int(' value ( ',' base )? ')'
+
+python_kw ::= 'kw(' ( name ',' value ( ',' name ',' value )* | collection ) ')'
+
+python_main ::= 'main'
+
+python_raise ::= 'raise(' exception ( ',' argument )* ')'
+
+python_redirectto ::= 'redirectTo' ( '(' arguments ')' )?
+
+python_str ::= 'str(' value ')'
+
+pyobject_unknown ::= name ( '(' ( argument ( ',' argument )* )? ')' )?
+
+pyobject_unknownset ::= name '=' value
+
+pyobject_new ::= 'new' ( '(' argument ( ',' argument )* ')' )?
+
+pyobject_getattr ::= 'getattr(' name ')'
+
+pyobject_setattr ::= 'setattr(' name ',' value ')'
+
+pyobject_invoke ::= 'invoke(' ( name | '.nil' ) ( ',' argument )* ')'
+
+pyobject_atget ::= '[' index ( ',' index )* ']'
+
+pyobject_putset ::= '[' index ( ',' index )* ']' '=' value
+
+pyobject_makearray ::= 'makeArray'
+
+pyobject_makearrayproxy ::= 'makeArrayProxy'
+
+pyobject_string ::= 'string'
+
+pyobject_hashcode ::= 'hashCode'
+
+pyobject_arithmetic ::= ( '+' | '-' | '*' | '/' | '%' | '//' | '**' ) argument
+
+pyobject_comparison ::= ( '=' | '\=' | '<>' | '><' | '==' | '\==' | '<' | '>' | '<=' | '>=' ) argument
+
+pyobject_logical ::= ( '&' | '|' | '&&' ) argument
+
+pyobject_prefix ::= '-' | '+' | '\'
+
+pyobject_objectmethods ::= ( 'copy' | 'send' | 'start' | 'run' | 'request' ) ( '(' argument ( ',' argument )* ')' )?
+
+pyobject_pyclass ::= 'pyClass'
+
+pyobject_init ::= 'init:super' ( '(' argument ( ',' argument )* ')' )?
+
+pyarrayproxy_new ::= 'new(' pyobject ')'
+
+pyarrayproxy_atget ::= '[' position ']'
+
+pyarrayproxy_putset ::= '[' position ']' '=' item
+
+pyarrayproxy_allindexes ::= 'allIndexes'
+
+pyarrayproxy_allitems ::= 'allItems'
+
+pyarrayproxy_append ::= 'append(' item ')'
+
+pyarrayproxy_at ::= 'at(' position ')'
+
+pyarrayproxy_delete ::= 'delete(' position ')'
+
+pyarrayproxy_dimension ::= 'dimension' ( '(' n ')' )?
+
+pyarrayproxy_first ::= 'first'
+
+pyarrayproxy_firstitem ::= 'firstItem'
+
+pyarrayproxy_hasindex ::= 'hasIndex(' position ')'
+
+pyarrayproxy_isempty ::= 'isEmpty'
+
+pyarrayproxy_items ::= 'items'
+
+pyarrayproxy_last ::= 'last'
+
+pyarrayproxy_lastitem ::= 'lastItem'
+
+pyarrayproxy_makearray ::= 'makeArray'
+
+pyarrayproxy_put ::= 'put(' item ',' position ')'
+
+pyarrayproxy_pyobject ::= 'pyObject'
+
+pyarrayproxy_remove ::= 'remove(' position ')'
+
+pyarrayproxy_size ::= 'size'
+
+pyarrayproxy_string ::= 'string'
+
+pyarrayproxy_supplier ::= 'supplier'
+
+pykwargs_new ::= 'new(' arguments ')'
+
+pykwargs_atget ::= '[' name ']'
+
+pykwargs_items ::= 'items'
+
+pykwargs_names ::= 'names'
+
+pykwargs_values ::= 'values'
+
+pyoutputstream_new ::= 'new' ( '(' stream? ( ',' prefix )? ')' )?
+
+pyoutputstream_arrayout ::= 'arrayOut(' array ')'
+
+pyoutputstream_charout ::= 'charOut(' string ')'
+
+pyoutputstream_close ::= 'close'
+
+pyoutputstream_file ::= 'file'
+
+pyoutputstream_lineout ::= 'lineOut' ( '(' line ')' )?
+
+pyoutputstream_prefix ::= 'prefix'
+
+pyoutputstream_prefixset ::= 'prefix=' prefix
+
+pyoutputstream_say ::= 'say' ( '(' line ')' )?
+
+pyoutputstream_stream ::= 'stream'
+
+pyoutputstream_string ::= 'string'
+
+pyinputstream_new ::= 'new' ( '(' stream? ( ',' prefix )? ')' )?
+
+pyinputstream_arrayin ::= 'arrayIn'
+
+pyinputstream_charin ::= 'charIn' ( '(' start? ( ',' length )? ')' )?
+
+pyinputstream_chars ::= 'chars'
+
+pyinputstream_close ::= 'close'
+
+pyinputstream_file ::= 'file'
+
+pyinputstream_linein ::= 'lineIn'
+
+pyinputstream_lines ::= 'lines'
+
+pyinputstream_prefix ::= 'prefix'
+
+pyinputstream_prefixset ::= 'prefix=' prefix
+
+pyinputstream_stream ::= 'stream'
+
+pyinputstream_string ::= 'string'
+
+routine_pyimport ::= 'py.import(' name ( ',' type )? ')'
+
+routine_pybox ::= 'py.box(' type ',' value ')'
+
+routine_pykw ::= 'py.kw(' ( name ',' value ( ',' name ',' value )* | collection ) ')'
+
+routine_pyextend ::= 'py.extend(' class ',' base ')'
+
+routine_pyredirectto ::= 'py.redirectTo' ( '(' ( "'R'" | "'P'" ( ',' input? ( ',' output? ( ',' error? ( ',' debugInput? ( ',' traceOutput? ( ',' prefixes )? )? )? )? )? )? ) ')' )?
+
+interpreter_new ::= 'oorexx.Interpreter(' ( option '=' value ( ',' option '=' value )* )? ')'
+
+interpreter_run ::= 'run(' program ( ',' argument )* ')'
+
+interpreter_eval ::= 'eval(' expression ')'
+
+interpreter_routine ::= 'routine(' source ( ',' 'name=' name )? ')'
+
+interpreter_addcommandenvironment ::= 'add_command_environment(' name ',' handler ')'
+
+interpreter_close ::= 'close()'
+
+rexxobject_message ::= name '(' ( argument ( ',' argument )* )? ')'
+
+rexxobject_call ::= '(' ( argument ( ',' argument )* )? ')'
+
+rexxobject_item ::= '[' index ']' ( '=' value )?
+
+rexxobject_sendmessage ::= 'sendMessage(' name ( ',' '[' ( argument ( ',' argument )* )? ']' )? ')'
+
+rexxobject_sendmessagen ::= ( 'sendMessage0(' name | 'sendMessage1(' name ',' a1 | 'sendMessage2(' name ',' a1 ',' a2 | 'sendMessage3(' name ',' a1 ',' a2 ',' a3 | 'sendMessage4(' name ',' a1 ',' a2 ',' a3 ',' a4 | 'sendMessage5(' name ',' a1 ',' a2 ',' a3 ',' a4 ',' a5 ) ')'
+
+rexxobject_sendmessagescope ::= 'sendMessageScope(' name ',' scope ( ',' '[' ( argument ( ',' argument )* )? ']' )? ')'
+
+commandcontext_linein ::= 'line_in()'
+
+commandcontext_lines ::= 'lines()'
+
+commandcontext_output ::= 'output(' line ')'
+
+commandcontext_error ::= 'error(' line ')'
+
+commandcontext_isredirected ::= 'is_redirected(' ( "'input'" | "'output'" | "'error'" | "'same'" ) ')'
+
+commandcontext_getvar ::= 'get_var(' name ')'
+
+commandcontext_setvar ::= 'set_var(' name ',' value ')'
+
+commandcontext_dropvar ::= 'drop_var(' name ')'
+
+commandcontext_raiseerror ::= 'raise_error(' rc? ')'
+
+commandcontext_raisefailure ::= 'raise_failure(' rc? ')'

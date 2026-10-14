@@ -1,0 +1,134 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "pythonref.ent">
+%BOOK_ENTITIES;
+]>
+<!-- Licensed under the Apache License, Version 2.0. -->
+<chapter id="intro"><title>Introduction</title>
+<indexterm><primary>introduction</primary></indexterm>
+
+<para>ooRexx/Python connects two interpreters that run in the same process:
+an ooRexx interpreter and a CPython interpreter. Each side sees the other's
+objects as its own, by reference: nothing is copied but the simplest values
+(strings and numbers), and a message sent to a proxy reaches the object on the
+other side.</para>
+
+<itemizedlist>
+<listitem><para><emphasis role="bold">ooRexx using Python.</emphasis> A Rexx
+program that requires <filename>python.cls</filename> gets the environment
+object &py;, Python's builtins plus a few helpers. Any Python object is a
+<xref linkend="clsPyObject" xrefstyle="select:title"/> instance, used with
+ordinary Rexx messages.</para></listitem>
+<listitem><para><emphasis role="bold">Python using ooRexx.</emphasis> A Python
+program that imports the module <literal>oorexx</literal> creates interpreter
+instances (<xref linkend="clsInterpreter" xrefstyle="select:title"/>), runs
+Rexx programs, routines and expressions, and uses any Rexx object as an
+<xref linkend="clsRexxObject" xrefstyle="select:title"/>.</para></listitem>
+<listitem><para><emphasis role="bold">Both at once.</emphasis> The two
+directions nest freely, on any thread: Rexx calls Python, which calls back a
+Rexx object, which calls Python again. A Rexx class can extend a Python class,
+so that Python calls Rexx methods where it would call its own (see
+<xref linkend="extend"/>).</para></listitem>
+</itemizedlist>
+
+<example id="ex.intro-rexx">
+<title>ooRexx using Python</title>
+<programlisting language="rexx">np = .py~import("numpy")
+m  = np~array(((1, 2), (3, 4)))
+say m~sum m~shape                       -- the sum and the shape
+say .py~round(np~linalg~det(m), 2)      -- the determinant
+
+::requires "python.cls"</programlisting>
+<screen>10 (2, 2)
+-2.0</screen>
+</example>
+
+<example id="ex.intro-python">
+<title>Python using ooRexx</title>
+<programlisting language="python">import oorexx
+
+with oorexx.Interpreter() as rexx:
+    print(rexx.eval("6 * 7"))
+    times = rexx.routine("use arg a, b; return a * b")
+    print(times(6, 7))
+    d = rexx.eval(".directory~new")     # a Rexx object
+    d["NAME"] = "Ann"
+    print(len(d), d["NAME"])</programlisting>
+<screen>42
+42
+1 Ann</screen>
+</example>
+
+<section id="introRequirements"><title>Requirements</title>
+<indexterm><primary>requirements</primary></indexterm>
+<indexterm><primary>Stable ABI</primary></indexterm>
+<para><emphasis role="bold">Python 3.9 or later.</emphasis> The bridge uses
+only Python's Stable ABI (PEP 384), so the same binary works with CPython 3.9
+and every later version, with no virtual environments and no per-version
+builds.</para>
+<para><emphasis role="bold">ooRexx 5.2.0 or later.</emphasis> The bridge uses
+only ooRexx's public native API: the interpreter needs no change, and the
+bridge is an extension package, like <literal>rxsock</literal> or BSF4ooRexx.
+Using one interpreter from several threads at once needs ooRexx 5.3.0
+(see <xref linkend="threads"/>).</para>
+<para>The bridge runs on Linux, macOS and Windows.</para>
+</section>
+
+<section id="introParts"><title>The Parts of the Bridge</title>
+<para>The bridge is three files:</para>
+<variablelist>
+<varlistentry><term><filename>python.cls</filename></term>
+<listitem><para>The Rexx side: the classes and routines described in this
+book. A Rexx program uses the bridge with
+<computeroutput>::requires "python.cls"</computeroutput>.</para></listitem>
+</varlistentry>
+<varlistentry><term><filename>oorexx.abi3.so</filename> (<filename>oorexx.pyd</filename> on Windows)</term>
+<listitem><para>The bridge itself: at the same time the Python module
+<literal>oorexx</literal> and the native code of
+<filename>python.cls</filename>.</para></listitem>
+</varlistentry>
+<varlistentry><term><filename>librexxpython.so</filename> (<filename>librexxpython.dylib</filename> on macOS, <filename>rexxpython.dll</filename> on Windows)</term>
+<listitem><para>The ooRexx package that <filename>python.cls</filename>
+requires. When a program started by <command>rexx</command> needs Python, it
+finds a Python, loads it, and hands over to the bridge.</para></listitem>
+</varlistentry>
+</variablelist>
+<para>The installer of the binary release (<command>rexx install</command>)
+puts them into the ooRexx installation and makes the module importable from
+the Python it is given; the release's <filename>README.md</filename>
+explains it, and how to use the bridge without installing it.</para>
+</section>
+
+<section id="introWhichPython"><title>Which Python</title>
+<indexterm><primary>ORX_PYTHON</primary></indexterm>
+<indexterm><primary>environment variable</primary>
+<secondary>ORX_PYTHON</secondary></indexterm>
+<para>A program started by Python uses that Python. A program started by
+<command>rexx</command> uses the Python named by the environment variable
+<envar>ORX_PYTHON</envar> (a full path to its executable), or else the
+<command>python3</command> on the <envar>PATH</envar>
+(<command>python</command> on Windows). It sees that Python's installed
+packages, a virtual environment's too.</para>
+<para>The Python is loaded once per process, the first time a program requires
+<filename>python.cls</filename>, and stays until the process ends: every
+interpreter instance of the process shares it.</para>
+</section>
+
+<section id="introNames"><title>The Names in this Book</title>
+<para>Rexx's names are those of <filename>python.cls</filename>:
+the environment object &py; (an instance of the class
+<xref linkend="clsPython" xrefstyle="select:title"/>), the classes
+<classname>PyObject</classname>, <classname>PyArrayProxy</classname>,
+<classname>PyKwArgs</classname>, <classname>PyOutputStream</classname> and
+<classname>PyInputStream</classname>, and the routines
+<literal>py.import</literal>, <literal>py.box</literal>,
+<literal>py.kw</literal>, <literal>py.extend</literal> and
+<literal>py.redirectTo</literal>. Python's names are those of the module
+<literal>oorexx</literal>: <classname>Interpreter</classname>,
+<classname>RexxObject</classname>, <classname>RexxError</classname> and
+<classname>CommandContext</classname>.</para>
+<para>The examples' outputs come from CPython; a value printed by Python (a
+list, a float) is printed as Python prints it.</para>
+</section>
+
+</chapter>

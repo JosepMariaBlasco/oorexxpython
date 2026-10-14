@@ -1,0 +1,31 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "pythoncookbook.ent">
+%BOOK_ENTITIES;
+]>
+<!-- Licensed under the Apache License, Version 2.0. -->
+<chapter id="ckErrors"><title>When Python Raises</title>
+<indexterm><primary>exceptions</primary></indexterm>
+<indexterm><primary>SYNTAX condition</primary></indexterm>
+
+<section id="ckTrap"><title>Trapping a Python Exception</title>
+<para><emphasis role="bold">You want</emphasis> to handle a Python exception
+in Rexx code.</para>
+<?sample 06-errors.rex?>
+<para><emphasis role="bold">How it works.</emphasis> A Python exception is
+the Rexx condition SYNTAX 98.900, so <computeroutput>signal on syntax</computeroutput>
+traps it, as any Rexx error. Its message is
+<literal>Python error: </literal> and Python's own. The condition object
+carries more, in its <literal>ADDITIONAL</literal> Array:
+<computeroutput>additional[2]</computeroutput> is Python's traceback, as text,
+and <computeroutput>additional[3]</computeroutput> the exception itself, a
+Python object, whose type and arguments can be looked at.</para>
+<para>The other way works too: <computeroutput>.py~raise(.py~KeyError,
+"missing")</computeroutput> raises a Python exception from Rexx code, and a
+Python exception that goes through Rexx code back to Python is raised there
+as itself (<xref linkend="ckSubclass"/> uses it to end a sequence).</para>
+<para><emphasis role="bold">See also</emphasis> <citetitle>Reference</citetitle>,
+<emphasis>Errors and Conditions</emphasis>.</para>
+</section>
+
+</chapter>

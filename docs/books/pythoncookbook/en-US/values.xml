@@ -1,0 +1,86 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "pythoncookbook.ent">
+%BOOK_ENTITIES;
+]>
+<!-- Licensed under the Apache License, Version 2.0. -->
+<chapter id="ckValues"><title>Values Across the Bridge</title>
+<indexterm><primary>values</primary></indexterm>
+
+<para>Objects cross the bridge by reference: a Python list used from Rexx is
+the list itself, never a copy. Only strings and numbers are converted,
+because each language has its own. This chapter is the one rule worth
+learning before anything else.</para>
+
+<section id="ckValuesRule"><title>What Crosses as a String, What Stays an Object</title>
+<indexterm><primary>number rule</primary></indexterm>
+<para><emphasis role="bold">You want</emphasis> to know what you get back
+from Python, and what Python gets from you.</para>
+<?sample 02-values.rex?>
+<para><emphasis role="bold">How it works.</emphasis> Coming back from Python,
+<literal>str</literal>, <literal>int</literal>, <literal>float</literal> and
+<literal>bool</literal> are Rexx strings (<literal>True</literal> is
+<literal>1</literal>), and <literal>None</literal> is <literal>.nil</literal>.
+Everything else, a dict here, stays in Python and comes to Rexx as a
+<classname>PyObject</classname>, a reference to it: its Rexx class is
+<classname>PyObject</classname>, and its Python type is
+<literal>dict</literal>.</para>
+<para>Going to Python, a Rexx string that is a number goes as a number:
+<literal>42</literal> as an <literal>int</literal>, <literal>3.5</literal> as
+a <literal>float</literal>. Anything else goes as a <literal>str</literal>,
+and so does a number written in a way Python would not write it:
+<literal>"007"</literal> stays text. This is the
+<emphasis role="italic">number rule</emphasis>, and it is needed because
+Python, unlike Rexx, never turns text into a number by itself:
+<computeroutput>math~sqrt("2")</computeroutput> would fail in Python.</para>
+<para><computeroutput>.py~str(42)</computeroutput> makes a Python
+<literal>str</literal> and keeps it as a <classname>PyObject</classname>, so
+that Python's string methods, such as <methodname>zfill</methodname>, can be
+used on it.</para>
+<para><emphasis role="bold">See also</emphasis> <citetitle>Reference</citetitle>,
+<emphasis>Values</emphasis>.</para>
+</section>
+
+<section id="ckValuesText"><title>Text that Looks Like a Number</title>
+<indexterm><primary>import</primary><secondary>as "string"</secondary></indexterm>
+<para><emphasis role="bold">You want</emphasis> to pass
+<literal>"2026"</literal> as text, a file name, and not as a number.</para>
+<?sample 27-string-module.rex?>
+<para><emphasis role="bold">How it works.</emphasis> By the number rule,
+<literal>2026</literal> goes as an <literal>int</literal>, which
+<computeroutput>join</computeroutput> refuses. There are two ways out. For
+one value, <computeroutput>.py~str(2026)</computeroutput> makes it a
+<literal>str</literal>. For a module that works mostly with such text,
+<computeroutput>.py~import("posixpath", "string")</computeroutput> sends every
+Rexx string as a <literal>str</literal> in every call through the module and
+through what it returns. Positions and keys in <computeroutput>o[k]</computeroutput>
+keep the number rule, so <computeroutput>parts[0]</computeroutput> is still
+the first item.</para>
+<para>The sample uses <literal>posixpath</literal>, the Unix flavour of
+<literal>os.path</literal>, so that it prints the same on Windows.</para>
+<para><emphasis role="bold">See also</emphasis> <citetitle>Reference</citetitle>,
+<emphasis>Modules that Want Strings</emphasis>.</para>
+</section>
+
+<section id="ckValuesBox"><title>Choosing the Python Type</title>
+<indexterm><primary>box</primary></indexterm>
+<para><emphasis role="bold">You want</emphasis> a <literal>float</literal>,
+<literal>bytes</literal>, a fraction or a decimal, not what the number rule
+picks.</para>
+<?sample 08-box.rex?>
+<para><emphasis role="bold">How it works.</emphasis>
+<computeroutput>py.box(type, value)</computeroutput>, with BSF4ooRexx's
+argument order (also <computeroutput>.py~box(type, value)</computeroutput>),
+makes a Python object of that type from the value's text, and keeps it as a
+<classname>PyObject</classname>, so that passing it on keeps its type. The
+types are <literal>str</literal>, <literal>int</literal>,
+<literal>float</literal>, <literal>bool</literal>, <literal>bytes</literal>,
+<literal>complex</literal>, <literal>decimal</literal>,
+<literal>fraction</literal>, or a Python class. Python's operators work on
+the results, so two fractions add up as fractions, and two decimals as
+decimals, without <literal>float</literal>'s rounding.</para>
+<para><emphasis role="bold">See also</emphasis> <citetitle>Reference</citetitle>,
+<emphasis>box</emphasis>.</para>
+</section>
+
+</chapter>

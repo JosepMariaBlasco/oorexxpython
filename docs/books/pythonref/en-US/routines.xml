@@ -1,0 +1,100 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "pythonref.ent">
+%BOOK_ENTITIES;
+]>
+<!-- Licensed under the Apache License, Version 2.0. -->
+<chapter id="routines"><title>Routines</title>
+<indexterm><primary>routines</primary>
+<secondary>of python.cls</secondary></indexterm>
+
+<para><filename>python.cls</filename> defines five public routines, the same
+as methods of &py;, named as BSF4ooRexx's <literal>bsf.import</literal>,
+<literal>box</literal> and <literal>bsf.redirectTo</literal>, for programs
+that prefer that style.</para>
+
+<section id="rtnPyImport"><title>py.import</title>
+<indexterm><primary>py.import routine</primary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/routine_pyimport.svg" scale="55" />
+</imageobject></mediaobject>
+<para>The same as <xref linkend="mthPythonImport" xrefstyle="select:title"/>:
+returns the module <emphasis role="italic">name</emphasis>.</para>
+<example id="ex.routines-pyimport">
+<title>py.import and py.kw</title>
+<programlisting language="rexx">textwrap = py.import("textwrap")
+say textwrap~shorten("The quick brown fox jumps", py.kw("width", 15))
+
+::requires "python.cls"</programlisting>
+<screen>The quick [...]</screen>
+</example>
+</section>
+
+<section id="rtnPyBox"><title>py.box</title>
+<indexterm><primary>py.box routine</primary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/routine_pybox.svg" scale="55" />
+</imageobject></mediaobject>
+<para>The same as <xref linkend="mthPythonBox" xrefstyle="select:title"/>:
+<emphasis role="italic">value</emphasis> as a Python object of the given
+<emphasis role="italic">type</emphasis>.</para>
+</section>
+
+<section id="rtnPyKw"><title>py.kw</title>
+<indexterm><primary>py.kw routine</primary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/routine_pykw.svg" scale="55" />
+</imageobject></mediaobject>
+<para>The same as <xref linkend="mthPythonKw" xrefstyle="select:title"/>:
+keyword arguments, for the last argument of a call.</para>
+</section>
+
+<section id="rtnPyExtend"><title>py.extend</title>
+<indexterm><primary>py.extend routine</primary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/routine_pyextend.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Makes the Rexx <emphasis role="italic">class</emphasis> extend the
+Python class <emphasis role="italic">base</emphasis>, and returns the Python
+class it makes. <emphasis role="italic">class</emphasis> must be a subclass
+of <classname>PyObject</classname>. <emphasis role="italic">base</emphasis>
+is a Python class (a <classname>PyObject</classname>), a dotted name
+(<literal>"http.server.BaseHTTPRequestHandler"</literal>; a name without dots
+is a builtin, such as <literal>"str"</literal>), or a Rexx Array of them, for
+several bases. See <xref linkend="extend"/>.</para>
+</section>
+
+<section id="rtnPyRedirectTo"><title>py.redirectTo</title>
+<indexterm><primary>py.redirectTo routine</primary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/routine_pyredirectto.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Sends Rexx's standard streams to Python's, or back, with the arguments
+of BSF4ooRexx's <literal>bsf.redirectTo</literal>:</para>
+<variablelist>
+<varlistentry><term><literal>"P"</literal> (the default)</term>
+<listitem><para>Python: <literal>.input</literal> reads
+<literal>sys.stdin</literal>; <literal>.output</literal> writes to
+<literal>sys.stdout</literal>; <literal>.error</literal> to
+<literal>sys.stderr</literal>; <literal>.debugInput</literal> and
+<literal>.traceOutput</literal> go with <literal>.input</literal> and
+<literal>.error</literal>, with their own prefixes. The other arguments,
+when given, replace each of them: a Python file object, or a
+<classname>PyInputStream</classname> or <classname>PyOutputStream</classname>,
+used as it is.</para></listitem></varlistentry>
+<varlistentry><term><literal>"R"</literal></term>
+<listitem><para>Rexx: back to Rexx's own <literal>.stdin</literal>,
+<literal>.stdout</literal> and <literal>.stderr</literal>.</para></listitem></varlistentry>
+</variablelist>
+<para><emphasis role="italic">prefixes</emphasis> is &true; (the default:
+BSF4ooRexx's prefixes, <literal>REXXin?&gt;</literal>,
+<literal>REXXout&gt;</literal>, <literal>REXXerr&gt;</literal>,
+<literal>REXXdbgIn?&gt;</literal> and <literal>REXXtrc&gt;</literal>),
+&false; (none), or a Directory or StringTable from <literal>INPUT</literal>,
+<literal>OUTPUT</literal>, <literal>ERROR</literal>,
+<literal>DEBUGINPUT</literal> and <literal>TRACEOUTPUT</literal> to a prefix,
+&nil; for none; the streams it does not name have none. See
+<xref linkend="streams"/>.</para>
+</section>
+
+</chapter>

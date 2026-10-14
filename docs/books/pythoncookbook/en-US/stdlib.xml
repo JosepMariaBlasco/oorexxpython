@@ -1,0 +1,131 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "pythoncookbook.ent">
+%BOOK_ENTITIES;
+]>
+<!-- Licensed under the Apache License, Version 2.0. -->
+<chapter id="ckStdlib"><title>The Python Standard Library</title>
+<indexterm><primary>standard library</primary></indexterm>
+
+<para>Python comes with a large library, and every module of it is a
+<computeroutput>.py~import</computeroutput> away. These recipes use a few of
+the most common; each shows, besides the module, one thing about the bridge
+worth knowing.</para>
+
+<section id="ckJson"><title>JSON</title>
+<indexterm><primary>json module</primary></indexterm>
+<para><emphasis role="bold">You want</emphasis> to write and read JSON.</para>
+<?sample 10-json.rex?>
+<para><emphasis role="bold">How it works.</emphasis>
+<computeroutput>.py~dict(.py~kw(...))</computeroutput> makes a dict from
+keyword arguments, as Python's <computeroutput>dict(a=1)</computeroutput>
+does. The value for <literal>"oo"</literal> is boxed as a
+<literal>bool</literal>: a Rexx <literal>1</literal> would go as the number 1,
+and JSON would say <literal>1</literal>, not <literal>true</literal>. What
+<methodname>loads</methodname> returns is Python's: a dict, whose
+<literal>"langs"</literal> is a list, indexed from 0, and iterated with
+<literal>DO OVER</literal>.</para>
+</section>
+
+<section id="ckCsv"><title>CSV</title>
+<indexterm><primary>csv module</primary></indexterm>
+<para><emphasis role="bold">You want</emphasis> to read and write CSV.</para>
+<?sample 11-csv.rex?>
+<para><emphasis role="bold">How it works.</emphasis> Each row of a
+<literal>DictReader</literal> is a dict. Its values are Python strings, which
+come to Rexx as Rexx strings, so <computeroutput>row["score"] + 5</computeroutput>
+is Rexx's addition. <computeroutput>io~StringIO~new</computeroutput> makes an
+in-memory file: <computeroutput>io~StringIO</computeroutput> alone is the
+class, since classes are not called without <methodname>new</methodname> or
+arguments. A Rexx Array is a row to write. Python's <literal>csv</literal>
+ends its lines with carriage return and line feed, which the sample
+strips.</para>
+</section>
+
+<section id="ckStatistics"><title>Statistics</title>
+<indexterm><primary>statistics module</primary></indexterm>
+<para><emphasis role="bold">You want</emphasis> the mean, the median and the
+standard deviation of some numbers.</para>
+<?sample 12-statistics.rex?>
+<para><emphasis role="bold">How it works.</emphasis> The Rexx Array goes as a
+list of <literal>int</literal>s. The results are Python's: the mean of
+integers that comes out whole is an <literal>int</literal>,
+<literal>5</literal>, and the standard deviation a <literal>float</literal>,
+<literal>2.0</literal>.</para>
+</section>
+
+<section id="ckSqlite"><title>An SQL Database</title>
+<indexterm><primary>sqlite3 module</primary></indexterm>
+<para><emphasis role="bold">You want</emphasis> SQL, without a database
+server.</para>
+<?sample 13-sqlite3.rex?>
+<para><emphasis role="bold">How it works.</emphasis>
+<literal>sqlite3</literal> comes with Python; <literal>":memory:"</literal>
+is a database that lives while the connection does. The rows to insert are a
+Rexx Array of Arrays, a list of lists to Python, which fills the
+<literal>?</literal> placeholders. The rows a query returns are tuples:
+<computeroutput>row[0]</computeroutput> is the first column.</para>
+</section>
+
+<section id="ckDatetime"><title>Dates</title>
+<indexterm><primary>datetime module</primary></indexterm>
+<para><emphasis role="bold">You want</emphasis> date arithmetic.</para>
+<?sample 14-datetime.rex?>
+<para><emphasis role="bold">How it works.</emphasis> Rexx's operators on a
+Python object are Python's: <computeroutput>d + dt~timedelta(...)</computeroutput>
+adds thirty days, and the difference of two dates is a
+<literal>timedelta</literal>, whose <literal>days</literal> is a
+number.</para>
+</section>
+
+<section id="ckRandom"><title>Random Numbers</title>
+<indexterm><primary>random module</primary></indexterm>
+<para><emphasis role="bold">You want</emphasis> random numbers, the same on
+every run.</para>
+<?sample 15-random.rex?>
+<para><emphasis role="bold">How it works.</emphasis>
+<computeroutput>random~seed(2026)</computeroutput> seeds the generator with
+the number 2026, by the number rule: the text <literal>"2026"</literal> would
+seed it differently. <methodname>choice</methodname> picks from a Rexx Array,
+which goes as a list.</para>
+</section>
+
+<section id="ckUuid"><title>UUIDs</title>
+<indexterm><primary>uuid module</primary></indexterm>
+<para><emphasis role="bold">You want</emphasis> a unique identifier.</para>
+<?sample 16-uuid.rex?>
+<para><emphasis role="bold">How it works.</emphasis>
+<computeroutput>uuid~NAMESPACE_DNS</computeroutput> finds the constant: no
+other name of the module matches it. <computeroutput>uuid~uuid4</computeroutput>,
+a function without arguments, is called. A UUID is a Python object, which
+<literal>SAY</literal> shows as Python's <literal>str</literal> does; its
+<methodname>string</methodname> is that text.</para>
+</section>
+
+<section id="ckUrllib"><title>URLs</title>
+<indexterm><primary>urllib.parse module</primary></indexterm>
+<para><emphasis role="bold">You want</emphasis> the parts of a URL, or to
+make a query string.</para>
+<?sample 17-urllib.rex?>
+<para><emphasis role="bold">How it works.</emphasis>
+<computeroutput>.py~import("urllib.parse")</computeroutput> returns the
+submodule <literal>parse</literal> itself. <methodname>urlparse</methodname>
+returns a named tuple, whose fields are its attributes.</para>
+</section>
+
+<section id="ckLogging"><title>Logging</title>
+<indexterm><primary>logging module</primary></indexterm>
+<para><emphasis role="bold">You want</emphasis> Python's logging, here into a
+string.</para>
+<?sample 18-logging.rex?>
+<para><emphasis role="bold">How it works.</emphasis> The module has both
+<literal>logging.info</literal>, a function, and <literal>logging.INFO</literal>,
+a constant. Rexx's <literal>INFO</literal> matches both, and the lowercase
+one wins, so <computeroutput>logging~INFO</computeroutput> would call the
+function. The constant needs its exact name:
+<computeroutput>logging~getattr("INFO")</computeroutput>. What
+<methodname>getvalue</methodname> returns is a Python string, so a Rexx
+string, split into lines with Rexx's <methodname>makeArray</methodname>.</para>
+</section>
+
+</chapter>

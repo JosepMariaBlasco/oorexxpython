@@ -1,0 +1,219 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "pythonref.ent">
+%BOOK_ENTITIES;
+]>
+<!-- Licensed under the Apache License, Version 2.0. -->
+<chapter id="extend"><title>Rexx Classes that Extend Python Classes</title>
+<indexterm><primary>subclassing</primary></indexterm>
+<indexterm><primary>extend</primary>
+<secondary>Python classes</secondary></indexterm>
+
+<para>A Rexx class can extend a Python class, so that Python calls the Rexx
+methods where it would call the class's own. Many Python libraries are used
+that way: a <literal>threading.Thread</literal> whose <literal>run</literal>
+is the program's, an <literal>html.parser.HTMLParser</literal> whose
+<literal>handle_starttag</literal> is, a sequence that implements
+<literal>__len__</literal> and <literal>__getitem__</literal>. The Rexx class
+itself is the subclass, as with <literal>.js~extend</literal> in ooRexx/WASM
+and <literal>.net~extend</literal> in ooRexx/.NET.</para>
+
+<para>The class is a subclass of <classname>PyObject</classname>, and calls
+<computeroutput>.py~extend(self, base)</computeroutput>
+(<xref linkend="rtnPyExtend" xrefstyle="select:title"/>) once: its
+<methodname>activate</methodname> class method is the natural place. Its
+<methodname>init</methodname> passes the arguments to the base with
+<computeroutput>self~init:super(...)</computeroutput>.</para>
+
+<example id="ex.extend-basic">
+<title>A Rexx class that extends a Python class</title>
+<programlisting language="rexx">g = .Polite~new("Ann")
+say g~greet                             -- Greeter.greet calls the override
+say g~both
+say .py~isinstance(g, .Polite~pyClass) .py~type(g)~getattr("__name__")
+say (.py~list((g,))[0] == g)            -- back from Python: the object itself
+
+::class Polite subclass PyObject
+::method activate class
+  .py~exec("class Greeter:"                                     || "0a"x ||,
+           "    def __init__(self, name): self.name = name"      || "0a"x ||,
+           "    def greeting(self): return 'Hello'"              || "0a"x ||,
+           "    def greet(self): return self.greeting() + ', ' + self.name")
+  .py~extend(self, .py~main~Greeter)
+::method init
+  use arg name
+  self~init:super(name)                 -- Greeter(name)
+::method greeting                       -- overrides Greeter.greeting
+  return "Good morning"
+::method both
+  return self~greeting "/" self~greeting:super   -- the override, the base's own
+
+::requires "python.cls"</programlisting>
+<screen>Good morning, Ann
+Good morning / Hello
+1 POLITE
+1</screen>
+</example>
+
+<section id="extendOverrides"><title>What Is Overridden</title>
+<indexterm><primary>annotate</primary>
+<secondary>python name of a method</secondary></indexterm>
+<para>Every method of the Rexx class, and of its superclasses below
+<classname>PyObject</classname>, overrides the base's, except
+<methodname>init</methodname>, <methodname>uninit</methodname>,
+<methodname>unknown</methodname>, private methods and names with a dot. The
+methods are looked at when <methodname>extend</methodname> runs. A method's
+Python name is:</para>
+<orderedlist>
+<listitem><para>the name an annotation gives:
+<computeroutput>::annotate method do_get python "do_GET"</computeroutput>;</para></listitem>
+<listitem><para>else, for a <literal>__dunder__</literal> name, the lowercase
+one;</para></listitem>
+<listitem><para>else the base's attribute that matches without regard to case
+(<literal>RUN</literal> is <literal>run</literal>, <literal>DOIT</literal> is
+<literal>doIt</literal>);</para></listitem>
+<listitem><para>else the lowercase one.</para></listitem>
+</orderedlist>
+<para>When two of the base's attributes match (<literal>foo</literal> and
+<literal>FOO</literal>), it is an error that asks for the annotation.
+<literal>__new__</literal>, <literal>__init__</literal>,
+<literal>__del__</literal> and Python's attribute machinery
+(<literal>__getattribute__</literal>, <literal>__setattr__</literal>...) cannot
+be overridden: the Rexx class's <methodname>init</methodname> and
+<methodname>uninit</methodname> do that work.</para>
+</section>
+
+<section id="extendCall"><title>How Python Calls a Rexx Method</title>
+<para>Python calls an override with its positional arguments, and with a
+<xref linkend="clsPyKwArgs" xrefstyle="select:title"/> as the last argument
+when it passes keyword arguments: <computeroutput>kw["by"]</computeroutput>.
+<literal>self</literal> is the Rexx object. The result goes to Python by
+<xref linkend="valuesToPython"/>, but special methods convert it as Python
+requires: a Rexx <literal>0</literal> from <literal>__bool__</literal> is
+<literal>False</literal>, a <literal>"7"</literal> from
+<literal>__len__</literal> is <literal>7</literal>, a <literal>42</literal>
+from <literal>__repr__</literal> is <literal>'42'</literal>.</para>
+<para>A Python exception raised in the method, by Python code it calls or by
+<xref linkend="mthPythonRaise" xrefstyle="select:title"/>, and not trapped,
+reaches the Python caller as itself: a sequence ends with
+<literal>IndexError</literal>, an iterator with
+<literal>StopIteration</literal>.</para>
+
+<example id="ex.extend-sequence">
+<title>A Python sequence written in Rexx</title>
+<programlisting language="rexx">s = .Squares~new
+say .py~list(s) .py~len(s) .py~eval("lambda s: 4 in s")~new(s)
+
+::class Squares subclass PyObject
+::method activate class
+  .py~extend(self, "collections.abc.Sequence")
+::method init
+  self~init:super
+::method __len__
+  return 4
+::method __getitem__
+  use arg i
+  if i >= 4 then .py~raise(.py~IndexError, i)   -- the end, for Python
+  return i * i
+
+::requires "python.cls"</programlisting>
+<screen>[0, 1, 4, 9] 4 1</screen>
+</example>
+
+<example id="ex.extend-keywords">
+<title>An override called with keyword arguments</title>
+<programlisting language="rexx">k = .Show~new
+.py~eval("lambda o: o.call(3, by=4)")~new(k)
+
+::class Show subclass PyObject
+::method activate class
+  .py~exec("class Base:"  || "0a"x || "    def call(self, x, by=1): return x * by")
+  .py~extend(self, .py~main~Base)
+::method init
+  self~init:super
+::method call
+  use arg x, kw
+  say "x" x "by" kw["by"]
+
+::requires "python.cls"</programlisting>
+<screen>x 3 by 4</screen>
+</example>
+</section>
+
+<section id="extendMaking"><title>Making Objects</title>
+<indexterm><primary>init:super</primary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pyobject_init.svg" scale="55" />
+</imageobject></mediaobject>
+<para><computeroutput>.MyClass~new(args)</computeroutput> makes the Rexx
+object; its <methodname>init</methodname> calls
+<computeroutput>self~init:super(args)</computeroutput>, which runs the base's
+<literal>__new__</literal> and <literal>__init__</literal> with them. Until
+then there is no Python object. Immutable bases (<literal>str</literal>,
+<literal>int</literal>, <literal>tuple</literal>) take their value there, so
+<methodname>init</methodname> can compute it:
+<computeroutput>self~init:super("&lt;" || name || "&gt;")</computeroutput>. A
+base constructor that calls an override reaches the Rexx method.</para>
+<para>Python code that makes one itself (<computeroutput>MyClass(...)</computeroutput>,
+<computeroutput>json.dumps(x, cls=...)</computeroutput>, a
+<literal>socketserver</literal> making its handlers) gets the same: the Rexx
+object, its <methodname>init</methodname>, then the Python object.
+<xref linkend="mthPyObjectPyClass" xrefstyle="select:title"/> gives the
+Python class to hand to such code.</para>
+
+<example id="ex.extend-immutable">
+<title>Extending an immutable class</title>
+<programlisting language="rexx">t = .Tag~new("b")
+say t .py~len(t) .py~type(t)~getattr("__name__") t~upper (t~class == .Tag)
+
+::class Tag subclass PyObject
+::method activate class
+  .py~extend(self, "str")
+::method init
+  use arg name
+  self~init:super("&lt;" || name || "&gt;")   -- the str's value
+
+::requires "python.cls"</programlisting>
+<screen>&lt;b&gt; 3 TAG &lt;B&gt; 1</screen>
+</example>
+</section>
+
+<section id="extendMembers"><title>The Base's Members, and Identity</title>
+<para><computeroutput>self~name:super(args)</computeroutput>, in a method of
+the class, is the base's own member, not the override. A member that is not
+overridden is reached as with any <classname>PyObject</classname>:
+<computeroutput>c~name</computeroutput>.</para>
+<para>The Python object comes back to Rexx as the Rexx object itself, even
+when its base is <literal>str</literal> or <literal>int</literal>:
+<computeroutput>.py~list((c,))[0] == c</computeroutput>, and it is an instance
+of the Rexx class. The Python class that <methodname>extend</methodname> makes
+is named as the Rexx class.</para>
+</section>
+
+<section id="extendLifetime"><title>Lifetime</title>
+<indexterm><primary>lifetime</primary>
+<secondary>of extended objects</secondary></indexterm>
+<para>The Rexx object and its Python object are a pair, which lives while Rexx
+holds the one or Python holds the other, and the two garbage collectors
+release it as they release everything else: nothing needs a hand. Each
+collector sees only its own side, so the bridge lets the link that keeps the
+other half alive point one way at a time. While Rexx holds the Rexx object,
+it holds its Python object. When Rexx no longer does, the bridge holds the
+Rexx object, and the Python object is held by Python alone, so that Python's
+collector decides: if Python no longer holds it either, the pair is over; if
+Python hands it to Rexx again, Rexx holds it again.</para>
+<para>The class's <methodname>uninit</methodname>, if it has one, runs once,
+when the pair is over, not when only Rexx lets it go; the Python object is
+gone by then. A Rexx class that extends a Python class, and the Python class
+it makes, are released as any class is.</para>
+</section>
+
+<section id="extendThreads"><title>Threads</title>
+<para>Python may call the overrides on any of its threads; the
+<literal>threading.Thread</literal> example in
+<citetitle pubwork="book">ooRexx and Python: Cookbook</citetitle> runs its Rexx
+<methodname>run</methodname> method on the thread Python starts. Several at
+once need ooRexx 5.3.0 (see <xref linkend="threads"/>).</para>
+</section>
+
+</chapter>

@@ -1,0 +1,35 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<!DOCTYPE appendix PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "pythonref.ent">
+%BOOK_ENTITIES;
+]>
+<!-- Licensed under the Apache License, Version 2.0. -->
+<appendix id="guarantees"><title>Guarantees</title>
+<indexterm><primary>guarantees</primary></indexterm>
+<itemizedlist>
+<listitem><para><computeroutput>a == b</computeroutput> on two
+<classname>PyObject</classname>s is Python's <literal>is</literal>: the same
+Python object, however it came over.</para></listitem>
+<listitem><para>In Python, <computeroutput>a == b</computeroutput> on two
+<classname>oorexx.RexxObject</classname>s is true when they are the same Rexx
+object, and their hashes agree, so either can be a dict key.</para></listitem>
+<listitem><para>A Rexx object that goes to Python and back is the object
+itself, and so is a Python object that goes to Rexx and back.</para></listitem>
+<listitem><para>Names are looked up when the message arrives, so an attribute
+added later is found.</para></listitem>
+<listitem><para>What Python raised is kept in
+<computeroutput>condition("O")~additional[3]</computeroutput>, and is raised
+again as itself if it goes back to Python.</para></listitem>
+<listitem><para>A <classname>PyObject</classname> keeps its Python object
+alive while Rexx holds it, and an <classname>oorexx.RexxObject</classname> its
+Rexx object while Python holds it. When Rexx collects a
+<classname>PyObject</classname>, its Python object is let go at the bridge's
+next call.</para></listitem>
+<listitem><para>A Python call releases ooRexx's kernel lock, and a Rexx call
+releases Python's GIL.</para></listitem>
+<listitem><para>Each line that Rexx writes to Python's streams is a single
+<literal>write</literal>, so lines from several threads do not mix.</para></listitem>
+<listitem><para>The same bridge binary works with every CPython from 3.9
+on.</para></listitem>
+</itemizedlist>
+</appendix>

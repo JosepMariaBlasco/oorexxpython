@@ -1,0 +1,248 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "pythonref.ent">
+%BOOK_ENTITIES;
+]>
+<!-- Licensed under the Apache License, Version 2.0. -->
+<chapter id="messages"><title>Messages to Python Objects</title>
+<indexterm><primary>messages</primary>
+<secondary>to Python objects</secondary></indexterm>
+
+<para>A Python object is used from Rexx with ordinary messages. Most of them
+are not methods of <classname>PyObject</classname>: they reach its
+<xref linkend="mthPyObjectUnknown" xrefstyle="select:title"/> method, which
+looks the name up among the Python object's attributes when the message
+arrives, so an attribute added later is found.</para>
+
+<section id="msgAttributes"><title>Attributes and Calls</title>
+<indexterm><primary>attributes</primary></indexterm>
+<para>The forms of a message, and what each does in Python:</para>
+<table id="tabMessages" frame="all">
+<title>Messages to a PyObject</title>
+<tgroup cols="2">
+<colspec colwidth="2*"/><colspec colwidth="3*"/>
+<thead><row><entry>Rexx</entry><entry>Python</entry></row></thead>
+<tbody>
+<row><entry><computeroutput>o~name(a, b)</computeroutput></entry>
+<entry><computeroutput>o.name(a, b)</computeroutput>: the attribute, called
+with the arguments</entry></row>
+<row><entry><computeroutput>o~name</computeroutput></entry>
+<entry><computeroutput>o.name</computeroutput>, called with no arguments
+when it is a function or a method; classes and modules are returned, not
+called</entry></row>
+<row><entry><computeroutput>o~name = v</computeroutput></entry>
+<entry><computeroutput>o.name = v</computeroutput>, for an attribute that
+exists</entry></row>
+<row><entry><computeroutput>o~new(a, b)</computeroutput></entry>
+<entry><computeroutput>o(a, b)</computeroutput>: the object itself, called (a
+class makes an instance)</entry></row>
+<row><entry><computeroutput>o~getattr("name")</computeroutput>,
+<computeroutput>o~setattr("name", v)</computeroutput>,
+<computeroutput>o~invoke("name", a, b)</computeroutput></entry>
+<entry>the same, with the exact name</entry></row>
+</tbody>
+</tgroup>
+</table>
+
+<para>Because classes are returned rather than called,
+<computeroutput>np~linalg~det(m)</computeroutput> works, and an instance is
+made with <methodname>new</methodname>:
+<computeroutput>.py~import("collections")~Counter~new("abba")</computeroutput>
+is <computeroutput>collections.Counter("abba")</computeroutput>. The same
+holds for the builtins: <computeroutput>.py~dict</computeroutput> is the class
+<literal>dict</literal>, and <computeroutput>.py~dict~new</computeroutput> an
+empty dict.</para>
+
+<para>Because functions and methods are called, a method cannot be taken as a
+value with <computeroutput>o~name</computeroutput>: to pass one as a callback
+or a thread's target, take it with
+<computeroutput>o~getattr("name")</computeroutput>.</para>
+
+<example id="ex.messages-attributes">
+<title>Attributes and calls</title>
+<programlisting language="rexx">math = .py~import("math")
+say math~sqrt(2) math~pi math~floor(2.7)
+np = .py~import("numpy")
+say np~linalg~det(np~eye(2))            -- a module's attribute, then a call
+c = .py~import("collections")~Counter~new("abracadabra")
+say c~most_common(2)
+
+::requires "python.cls"</programlisting>
+<screen>1.4142135623730951 3.141592653589793 2
+1.0
+[('a', 5), ('b', 2)]</screen>
+</example>
+</section>
+
+<section id="msgNames"><title>Names in Any Case</title>
+<indexterm><primary>names</primary>
+<secondary>case of</secondary></indexterm>
+<para>ooRexx uppercases message names, and Python's names are case-sensitive,
+so a name is looked up without regard to case among the object's
+attributes:</para>
+<itemizedlist>
+<listitem><para>if one attribute matches, it is the one;</para></listitem>
+<listitem><para>if several match, the one that starts in lowercase, when it is
+the only one (numpy's <literal>nan</literal>, not
+<literal>NaN</literal>);</para></listitem>
+<listitem><para>otherwise the error names the candidates.</para></listitem>
+</itemizedlist>
+<para>The exact forms <methodname>getattr</methodname>,
+<methodname>setattr</methodname> and <methodname>invoke</methodname> take the
+name as written. They are named as Python's own functions because
+<computeroutput>o["name"]</computeroutput> must stay Python's indexing.</para>
+
+<example id="ex.messages-names">
+<title>Names in any case, and the exact form</title>
+<programlisting language="rexx">logging = .py~import("logging")
+say logging~getattr("INFO")             -- the constant: logging~INFO is logging.info
+say logging~getLevelName(20)
+
+::requires "python.cls"</programlisting>
+<screen>20
+INFO</screen>
+</example>
+</section>
+
+<section id="msgItems"><title>Items and Slices</title>
+<indexterm><primary>items</primary></indexterm>
+<indexterm><primary>slices</primary></indexterm>
+<para><computeroutput>o[k]</computeroutput> and
+<computeroutput>o[k] = v</computeroutput> are Python's indexing:
+<computeroutput>d["key"]</computeroutput>, <computeroutput>l[0]</computeroutput>,
+<computeroutput>l[-1]</computeroutput>. Several indexes are a tuple, as numpy
+wants it: <computeroutput>m[0, 1]</computeroutput> is
+<computeroutput>m[(0, 1)]</computeroutput>. Positions count from 0, as in
+Python, because it is Python's object; <xref linkend="mthPyObjectMakeArrayProxy"
+xrefstyle="select:title"/> gives a sequence as a Rexx Array counting from
+1.</para>
+<para>A slice is made with Python's builtin <literal>slice</literal>:
+<computeroutput>o[.py~slice(a, b, step)]</computeroutput> is
+<computeroutput>o[a:b:step]</computeroutput>, with &nil; leaving a part out:
+<computeroutput>x[.py~slice(-3, .nil)]</computeroutput> is
+<computeroutput>x[-3:]</computeroutput>.</para>
+
+<example id="ex.messages-items">
+<title>Items and slices</title>
+<programlisting language="rexx">d = .py~dict~new
+d["one"] = 1; d[2] = "two"
+say d d["one"] d[2]
+m = .py~import("numpy")~arange(6)~reshape(2, 3)
+say m[1, 2] m[0]
+l = .py~list(.py~range(10))
+say l[.py~slice(2, 5)] l[.py~slice(.nil, .nil, -3)] l[-1]
+
+::requires "python.cls"</programlisting>
+<screen>{'one': 1, 2: 'two'} 1 two
+5 [0 1 2]
+[2, 3, 4] [9, 6, 3, 0] 9</screen>
+</example>
+</section>
+
+<section id="msgKeywords"><title>Keyword Arguments</title>
+<indexterm><primary>keyword arguments</primary></indexterm>
+<para>Keyword arguments go in a marker, a
+<xref linkend="clsPyKwArgs" xrefstyle="select:title"/>, as the last argument
+of a call. <xref linkend="mthPythonKw" xrefstyle="select:title"/> makes it from
+names and values, or from a Directory or StringTable:
+<computeroutput>plt~plot(x, y, .py~kw("color", "red", "linewidth", 2))</computeroutput>.
+Only the marker is taken as keywords: a Directory or StringTable at the end
+of the arguments stays a positional argument. The names go as written, in
+their case.</para>
+
+<example id="ex.messages-keywords">
+<title>Keyword arguments</title>
+<programlisting language="rexx">json = .py~import("json")
+data = .py~dict~new(.py~kw("b", 1, "a", 2))
+say json~dumps(data, .py~kw("sort_keys", .true))
+options = .directory~new
+options["sep"] = "-"
+show = .py~eval("lambda *a, **k: (a, k)")
+say show~new(1, .py~kw(options))        -- a Directory made into keywords
+say show~new(1, options)~class~id       -- a Directory as itself
+
+::requires "python.cls"</programlisting>
+<screen>{"a": 2, "b": 1}
+((1,), {'sep': '-'})
+PYOBJECT</screen>
+</example>
+</section>
+
+<section id="msgOperators"><title>Operators, Comparisons and Iteration</title>
+<indexterm><primary>operators</primary></indexterm>
+<indexterm><primary>comparisons</primary></indexterm>
+<para>Rexx's operators on a <classname>PyObject</classname> are Python's, so
+that Python numbers, sets and numpy arrays work in Rexx expressions. The left
+operand must be the Python object, because Rexx sends the operator to it; with
+a Rexx value on the left, the operation is Rexx's own, on the Python object's
+string value.</para>
+<table id="tabOperators" frame="all">
+<title>Rexx operators and Python</title>
+<tgroup cols="2">
+<colspec colwidth="2*"/><colspec colwidth="3*"/>
+<thead><row><entry>Rexx</entry><entry>Python</entry></row></thead>
+<tbody>
+<row><entry><literal>a + b</literal>, <literal>a - b</literal>, <literal>a * b</literal>, <literal>a / b</literal>, <literal>a ** b</literal></entry>
+<entry><literal>a + b</literal>, <literal>a - b</literal>, <literal>a * b</literal>, <literal>a / b</literal>, <literal>a ** b</literal></entry></row>
+<row><entry><literal>a % b</literal> (integer division)</entry><entry><literal>a // b</literal></entry></row>
+<row><entry><literal>a // b</literal> (remainder)</entry><entry><literal>a % b</literal></entry></row>
+<row><entry><literal>-a</literal>, <literal>+a</literal>, <literal>\a</literal></entry><entry><literal>-a</literal>, <literal>+a</literal>, <literal>not a</literal></entry></row>
+<row><entry><literal>a &lt; b</literal>, <literal>a &gt; b</literal>, <literal>a &lt;= b</literal>, <literal>a &gt;= b</literal></entry>
+<entry><literal>a &lt; b</literal>, <literal>a &gt; b</literal>, <literal>a &lt;= b</literal>, <literal>a &gt;= b</literal></entry></row>
+<row><entry><literal>a = b</literal>, <literal>a \= b</literal> (also <literal>&lt;&gt;</literal>, <literal>&gt;&lt;</literal>)</entry><entry><literal>a == b</literal>, <literal>a != b</literal></entry></row>
+<row><entry><literal>a == b</literal>, <literal>a \== b</literal></entry><entry><literal>a is b</literal>, <literal>a is not b</literal></entry></row>
+<row><entry><literal>a &amp; b</literal>, <literal>a | b</literal>, <literal>a &amp;&amp; b</literal></entry><entry><literal>a &amp; b</literal>, <literal>a | b</literal>, <literal>a ^ b</literal></entry></row>
+<row><entry><computeroutput>do x over o</computeroutput></entry><entry><computeroutput>for x in o</computeroutput></entry></row>
+<row><entry><computeroutput>say o</computeroutput>, <computeroutput>o~string</computeroutput></entry><entry><computeroutput>str(o)</computeroutput></entry></row>
+<row><entry><computeroutput>o~hashCode</computeroutput></entry><entry>consistent with <literal>==</literal> (identity), so that a <classname>PyObject</classname> can be the index of a Rexx collection</entry></row>
+</tbody>
+</tgroup>
+</table>
+<para>Note the two divisions: Rexx's <literal>%</literal> is integer division
+and <literal>//</literal> the remainder, Python's <literal>//</literal> and
+<literal>%</literal>. The meaning is kept, not the symbol.</para>
+
+<example id="ex.messages-operators">
+<title>Operators and iteration</title>
+<programlisting language="rexx">a = .py~int(7); b = .py~int(2)
+say a + b a - b a * b a / b a % b a // b a ** b (-a)
+say (a &lt; b) (a = .py~int(7)) (a \= b)
+l = .py~list((1, 2)); m = .py~list((1, 2))
+say (l = m) (l == m)                    -- equal, but not the same object
+s = .py~set((1, 2)); t = .py~set((2, 3))
+say (s &amp; t) (s | t) (s &amp;&amp; t)
+do x over .py~range(3); say x; end
+
+::requires "python.cls"</programlisting>
+<screen>9 5 14 3.5 3 1 49 -7
+0 1 1
+1 0
+{2} {1, 2, 3} {1, 3}
+0
+1
+2</screen>
+</example>
+</section>
+
+<section id="msgObjectMethods"><title>Methods of the Object Class</title>
+<indexterm><primary>Object class</primary>
+<secondary>methods of, on a PyObject</secondary></indexterm>
+<para>A <classname>PyObject</classname> is a Rexx object, so the methods of
+Rexx's <classname>Object</classname> class are Rexx's:
+<methodname>class</methodname>, <methodname>isA</methodname>,
+<methodname>string</methodname>, <methodname>hasMethod</methodname>,
+<methodname>objectName</methodname> and the others. <computeroutput>l~class</computeroutput>
+is the class <classname>PyObject</classname>; Python's class is
+<computeroutput>l~getattr("__class__")</computeroutput>, or
+<computeroutput>.py~type(l)</computeroutput>.</para>
+<para>Five are the exception, because Python objects commonly have them too:
+<methodname>copy</methodname> (<literal>dict.copy</literal>),
+<methodname>send</methodname> (a generator's), <methodname>start</methodname>
+and <methodname>run</methodname> (<literal>threading.Thread</literal>'s) and
+<methodname>request</methodname> without arguments (the request of a
+<literal>socketserver</literal> handler) are Python's when the object has
+that attribute, and Rexx's otherwise. See
+<xref linkend="mthPyObjectCopy" xrefstyle="select:title"/>.</para>
+</section>
+
+</chapter>

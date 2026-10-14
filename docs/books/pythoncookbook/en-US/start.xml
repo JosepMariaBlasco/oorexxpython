@@ -1,0 +1,90 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "pythoncookbook.ent">
+%BOOK_ENTITIES;
+]>
+<!-- Licensed under the Apache License, Version 2.0. -->
+<chapter id="ckStart"><title>Getting Started</title>
+<indexterm><primary>getting started</primary></indexterm>
+
+<section id="ckInstall"><title>Installing</title>
+<indexterm><primary>installing</primary></indexterm>
+<para>You need ooRexx 5.2.0 or later (5.3.0 to use the bridge from several
+threads at once), Python 3.9 or later, and the bridge's zip for your system
+from the project's releases page,
+<ulink url="https://github.com/JosepMariaBlasco/oorexxpython/releases">https://github.com/JosepMariaBlasco/oorexxpython/releases</ulink>.
+Unzip it, open a terminal in the unzipped folder, and run the installer:</para>
+<screen>rexx install                                 <lineannotation>Windows, as administrator</lineannotation>
+sudo rexx install --python $(which python3)  <lineannotation>Linux and macOS</lineannotation></screen>
+<para>It puts the bridge into your ooRexx, makes it importable from your
+Python, checks both directions, and ends with <literal>ooRexx/Python:
+installed and OK</literal>. The zip's <filename>README.md</filename> has the
+details for each system.</para>
+<para>One bridge works with every Python from 3.9 on: it uses only Python's
+Stable ABI. A Rexx program uses the Python named by the environment variable
+<envar>ORX_PYTHON</envar>, or else the <command>python3</command> on the
+<envar>PATH</envar> (<command>python</command> on Windows), with its installed
+packages: install numpy, matplotlib and pandas there
+(<command>pip install numpy matplotlib pandas</command>) for the samples that
+use them.</para>
+</section>
+
+<section id="ckHello"><title>Calling Python from Rexx</title>
+<indexterm><primary>import</primary></indexterm>
+<para><emphasis role="bold">You want</emphasis> to use a Python module from a
+Rexx program.</para>
+<?sample 01-hello.rex?>
+<para><emphasis role="bold">How it works.</emphasis>
+<computeroutput>::requires "python.cls"</computeroutput> loads the bridge and
+Python with it, and defines <literal>.py</literal>, the way in: it is Python's
+builtins plus a few helpers, <methodname>import</methodname> first among them.
+<computeroutput>.py~import("math")</computeroutput> returns the module, and
+its functions are called as Rexx messages: <computeroutput>math~sqrt(2)</computeroutput>
+is <computeroutput>math.sqrt(2)</computeroutput>. A function without
+arguments is called too, so <computeroutput>math~pi</computeroutput> is the
+constant, and <computeroutput>math~factorial(30)</computeroutput> a function
+call.</para>
+<para>Python's numbers come back as Rexx strings, with all their digits:
+Python's integers have no size limit, and the result of
+<methodname>factorial</methodname> is exact, whatever Rexx's
+<literal>NUMERIC DIGITS</literal>.</para>
+<para><emphasis role="bold">See also</emphasis> <citetitle>Reference</citetitle>,
+<emphasis>Introduction</emphasis> and <emphasis>Python Class</emphasis>.</para>
+</section>
+
+<section id="ckFromPython"><title>Calling Rexx from Python</title>
+<para><emphasis role="bold">You want</emphasis> to run Rexx code from a
+Python program.</para>
+<?sample 30-run-rexx.py?>
+<para><emphasis role="bold">How it works.</emphasis>
+<computeroutput>import oorexx</computeroutput> is the bridge, seen from
+Python. <computeroutput>oorexx.Interpreter()</computeroutput> creates an
+ooRexx interpreter instance; as a context manager it is closed at the end of
+the <literal>with</literal> block. <methodname>eval</methodname> evaluates an
+expression, <methodname>routine</methodname> makes a routine from source,
+callable as a Python function, and <methodname>run</methodname> calls a
+program file with arguments.</para>
+<para>Rexx's results come to Python by the same rule as Python's come to
+Rexx (<xref linkend="ckValues"/>): a Rexx string that is a number comes as an
+<literal>int</literal> or a <literal>float</literal>. <literal>2 ** 100</literal>
+with Rexx's default nine digits is <literal>1.26765060E+30</literal>, a
+<literal>float</literal>; with forty digits it is exact, an
+<literal>int</literal>. What the Rexx code says goes through Python's
+<literal>sys.stdout</literal>, marked <literal>REXXout&gt;</literal>
+(<xref linkend="ckStdio"/>).</para>
+<para><emphasis role="bold">See also</emphasis> <citetitle>Reference</citetitle>,
+<emphasis>Interpreter Class</emphasis>.</para>
+</section>
+
+<section id="ckRunning"><title>Running the Samples</title>
+<para>Each recipe says how to run its sample: <command>rexx 01-hello.rex</command>
+in the folder where the samples are, or <command>python3 30-run-rexx.py</command>
+(<command>python</command> on Windows). The bridge's installer copies them
+into ooRexx's samples folder, under <filename>python</filename>.</para>
+<para>When the bridge is built from source instead of installed, the
+repository's <filename>samples/run-one.sh</filename> runs a sample with the
+build: <command>samples/run-one.sh 01-hello.rex 3.11</command> runs it with
+Python 3.11.</para>
+</section>
+
+</chapter>

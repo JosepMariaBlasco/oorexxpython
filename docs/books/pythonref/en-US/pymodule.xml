@@ -1,0 +1,351 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % BOOK_ENTITIES SYSTEM "pythonref.ent">
+%BOOK_ENTITIES;
+]>
+<!-- Licensed under the Apache License, Version 2.0. -->
+<chapter id="pymodule"><title>The oorexx Module: Python Using Rexx</title>
+<indexterm><primary>oorexx module</primary></indexterm>
+
+<para>A Python program uses Rexx through the module <literal>oorexx</literal>:
+<computeroutput>import oorexx</computeroutput>. It creates interpreter
+instances, runs Rexx code in them, and uses Rexx objects as Python objects.
+The module is the bridge itself, the same binary for every Python from 3.9
+on.</para>
+
+<para>Its names are Python's, and its methods' names follow Python's
+conventions (<methodname>add_command_environment</methodname>), but for the
+<methodname>sendMessage</methodname> methods of
+<classname>RexxObject</classname>, which keep the names of BSF4ooRexx's
+<literal>RexxProxy</literal>. The syntax diagrams of this chapter show Python
+syntax.</para>
+
+<!-- ===================================================================== -->
+<section id="clsInterpreter"><title>Interpreter Class</title>
+<indexterm><primary>Interpreter class</primary></indexterm>
+<indexterm><primary>class</primary>
+<secondary>Interpreter class</secondary></indexterm>
+<para>An ooRexx interpreter instance. A process may have several at once,
+each with its own <literal>.local</literal>, packages and
+<literal>ADDRESS</literal> environments. An instance loads
+<filename>python.cls</filename> by itself, so the Rexx code it runs can use
+&py; without requiring it. It is a context manager: the end of a
+<literal>with</literal> block closes it.</para>
+
+<section id="mthInterpreterNew"><title>Interpreter</title>
+<indexterm><primary>Interpreter</primary><secondary>constructor</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/interpreter_new.svg" scale="55" /></imageobject></mediaobject>
+<para>Creates an interpreter instance. The keyword arguments are ooRexx's
+instance options, and the bridge's:</para>
+<variablelist>
+<varlistentry><term><literal>rexx_path</literal></term>
+<listitem><para>a directory, or a list of them, where <literal>CALL</literal>,
+<literal>::requires</literal> and <methodname>run</methodname> look for
+programs.</para></listitem></varlistentry>
+<varlistentry><term><literal>extensions</literal></term>
+<listitem><para>a file extension, or a list of them, tried for external
+calls.</para></listitem></varlistentry>
+<varlistentry><term><literal>initial_address</literal></term>
+<listitem><para>the initial <literal>ADDRESS</literal>
+environment.</para></listitem></varlistentry>
+<varlistentry><term><literal>load_libraries</literal></term>
+<listitem><para>a native library, or a list of them, loaded when the instance
+is created.</para></listitem></varlistentry>
+<varlistentry><term><literal>command_environments</literal></term>
+<listitem><para>a dict from names to Python callables:
+<literal>ADDRESS</literal> environments (<xref linkend="pymoduleAddress"/>).</para></listitem></varlistentry>
+<varlistentry><term><literal>stdio</literal></term>
+<listitem><para><literal>True</literal> (the default) sends Rexx's standard
+streams through Python's; <literal>False</literal> keeps Rexx's own
+(<xref linkend="streams"/>).</para></listitem></varlistentry>
+<varlistentry><term><literal>prefixes</literal></term>
+<listitem><para><literal>True</literal> (the default), <literal>False</literal>,
+or a dict of prefixes for Rexx's lines (<xref linkend="streams"/>).</para></listitem></varlistentry>
+</variablelist>
+</section>
+
+<section id="mthInterpreterRun"><title>run</title>
+<indexterm><primary>run method</primary><secondary>of Interpreter class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/interpreter_run.svg" scale="55" /></imageobject></mediaobject>
+<para><literal>CALL</literal>s the Rexx program <emphasis role="italic">program</emphasis>,
+a file name, with the arguments, and returns its result (&None; if it returns
+none). The arguments and the result follow <xref linkend="valuesFromRexx"/>.</para>
+</section>
+
+<section id="mthInterpreterEval"><title>eval</title>
+<indexterm><primary>eval method</primary><secondary>of Interpreter class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/interpreter_eval.svg" scale="55" /></imageobject></mediaobject>
+<para>Returns the value of the Rexx <emphasis role="italic">expression</emphasis>.</para>
+</section>
+
+<section id="mthInterpreterRoutine"><title>routine</title>
+<indexterm><primary>routine method</primary><secondary>of Interpreter class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/interpreter_routine.svg" scale="55" /></imageobject></mediaobject>
+<para>Returns a Rexx routine made from <emphasis role="italic">source</emphasis>
+(clauses separated by semicolons or line feeds), named
+<emphasis role="italic">name</emphasis> (default <literal>ROUTINE</literal>).
+It is a <classname>RexxObject</classname>, and a Python callable: calling it
+calls the routine with the arguments, and returns its result.</para>
+<example id="ex.pymodule-interpreter">
+<title>Interpreter: eval, routine, run</title>
+<programlisting language="python">import oorexx
+
+with open("add.rex", "w") as f:
+    f.write("use arg a, b; return a + b\n")
+with oorexx.Interpreter(rexx_path=".") as rexx:
+    print(rexx.eval("2 ** 10"), rexx.eval("reverse('abc')"))
+    double = rexx.routine("use arg x; return x * 2")
+    print(double(21), double("21"))
+    print(rexx.run("add.rex", 2, 3))</programlisting>
+<screen>1024 cba
+42 42
+5</screen>
+</example>
+</section>
+
+<section id="mthInterpreterAddCommandEnvironment"><title>add_command_environment</title>
+<indexterm><primary>add_command_environment method</primary><secondary>of Interpreter class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/interpreter_addcommandenvironment.svg" scale="55" /></imageobject></mediaobject>
+<para>Makes the Python callable <emphasis role="italic">handler</emphasis> the
+<literal>ADDRESS</literal> environment <emphasis role="italic">name</emphasis>
+(<xref linkend="pymoduleAddress"/>). Do it before other threads run Rexx in
+the instance (<xref linkend="threadsAddress"/>).</para>
+</section>
+
+<section id="mthInterpreterClose"><title>close</title>
+<indexterm><primary>close method</primary><secondary>of Interpreter class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/interpreter_close.svg" scale="55" /></imageobject></mediaobject>
+<para>Terminates the interpreter instance. Using it afterwards raises
+<classname>RexxError</classname>.</para>
+</section>
+</section>
+
+<!-- ===================================================================== -->
+<section id="clsRexxObject"><title>RexxObject Class</title>
+<indexterm><primary>RexxObject class</primary></indexterm>
+<indexterm><primary>class</primary>
+<secondary>RexxObject class</secondary></indexterm>
+<para>A Rexx object, by reference, as BSF4ooRexx's <literal>RexxProxy</literal>
+is in Java. It keeps the Rexx object alive while Python holds it. Rexx
+strings, numbers, &nil; and Arrays do not come as
+<classname>RexxObject</classname>s, but converted (<xref linkend="valuesFromRexx"/>).</para>
+
+<table id="tabRexxObject" frame="all">
+<title>Python on a RexxObject, and the Rexx message it sends</title>
+<tgroup cols="2">
+<colspec colwidth="1*"/><colspec colwidth="1*"/>
+<thead><row><entry>Python</entry><entry>Rexx</entry></row></thead>
+<tbody>
+<row><entry><computeroutput>o.name(a, b)</computeroutput></entry><entry><computeroutput>o~name(a, b)</computeroutput>: the attribute's name, uppercased</entry></row>
+<row><entry><computeroutput>o(a, b)</computeroutput></entry><entry><computeroutput>o~call(a, b)</computeroutput>: a Routine is called</entry></row>
+<row><entry><computeroutput>o[k]</computeroutput>, <computeroutput>o[k] = v</computeroutput></entry><entry><computeroutput>o[k]</computeroutput>, <computeroutput>o[k] = v</computeroutput></entry></row>
+<row><entry><computeroutput>len(o)</computeroutput></entry><entry><computeroutput>o~items</computeroutput></entry></row>
+<row><entry><computeroutput>for x in o</computeroutput></entry><entry><computeroutput>do x over o</computeroutput></entry></row>
+<row><entry><computeroutput>str(o)</computeroutput></entry><entry><computeroutput>o~string</computeroutput></entry></row>
+<row><entry><computeroutput>a == b</computeroutput>, <computeroutput>hash(o)</computeroutput></entry><entry>the same Rexx object; equal objects have the same hash, so a <classname>RexxObject</classname> can be a dict key</entry></row>
+</tbody>
+</tgroup>
+</table>
+
+<para>An attribute of a <classname>RexxObject</classname>,
+<computeroutput>o.name</computeroutput>, is a callable
+<literal>oorexx.RexxMessage</literal>, which sends the message when it is
+called: <computeroutput>o.name()</computeroutput> sends
+<literal>NAME</literal> with no arguments. Two
+<classname>RexxObject</classname>s of the same Rexx object are
+<literal>==</literal>, though not <literal>is</literal>; a
+<classname>RexxObject</classname> given back to Rexx is the Rexx object
+itself.</para>
+
+<example id="ex.pymodule-rexxobject">
+<title>Rexx objects in Python</title>
+<programlisting language="python">import oorexx
+
+with oorexx.Interpreter() as rexx:
+    d = rexx.eval(".directory~new")
+    d["X"] = 1
+    d["Y"] = 2
+    print(len(d), d["X"], d.hasIndex("Y"), sorted(d), str(d))
+    print(d.items(), type(d.items).__name__)
+    q = rexx.eval(".queue~new")
+    q.queue("a"); q.queue("b")
+    print(q.pull(), q.items())
+    print(d == rexx.routine("use arg x; return x")(d))</programlisting>
+<screen>2 1 1 ['X', 'Y'] a Directory
+2 RexxMessage
+a 1
+True</screen>
+</example>
+
+<section id="mthRexxObjectSendMessage"><title>sendMessage</title>
+<indexterm><primary>sendMessage method</primary><secondary>of RexxObject class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/rexxobject_sendmessage.svg" scale="55" /></imageobject></mediaobject>
+<para>Sends the message <emphasis role="italic">name</emphasis>, a string, with
+the arguments in a list, and returns the result. It reaches the messages that
+cannot be written as Python attributes (<literal>"[]="</literal>,
+<literal>"||"</literal>), and a name held in a variable.</para>
+</section>
+
+<section id="mthRexxObjectSendMessageN"><title>sendMessage0 ... sendMessage5</title>
+<indexterm><primary>sendMessage0 method</primary><secondary>of RexxObject class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/rexxobject_sendmessagen.svg" scale="55" /></imageobject></mediaobject>
+<para>Send the message <emphasis role="italic">name</emphasis> with no
+arguments, or with one to five, given one by one.</para>
+</section>
+
+<section id="mthRexxObjectSendMessageScope"><title>sendMessageScope</title>
+<indexterm><primary>sendMessageScope method</primary><secondary>of RexxObject class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/rexxobject_sendmessagescope.svg" scale="55" /></imageobject></mediaobject>
+<para>Sends the message <emphasis role="italic">name</emphasis> with the
+method search starting at the class <emphasis role="italic">scope</emphasis>
+(a <classname>RexxObject</classname> for a Rexx class), as Rexx's
+<computeroutput>o~name:scope(args)</computeroutput>.</para>
+<example id="ex.pymodule-sendmessage">
+<title>Messages by name</title>
+<programlisting language="python">import oorexx
+
+with oorexx.Interpreter() as rexx:
+    d = rexx.eval(".directory~new")
+    d.sendMessage("[]=", ["x", "K"])    # d["K"] = "x"
+    print(d.sendMessage("[]", ["K"]), d.sendMessage0("ITEMS"), d.sendMessage1("HASINDEX", "K"))
+    o = rexx.eval(".object~new")
+    print(o.sendMessageScope("STRING", rexx.eval(".object")))</programlisting>
+<screen>x 1 1
+an Object</screen>
+</example>
+</section>
+</section>
+
+<!-- ===================================================================== -->
+<section id="clsRexxError"><title>RexxError Class</title>
+<indexterm><primary>RexxError class</primary></indexterm>
+<para>The exception that a Rexx condition becomes in Python, a subclass of
+<literal>RuntimeError</literal>. Its text is Rexx's message, with the
+condition's code: <literal>Rexx error 42.3: Arithmetic overflow; divisor must
+not be zero.</literal> A Python exception that went through Rexx code is raised
+as itself instead (<xref linkend="condRoundTrip"/>).</para>
+</section>
+
+<!-- ===================================================================== -->
+<section id="pymoduleAddress"><title>ADDRESS Environments in Python</title>
+<indexterm><primary>ADDRESS</primary><secondary>environments in Python</secondary></indexterm>
+<para>A Python callable can be a Rexx command environment: given with
+<literal>command_environments=</literal> when the interpreter is created, or
+with <xref linkend="mthInterpreterAddCommandEnvironment" xrefstyle="select:title"/>.
+Rexx's <literal>ADDRESS name</literal> commands call it with two arguments,
+the command, a <literal>str</literal>, and a
+<xref linkend="clsCommandContext" xrefstyle="select:title"/>. What it returns
+is <literal>RC</literal>: a positive number raises <literal>ERROR</literal>, a
+negative one <literal>FAILURE</literal>, in the Rexx code that issued the
+command; &None; is 0. A Python exception in the handler is a SYNTAX error
+(98.900) there. An environment belongs to its interpreter instance; adding a
+name again replaces it.</para>
+<example id="ex.pymodule-address">
+<title>ADDRESS environments written in Python</title>
+<programlisting language="python">import oorexx
+
+def calc(command, ctx):
+    try:
+        ctx.set_var("RESULT", eval(command, {"__builtins__": {}}))
+        return 0
+    except Exception as e:
+        ctx.set_var("RESULT", str(e))
+        return 1
+
+def upper(command, ctx):
+    for line in ctx.lines():
+        ctx.output(line.upper())
+    return 0
+
+with oorexx.Interpreter(command_environments={"CALC": calc}, prefixes=False) as rexx:
+    rexx.add_command_environment("UPPER", upper)
+    rexx.routine("""
+        address calc
+        '2 ** 10';  say rc result
+        '1 / 0';    say rc result
+        in.1 = 'one'; in.2 = 'two'; in.0 = 2
+        address upper 'x' with input stem in. output stem out.
+        say out.0 out.1 out.2
+    """)()</programlisting>
+<screen>0 1024
+1 division by zero
+2 ONE TWO</screen>
+</example>
+</section>
+
+<!-- ===================================================================== -->
+<section id="clsCommandContext"><title>CommandContext Class</title>
+<indexterm><primary>CommandContext class</primary></indexterm>
+<para>What an <literal>ADDRESS</literal> environment written in Python gets
+with each command: the command's redirected input and output
+(<literal>ADDRESS ... WITH</literal>), the variables of the Rexx code that
+issued it, and the conditions to raise there. It is valid only during the
+call.</para>
+
+<section id="mthCommandContextLineIn"><title>line_in</title>
+<indexterm><primary>line_in method</primary><secondary>of CommandContext class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/commandcontext_linein.svg" scale="55" /></imageobject></mediaobject>
+<para>Returns the next line of the redirected input, or &None; at the end.</para>
+</section>
+<section id="mthCommandContextLines"><title>lines</title>
+<indexterm><primary>lines method</primary><secondary>of CommandContext class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/commandcontext_lines.svg" scale="55" /></imageobject></mediaobject>
+<para>Returns a list of all the lines of the redirected input.</para>
+</section>
+<section id="mthCommandContextOutput"><title>output</title>
+<indexterm><primary>output method</primary><secondary>of CommandContext class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/commandcontext_output.svg" scale="55" /></imageobject></mediaobject>
+<para>Writes <emphasis role="italic">line</emphasis> to the command's output:
+the redirected output if there is one, else Python's
+<literal>sys.stdout</literal>, as a real command writes to the
+console.</para>
+</section>
+<section id="mthCommandContextError"><title>error</title>
+<indexterm><primary>error method</primary><secondary>of CommandContext class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/commandcontext_error.svg" scale="55" /></imageobject></mediaobject>
+<para>Writes <emphasis role="italic">line</emphasis> to the command's error
+output: the redirected one if there is one, else Python's
+<literal>sys.stderr</literal>.</para>
+</section>
+<section id="mthCommandContextIsRedirected"><title>is_redirected</title>
+<indexterm><primary>is_redirected method</primary><secondary>of CommandContext class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/commandcontext_isredirected.svg" scale="55" /></imageobject></mediaobject>
+<para>Returns whether the command's input, output or error is redirected, or,
+for <literal>'same'</literal>, whether output and error go to the same
+target.</para>
+</section>
+<section id="mthCommandContextGetVar"><title>get_var</title>
+<indexterm><primary>get_var method</primary><secondary>of CommandContext class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/commandcontext_getvar.svg" scale="55" /></imageobject></mediaobject>
+<para>Returns the value of the variable <emphasis role="italic">name</emphasis>
+of the code that issued the command, or &None; if it has none.</para>
+</section>
+<section id="mthCommandContextSetVar"><title>set_var</title>
+<indexterm><primary>set_var method</primary><secondary>of CommandContext class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/commandcontext_setvar.svg" scale="55" /></imageobject></mediaobject>
+<para>Sets the variable <emphasis role="italic">name</emphasis> of the code
+that issued the command.</para>
+</section>
+<section id="mthCommandContextDropVar"><title>drop_var</title>
+<indexterm><primary>drop_var method</primary><secondary>of CommandContext class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/commandcontext_dropvar.svg" scale="55" /></imageobject></mediaobject>
+<para>Drops the variable <emphasis role="italic">name</emphasis> of the code
+that issued the command.</para>
+</section>
+<section id="mthCommandContextRaiseError"><title>raise_error</title>
+<indexterm><primary>raise_error method</primary><secondary>of CommandContext class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/commandcontext_raiseerror.svg" scale="55" /></imageobject></mediaobject>
+<para>Raises <literal>ERROR</literal> in the code that issued the command,
+after the command, with <literal>RC</literal> <emphasis role="italic">rc</emphasis>
+(when the handler returns &None;, <emphasis role="italic">rc</emphasis> is RC);
+returns <emphasis role="italic">rc</emphasis>, so that it can be returned:
+<computeroutput>return ctx.raise_error(5)</computeroutput>.</para>
+</section>
+<section id="mthCommandContextRaiseFailure"><title>raise_failure</title>
+<indexterm><primary>raise_failure method</primary><secondary>of CommandContext class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/commandcontext_raisefailure.svg" scale="55" /></imageobject></mediaobject>
+<para>The same, raising <literal>FAILURE</literal>.</para>
+</section>
+</section>
+
+</chapter>
