@@ -27,7 +27,7 @@ thread waits for the kernel lock), and `Threads.testGroup`,
 passes them; which of the fixes since 5.2.0 makes the difference has not
 been pinned down (`docs/design.md`, *ooRexx versions*).
 
-Two tickets filed for other reasons also touch the bridge:
+Tickets filed for other reasons that also touch the bridge:
 
 - [#2105](https://sourceforge.net/p/oorexx/bugs/2105/) (fixed in r13266):
   `ADDRESS ... WITH INPUT USING (aFile)` sent no input, so an ADDRESS
@@ -36,6 +36,26 @@ Two tickets filed for other reasons also touch the bridge:
 - [#2106](https://sourceforge.net/p/oorexx/bugs/2106/) (fixed in r13267):
   entering the interpreter was slow on Linux. No measurable effect on the
   bridge's calls.
+- [#2113](https://sourceforge.net/p/oorexx/bugs/2113/) (fixed in r13271):
+  the `Is...Redirected` calls an ADDRESS handler makes could silently clear a
+  condition pending on the handler's activation. The bridge's ADDRESS
+  environments written in Python make those calls (`ctx.is_redirected`,
+  `ctx.line_in`, `ctx.output`, `ctx.error`).
+- [#2114](https://sourceforge.net/p/oorexx/bugs/2114/) (fixed in r13270): a
+  `SELECT CASE` whose expression allocates can corrupt the heap if a garbage
+  collection runs meanwhile. It touches any Rexx program; the bridge's own
+  Rexx code has no `SELECT CASE`.
+- [#2111](https://sourceforge.net/p/oorexx/bugs/2111/) (open):
+  `AddCommandEnvironment` changes the instance's table of environments
+  without the kernel lock. Registering an ADDRESS environment with
+  `Interpreter.add_command_environment` while Rexx runs on another thread of
+  the same instance can corrupt the heap: register environments when the
+  interpreter is created (`environments=`) or before other threads run Rexx.
+- [#2112](https://sourceforge.net/p/oorexx/bugs/2112/) (open): resolving an
+  ADDRESS environment missing from the instance's table, while other threads
+  run Rexx, can register a freed handler. Environments registered through
+  the bridge are in the table; addressing one before it is registered is the
+  risky case.
 
 Not a bug, but worth knowing when writing native code: `IsString` is false
 for strings the interpreter keeps in another form (internal integers, number

@@ -2298,7 +2298,7 @@ static PyObject *interpreterNew(PyTypeObject *type, PyObject *args, PyObject *kw
         }
         // the creating thread stays attached (its root activity): detaching
         // it makes Terminate wait forever (ooRexx bug #2107, still there in
-        // r13268; notes/oorexx-bugs.md)
+        // r13271; notes/oorexx-bugs.md)
     }
     PyEval_RestoreThread(saved);
     self->inst = inst != NULL ? newHandle(inst) : NULL;
