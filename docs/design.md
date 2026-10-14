@@ -139,8 +139,8 @@ plt~savefig("plot.png")
 
 Everything on `.py` is Python's builtin of the same name, unchanged
 (`.py~len(x)`, `.py~range(10)`, `.py~list(x)` is `list(x)`), except the
-bridge's helpers: `import`, `box`, `kw`, `main`, `eval`, `exec`, `extend`
-(*Subclassing*), `raise` (*Exceptions*), `redirectTo` (*Standard streams*), and
+bridge's helpers: `import` (with an optional type, `"string"`: see
+*Values*), `box`, `kw`, `main`, `eval`, `exec`, `extend` (*Subclassing*), `raise` (*Exceptions*), `redirectTo` (*Standard streams*), and
 `decimal` (`decimal.Decimal`). `.py~str`, `~int`, `~float` are the builtins
 too; the only difference from calling them through any other route is that
 the result stays a `.PyObject` instead of coming back as a Rexx string
@@ -250,6 +250,35 @@ numpy or matplotlib argument. The cost: a number-looking string may arrive as
 a number (`d["1"]` is not `d[1]`). `.py~str(x)` forces a string;
 `.py~int(x)`, `.py~float(x)`, `.py~decimal(x)` force a type (`decimal` keeps
 Rexx's precision); for any type, see *Boxing*.
+
+Two alternatives were measured on every sample, and rejected. Strings
+always, with a type declared per module at import as the way to get numbers:
+even with numpy, pandas and matplotlib declared, 19 of the 31 samples broke
+(`math~sqrt(2)`, `datetime~date(2026, 10, 7)`, `random~randint(1, 6)`,
+every `o[i]` on a list or tuple), one silently (`self * 9` on an `int`
+subclass is the string "9" repeated). Python's type hints (typeshed's stubs,
+the packages' own, inline annotations), read per call: they decide where they
+ask for one type (`math.sqrt`, `np.linspace`, and `str` for `os.getenv`,
+`os.path.join`, `re.compile`), but most of the rest are type variables,
+`Any` or unions with `str` (`np.array`, `dict(...)`, `slice`,
+`random.seed`'s `int | float | str | ...`), so the same value would go as a
+number or as a string depending on how a stub was written, and differently
+with another version of the library; reading them took a type checker's
+work (aliases, generics, protocols, overloads chosen by the whole call) and
+0.1 to 0.5 s per program, on a short program's 0.2 s. A rule the programmer
+can apply by looking at the value was preferred to both.
+
+**Modules imported as "string".** `.py~import(name, "string")` marks the
+module's `.PyObject` (`pystrings`, an argument of `PyObject`'s `init`), and
+every `.PyObject` made from a call, attribute or item of a marked one is
+marked too (`RexxSide::strings`). While a marked object converts its
+arguments, and the values it stores (`o[k] = v`, `o~x = v`), every Rexx
+string goes as a `str` (`argStrings`, set per native method by
+`StringsScope`). Keys and positions in `o[k]` keep the rule, as do Rexx
+results returned to Python; the `bool` exception stays. `"number"` is the
+default, the rule. Scoping by reach rather than by the callee's
+`__module__` makes `os~path~join` count as `os` (whose `path` is
+`posixpath`).
 
 The same rule applies to Rexx results going to Python (see *Python →
 ooRexx*).

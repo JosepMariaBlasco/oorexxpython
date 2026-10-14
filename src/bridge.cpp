@@ -193,6 +193,23 @@ struct RexxSide
     RexxClassObject pyObjectClass;
     RexxClassObject kwClass;
     RexxDirectoryObject keep = NULLOBJECT;
+    bool strings = false;                 // the receiver came from a module imported
+                                          // as "string" (docs/design.md, *Values*)
+};
+
+/*
+ * While a .PyObject reached through a module imported as "string" converts
+ * its arguments, a Rexx string goes as a str, whatever it looks like.  Set by
+ * each method around its own conversions, and cleared where Rexx values go to
+ * Python for other reasons (Rexx results returned to Python).
+ */
+static thread_local bool argStrings = false;
+
+struct StringsScope
+{
+    bool saved;
+    explicit StringsScope(bool on) : saved(argStrings) { argStrings = on; }
+    ~StringsScope() { argStrings = saved; }
 };
 
 /*
@@ -272,6 +289,8 @@ static bool findClasses(RexxMethodContext *context, RexxSide &side)
     side.inst = context->threadContext->instance;
     side.pyObjectClass = context->FindContextClass("PYOBJECT");
     side.kwClass = context->FindContextClass("PYKWARGS");
+    RexxObjectPtr strings = context->GetObjectVariable("PYSTRINGS");
+    side.strings = strings != NULLOBJECT && strings == context->True();
     if (side.pyObjectClass == NULLOBJECT || side.kwClass == NULLOBJECT)
     {
         context->RaiseException1(Rexx_Error_Execution_user_defined,
@@ -565,6 +584,7 @@ static PyObject *valToPy(const Val &v)
         }
         case Val::STR:
         default:
+            if (argStrings) return pyText(v.s.data(), v.s.size());
             switch (numberKind(v.s))
             {
                 case INTEGER_NUMBER: return PyLong_FromString(v.s.c_str(), NULL, 10);
@@ -1051,8 +1071,9 @@ static RexxObjectPtr valToRexx(RexxSide &side, Val &v)
         case Val::REF:
         {
             // the proxy takes over our reference (its UNINIT drops it)
-            RexxObjectPtr proxy = c->SendMessage1(side.pyObjectClass, "NEW",
-                                                  c->NewPointer(v.ref));
+            RexxObjectPtr proxy = side.strings
+                ? c->SendMessage2(side.pyObjectClass, "NEW", c->NewPointer(v.ref), c->True())
+                : c->SendMessage1(side.pyObjectClass, "NEW", c->NewPointer(v.ref));
             v.owned = false;
             return proxy;
         }
@@ -1370,7 +1391,11 @@ static PyObject *intoRexx(Inst *inst, PyObject *args, Py_ssize_t skip, PyObject 
         PyErr_SetString(rexxErrorType, error.c_str());
         return NULL;
     }
-    PyObject *py = valToPy(result);
+    PyObject *py;
+    {
+        StringsScope plain(false);
+        py = valToPy(result);
+    }
     dropVal(result);
     return py;
 }
@@ -2635,7 +2660,11 @@ static PyObject *ctxGetVar(PyObject *self, PyObject *args)
     RexxSide side;
     if (o != NULLOBJECT && sideFor(tc, side)) rexxToVal(side, o, v);
     Py_END_ALLOW_THREADS
-    PyObject *r = valToPy(v);
+    PyObject *r;
+    {
+        StringsScope plain(false);
+        r = valToPy(v);
+    }
     dropVal(v);
     return r;
 }
@@ -2881,6 +2910,7 @@ RexxMethod3(RexxObjectPtr, PyPair_New, OSELF, self, RexxObjectPtr, pyclass, Rexx
 {
     RexxSide side;
     if (!findClasses(context, side)) return NULLOBJECT;
+    StringsScope scope(side.strings);
     if (!context->IsInstanceOf(pyclass, side.pyObjectClass)) return noPython(context);
     RexxObjectPtr cp = context->SendMessage0(pyclass, "PY.POINTER");
     PyObject *cls = cp != NULLOBJECT ? (PyObject *)context->PointerValue((RexxPointerObject)cp) : NULL;
@@ -2939,6 +2969,7 @@ RexxMethod2(RexxObjectPtr, PyPair_Init, RexxArrayObject, rexxArgs_, CSELF, self)
     if (self == NULL) return noPython(context);
     RexxSide side;
     if (!findClasses(context, side)) return NULLOBJECT;
+    StringsScope scope(side.strings);
     Args args;
     rexxArgs(side, rexxArgs_, 1, args);
     PyError err;
@@ -3060,6 +3091,7 @@ RexxMethod3(RexxObjectPtr, PyObj_Unknown, CSTRING, message, RexxArrayObject, rex
     if (self == NULL) return noPython(context);
     RexxSide side;
     if (!findClasses(context, side)) return NULLOBJECT;
+    StringsScope scope(side.strings);
     std::string name = message;
     bool assign = name.size() > 1 && name.back() == '=';
     if (assign) name.pop_back();
@@ -3145,6 +3177,7 @@ RexxMethod2(RexxObjectPtr, PyObj_GetAttr, CSTRING, name, CSELF, self)
     if (self == NULL) return noPython(context);
     RexxSide side;
     if (!findClasses(context, side)) return NULLOBJECT;
+    StringsScope scope(side.strings);
     Val result;
     PyError err;
     {
@@ -3161,6 +3194,7 @@ RexxMethod3(RexxObjectPtr, PyObj_SetAttr, CSTRING, name, RexxObjectPtr, value, C
     if (self == NULL) return noPython(context);
     RexxSide side;
     if (!findClasses(context, side)) return NULLOBJECT;
+    StringsScope scope(side.strings);
     Val result;
     Args holder;
     holder.positional.emplace_back();
@@ -3181,6 +3215,7 @@ RexxMethod2(RexxObjectPtr, PyObj_Invoke, ARGLIST, all, CSELF, self)
     if (self == NULL) return noPython(context);
     RexxSide side;
     if (!findClasses(context, side)) return NULLOBJECT;
+    StringsScope scope(side.strings);
     RexxObjectPtr target = context->ArraySize(all) >= 1 ? context->ArrayAt(all, 1) : NULLOBJECT;
     bool callSelf = target == NULLOBJECT || target == context->Nil();
     std::string name = callSelf ? "" : context->ObjectToStringValue(target);
@@ -3215,19 +3250,28 @@ static PyObject *itemKey(const Args &keys)
     return tuple;
 }
 
+// the key of o[k]: positions and keys follow the rule even through a module
+// imported as "string" (l[0] on a list it returned)
+static PyObject *plainKey(const Args &keys)
+{
+    StringsScope plain(false);
+    return itemKey(keys);
+}
+
 // o[keys...]
 RexxMethod2(RexxObjectPtr, PyObj_GetItem, ARGLIST, all, CSELF, self)
 {
     if (self == NULL) return noPython(context);
     RexxSide side;
     if (!findClasses(context, side)) return NULLOBJECT;
+    StringsScope scope(side.strings);
     Args keys;
     rexxArgs(side, all, 1, keys);
     Val result;
     PyError err;
     {
         Gil gil;
-        PyObject *key = itemKey(keys);
+        PyObject *key = plainKey(keys);
         PyObject *r = key != NULL ? PyObject_GetItem(selfObject(self), key) : NULL;
         Py_XDECREF(key);
         if (r == NULL) captureError(err); else pyToVal(r, result);
@@ -3241,6 +3285,7 @@ RexxMethod2(RexxObjectPtr, PyObj_SetItem, ARGLIST, all, CSELF, self)
     if (self == NULL) return noPython(context);
     RexxSide side;
     if (!findClasses(context, side)) return NULLOBJECT;
+    StringsScope scope(side.strings);
     Val result;
     Args keys;
     rexxArgs(side, all, 2, keys);
@@ -3258,7 +3303,7 @@ RexxMethod2(RexxObjectPtr, PyObj_SetItem, ARGLIST, all, CSELF, self)
         // frame, finds none and fails).  So the call holds a reference too.
         PyObject *o = selfObject(self);
         Py_INCREF(o);
-        PyObject *key = itemKey(keys);
+        PyObject *key = plainKey(keys);
         PyObject *pv = key != NULL ? valToPy(value) : NULL;
         if (pv == NULL || PyObject_SetItem(o, key, pv) < 0) captureError(err);
         Py_XDECREF(pv);
@@ -3286,6 +3331,7 @@ RexxMethod1(RexxObjectPtr, PyObj_MakeArray, CSELF, self)
     if (self == NULL) return noPython(context);
     RexxSide side;
     if (!findClasses(context, side)) return NULLOBJECT;
+    StringsScope scope(side.strings);
     Val result;
     result.kind = Val::LIST;
     PyError err;
@@ -3336,6 +3382,7 @@ RexxMethod3(RexxObjectPtr, PyObj_Operator, NAME, message, ARGLIST, all, CSELF, s
     if (self == NULL) return noPython(context);
     RexxSide side;
     if (!findClasses(context, side)) return NULLOBJECT;
+    StringsScope scope(side.strings);
     std::string op = message;
     Args args;
     rexxArgs(side, all, 1, args);
@@ -3381,10 +3428,23 @@ RexxMethod1(RexxObjectPtr, PyObj_HashCode, CSELF, self)
 /* ------------------------------------------------------------------------ */
 
 // .py~import(name): the module, always as a proxy
-RexxMethod1(RexxObjectPtr, Py_Import, CSTRING, name)
+RexxMethod2(RexxObjectPtr, Py_Import, CSTRING, name, OPTIONAL_CSTRING, type)
 {
     RexxSide side;
     if (!findClasses(context, side)) return NULLOBJECT;
+    StringsScope scope(side.strings);
+    if (type != NULL)
+    {
+        std::string t = lower(type);
+        if (t == "string") side.strings = true;     // the module, and all it reaches
+        else if (t != "number")
+        {
+            context->RaiseException1(Rexx_Error_Incorrect_method_user_defined,
+                context->String(("py.import(name, type): type must be \"number\" or \"string\", not \"" +
+                                 std::string(type) + "\"").c_str()));
+            return NULLOBJECT;
+        }
+    }
     Val result;
     PyError err;
     {
@@ -3446,6 +3506,7 @@ RexxMethod2(RexxObjectPtr, Py_Make, NAME, message, ARGLIST, all)
 {
     RexxSide side;
     if (!findClasses(context, side)) return NULLOBJECT;
+    StringsScope scope(side.strings);
     std::string kind = lower(message);
     Args args;
     rexxArgs(side, all, 1, args);
@@ -3492,6 +3553,7 @@ RexxMethod2(RexxObjectPtr, Py_Box, RexxObjectPtr, type, RexxObjectPtr, value)   
 {
     RexxSide side;
     if (!findClasses(context, side)) return NULLOBJECT;
+    StringsScope scope(side.strings);
     std::string text = context->ObjectToStringValue(value);
     std::string kind = "str";
     Args holder;                          // a Python callable given as the type

@@ -63,6 +63,29 @@ return testResult
   self~assertSame("[1, 'a', 2.5]", b~repr(.array~of(1, "a", 2.5)), "list items typed")
   self~assertSame("añø€",  b~str("añø€")~string, "utf-8 round trip")
 
+::method test_string_module
+  s = .py~import("builtins", "string")
+  self~assertSame("str",   s~type(42)~__name__,  "a module imported as string: 42 is str")
+  self~assertSame("str",   s~type(3.14)~__name__, "3.14 is str")
+  self~assertSame("int",   .py~type(42)~__name__, ".py keeps the rule")
+  self~assertSame("int",   .py~import("builtins", "number")~type(42)~__name__, "number: the rule")
+  self~assertSame("['1', 'a', '2.5']", s~repr((1, "a", 2.5)), "array items as str")
+  l = s~list((1, 2))                   -- reached through the module
+  l~append(3)
+  self~assertSame("['1', '2', '3']", s~repr(l), "results carry it")
+  l[0] = 7
+  self~assertSame("7", l[0], "o[k] = v carries it")
+  self~assertSame("str", s~type(l[0])~__name__, "o[k] = v stored a str")
+  self~assertSame("2", l[1], "positions keep the rule")
+  self~assertSame("dir/2026", .py~import("os.path", "string")~join("dir", 2026), "os.path.join")
+  double = .context~package~findRoutine("DOUBLE")
+  self~assertSame("[2, 4]", .py~repr(s~list(s~map(double, (1, 2)))), "Rexx results keep the rule")
+  signal on syntax
+  .py~import("os", "text")
+  self~fail("an unknown type must fail")
+syntax:
+  self~assertTrue(condition("O")~message~pos('"number" or "string"') > 0, "the message names the types")
+
 ::method test_names
   b = .py
   t = self~makeT
@@ -239,3 +262,6 @@ return testResult
   t["nosuch"] = "x"
   self~expectSyntax(93.900)
   call py.redirectTo "P", , , , , , t
+
+::routine double
+  return arg(1) * 2

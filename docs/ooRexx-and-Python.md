@@ -46,7 +46,7 @@ Everything on `.py` is Python's builtin of the same name, unchanged: `.py~len(x)
 
 | Method | Does |
 | --- | --- |
-| `~import(name)` | a module: `.py~import("os.path")` |
+| `~import(name [, type])` | a module: `.py~import("os.path")`; type `"string"` or `"number"` (see [Values](#values)) |
 | `~kw(name, value, ...)`, `~kw(directory)` | keyword arguments (see [Messages](#messages)) |
 | `~str(x)`, `~int(x)`, `~float(x)`, `~decimal(x)` | Python's `str`, `int`, `float`, `decimal.Decimal`, kept as a `.PyObject` (see [Values](#values)) |
 | `~box(type, x)` | a Python object of the given type, made from `x`'s text (see [Values](#values)) |
@@ -90,6 +90,8 @@ A Rexx string goes as:
 - a `str` otherwise (`"007"`, `" 5"`, `"+5"`, any text).
 
 So `np~array((1, 2))~mean` works, as Python never turns a string into a number by itself. One exception, taken from the function's own annotations: a `1` or `0` passed to a parameter annotated `bool` goes as `True` or `False`, so `.true` works for pandas' `inplace=`. A Rexx Array goes as a `list`, item by item under the same rule, as a copy. A `.PyObject` goes as its Python object. Any other Rexx object goes by reference, as an `oorexx.RexxObject` (see [Python using Rexx](#python-using-rexx)), and comes back to Rexx as itself.
+
+The rule looks only at the value, never at the function that receives it, so it can be applied by reading the program: Python itself never turns a string into a number, so numbers must go as numbers for `math~sqrt(2)`, `random~randint(1, 6)`, `row[0]` or numpy to work. Its one pitfall is text that looks like a number, such as a file name `"2026"` (see [Pitfalls](#pitfalls)). For a module that works mostly with such text, `.py~import(name, "string")` sends every Rexx string as a `str`, whatever it looks like, in the calls made through that module and through everything reached from it: its attributes (`os~path`), what its calls return, and their items. Positions and keys in `o[k]` keep the rule, so that `l[0]` works on a list it returned; the `bool` exception stays. `"number"`, the default, is the rule. The rule applies in the other direction too, to what Rexx returns to Python.
 
 When the rule picks the wrong type, a type can be forced. `.py~str(x)`, `~int(x)`, `~float(x)` and `~decimal(x)` (the latter keeping all of Rexx's digits) make the Python object and keep it as a `.PyObject`, so it is not converted back. `.py~box(type, x)` makes an object of any type from `x`'s text, never through the rule: `str`, `int`, `float`, `bool`, `bytes`, `complex`, `decimal`, `fraction`, or a Python class or function. Its argument order is BSF4ooRexx's.
 
@@ -193,7 +195,7 @@ Any Rexx thread may use any `.PyObject`, and any Python thread any interpreter a
 
 - **`o~name` calls a method.** Without arguments, a method is called, not returned: `server~handle_request` runs it. To pass a method as a value (a callback, a thread's target), take it with `o~getattr("handle_request")`.
 - **Case-insensitive names can pick the wrong attribute.** Of `logging.info` and `logging.INFO`, the lowercase one wins, so `logging~INFO` calls the function (and fails, as it wants a message). The constant is `logging~getattr("INFO")`.
-- **Number-looking strings become numbers.** `"2026"` goes as the int `2026`, which `os.path.join("dir", "2026")` refuses, and `d["1"]` is `d[1]`. Use `.py~str("2026")`.
+- **Number-looking strings become numbers.** `"2026"` goes as the int `2026`, which `os.path.join("dir", "2026")` refuses, and `d["1"]` is `d[1]`. Use `.py~str("2026")`, or import the module as `"string"` (see [Values](#values)).
 - **Positions count from 0.** `o[0]` is the first item of a Python list or tuple, and `server_address[1]` the port.
 - **Rexx methods win.** `class`, `isA`, `string`, `hasMethod` and the other methods of Rexx's Object are Rexx's: `l~class` is `.PyObject`, Python's is `l~getattr("__class__")`. `copy`, `send`, `start`, `run` and `request` are the exception (see [Messages](#messages)).
 - **Bytes are strings.** Python's `bytes` come to Rexx as Rexx strings, and a Rexx string goes as `str` (or a number): to write to a binary stream, `.py~box("bytes", text)`.
@@ -216,7 +218,7 @@ The design follows Rony Flatscher's BSF4ooRexx, moved from Java to Python: `.PyO
 
 ## Questions decided
 
-1. **Values.** Decided: a Rexx string goes to Python as a string, even when it looks like a number, unless Python's type hints for the parameter ([typeshed](https://github.com/python/typeshed)'s stubs, and the ones packages such as numpy carry) ask for a number; and a program can say, when it imports a module, what type such strings take in calls to it (`.py~import("numpy", "float")`), for the parameters whose hints do not decide. Not done yet: until then, the rule in [Values](#values) holds.
+1. **Values.** Decided, after measuring the alternatives on every sample: the rule in [Values](#values) stays, with `.py~str(x)` for text that looks like a number, and `.py~import(name, "string")` for modules that want strings. Strings always (`.JSObject`'s rule) broke 19 of the 31 samples even with numpy, pandas and matplotlib declared as numbers (`math~sqrt(2)`, `row[0]`, `datetime~date(2026, 10, 7)`), one of them silently. Python's type hints decided only part of the values, the rest depending on how each stub was written (`random.seed(2026)` would get `"2026"`, `datetime.date(2026, ...)` the number), and reading them doubled a short program's run time. Done: see [Values](#values).
 2. **Positions.** Decided: `o[i]` stays Python's, from 0, as all of Python's indexing (dict keys, numpy's tuples, slices and masks, negative positions), and `o~makeArrayProxy` gives a sequence as a Rexx Array, counting from 1. Done: see [Messages](#messages).
 3. **Subclassing.** Decided: the bridges converge on ooRexx/.NET's and `.JSObject`'s model, in which the Rexx class itself is the subclass. Done: see [Classes](#classes).
 

@@ -71,7 +71,7 @@
 -- same proxy (e.g. a Python thread calling back Rexx code that uses .py)
 -- would wait for it: a deadlock when the first thread waits for that one.
 ::method init
-  expose cself pypair pyuninit
+  expose cself pypair pyuninit pystrings
   if self~class \== .PyObject then do
     pyclass = .PyObject~"PY.EXTENSIONOF"(self~class)
     if pyclass \== .nil then do        -- .MyClass~new(args): a pair (py.extend, below)
@@ -92,7 +92,9 @@
     if \self~isA(.Python) then
       raise syntax 93.900 array ("ooRexx/Python:" self~class~id "is a subclass of PyObject that no Python class extends: call .py~extend(self, base) in its ACTIVATE class method")
   end
-  use strict arg cself                 -- a .Pointer the bridge made
+  -- a .Pointer the bridge made; pystrings: reached through a module imported
+  -- as "string" (.py~import(name, "string")), whose calls get strings as str
+  use strict arg cself, pystrings = .false
   return
 syntax: raise propagate
 ::method "PY.PAIRNEW" private unguarded external "LIBRARY rexxpython PyPair_New"
@@ -265,8 +267,7 @@ final: return
 
 -- BSF4ooRexx-style routines (bsf.import ...), for those who prefer them
 ::routine py.import public
-  use strict arg name
-  return .py~import(name)
+  return .py~sendWith("IMPORT", arg(1, "A"))
 ::routine py.box public
   return .py~sendWith("BOX", arg(1, "A"))
 ::routine py.kw public
