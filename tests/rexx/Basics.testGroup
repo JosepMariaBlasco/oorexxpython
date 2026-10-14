@@ -77,7 +77,7 @@ return testResult
   self~assertSame("7", l[0], "o[k] = v carries it")
   self~assertSame("str", s~type(l[0])~__name__, "o[k] = v stored a str")
   self~assertSame("2", l[1], "positions keep the rule")
-  self~assertSame("dir/2026", .py~import("os.path", "string")~join("dir", 2026), "os.path.join")
+  self~assertSame("dir/2026", .py~import("posixpath", "string")~join("dir", 2026), "posixpath.join")
   double = .context~package~findRoutine("DOUBLE")
   self~assertSame("[2, 4]", .py~repr(s~list(s~map(double, (1, 2)))), "Rexx results keep the rule")
   signal on syntax
