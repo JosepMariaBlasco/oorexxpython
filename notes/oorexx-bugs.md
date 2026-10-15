@@ -56,6 +56,16 @@ Tickets filed for other reasons that also touch the bridge:
   run Rexx, can register a freed handler. Environments registered through
   the bridge are in the table; addressing one before it is registered is the
   risky case.
+- [#2116](https://sourceforge.net/p/oorexx/bugs/2116/) (open; filed by Tom
+  Dyer): an argument error raised by a native method (wrong number of
+  arguments, an argument its signature cannot convert) is invisible to the
+  native code that sent the message from its own *method* context:
+  `CheckCondition()` is false, and a later garbage collection can crash.
+  Its first part, `ReleaseGlobalReference`, is #2100 above. The bridge is
+  not exposed: every message it sends with a user's arguments goes through
+  a thread context of its own (`AttachThread`), where the condition is seen
+  and nothing is left behind (checked from Python and from Rexx through
+  Python, with a collection after each failed call).
 
 Not a bug, but worth knowing when writing native code: `IsString` is false
 for strings the interpreter keeps in another form (internal integers, number
