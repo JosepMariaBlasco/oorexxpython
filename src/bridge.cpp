@@ -1257,11 +1257,23 @@ static void rexxProxyDealloc(PyObject *self)
  * proxies may outlive them, and must not touch them.
  */
 
-// a pending Rexx condition as the text of an oorexx.RexxError (and cleared);
-// a Python exception that went through Rexx (SYNTAX 98.900 with the
-// exception as the third ADDITIONAL item: finish, .py~raise) goes into exc,
-// borrowed from its proxy, to be raised again as itself
-static std::string takeCondition(RexxThreadContext *tc, RexxSide *side = NULL, Val *exc = NULL)
+// what an oorexx.RexxError tells about its Rexx condition, as attributes
+// (taken under the kernel lock, set as attributes with the GIL)
+struct ConditionInfo
+{
+    bool set = false;
+    std::string condition, code, message, errortext, program, description;
+    long rc = 0;
+    size_t position = 0;
+};
+
+// a pending Rexx condition as the text of an oorexx.RexxError (and cleared),
+// and its parts into ci; a Python exception that went through Rexx (SYNTAX
+// 98.900 with the exception as the third ADDITIONAL item: finish,
+// .py~raise) goes into exc, borrowed from its proxy, to be raised again as
+// itself
+static std::string takeCondition(RexxThreadContext *tc, RexxSide *side = NULL, Val *exc = NULL,
+                                 ConditionInfo *ci = NULL)
 {
     RexxDirectoryObject cond = tc->GetConditionInfo();
     RexxCondition info;
@@ -1278,14 +1290,55 @@ static std::string takeCondition(RexxThreadContext *tc, RexxSide *side = NULL, V
     std::string name = info.conditionName != NULLOBJECT ? tc->CString(info.conditionName) : "SYNTAX";
     std::string text = info.message != NULLOBJECT ? tc->CString(info.message) : "";
     if (text.empty() && info.errortext != NULLOBJECT) text = tc->CString(info.errortext);
+    char code[64];
+    snprintf(code, sizeof code, "%ld.%ld", (long)(info.code / 1000), (long)(info.code % 1000));
+    if (ci != NULL)
+    {
+        ci->set = true;
+        ci->condition = name;
+        if (name == "SYNTAX") ci->code = code;
+        ci->rc = (long)info.rc;
+        ci->position = info.position;
+        ci->message = text;
+        if (info.errortext != NULLOBJECT) ci->errortext = tc->CString(info.errortext);
+        if (info.program != NULLOBJECT) ci->program = tc->CString(info.program);
+        if (info.description != NULLOBJECT) ci->description = tc->CString(info.description);
+    }
     tc->ClearCondition();
     if (name != "SYNTAX")
     {
         return "Rexx condition " + name + (text.empty() ? "" : ": " + text);
     }
-    char code[64];
-    snprintf(code, sizeof code, "%ld.%ld", (long)(info.code / 1000), (long)(info.code % 1000));
     return std::string("Rexx error ") + code + ": " + text;
+}
+
+// raise an oorexx.RexxError with text, and ci's attributes when it has them
+// (with the GIL)
+static void raiseRexxError(const std::string &text, const ConditionInfo &ci)
+{
+    PyObject *e = PyObject_CallFunction(rexxErrorType, "s", text.c_str());
+    if (e == NULL) return;
+    if (ci.set)
+    {
+        auto str = [&](const char *attr, const std::string &v, bool none)
+        {
+            PyObject *o = none ? Py_None : PyUnicode_DecodeUTF8(v.data(), (Py_ssize_t)v.size(), "replace");
+            if (none) Py_INCREF(o);
+            if (o != NULL) { PyObject_SetAttrString(e, attr, o); Py_DECREF(o); }
+        };
+        str("condition", ci.condition, false);
+        str("code", ci.code, ci.code.empty());
+        str("message", ci.message, false);
+        str("errortext", ci.errortext, ci.errortext.empty());
+        str("program", ci.program, ci.program.empty());
+        str("description", ci.description, ci.description.empty());
+        PyObject *rc = PyLong_FromLong(ci.rc);
+        if (rc != NULL) { PyObject_SetAttrString(e, "rc", rc); Py_DECREF(rc); }
+        PyObject *pos = ci.position != 0 ? PyLong_FromSize_t(ci.position) : (Py_INCREF(Py_None), Py_None);
+        if (pos != NULL) { PyObject_SetAttrString(e, "position", pos); Py_DECREF(pos); }
+    }
+    PyErr_SetObject(rexxErrorType, e);
+    Py_DECREF(e);
 }
 
 /*
@@ -1326,6 +1379,7 @@ static PyObject *intoRexx(Inst *inst, PyObject *args, Py_ssize_t skip, PyObject 
     // without the GIL: the Rexx work
     Val result, exc;
     std::string error;
+    ConditionInfo ci;
     PyThreadState *saved = PyEval_SaveThread();
     RexxThreadContext *tc;
     if (!inst->rexx->AttachThread(&tc))
@@ -1355,7 +1409,7 @@ static PyObject *intoRexx(Inst *inst, PyObject *args, Py_ssize_t skip, PyObject 
             if (o != NULLOBJECT) tc->ArrayPut(rargs, o, i + 1);
         }
         RexxObjectPtr r = tc->CheckCondition() ? NULLOBJECT : op(tc, side, rargs, error);
-        if (tc->CheckCondition()) error = takeCondition(tc, &side, &exc);
+        if (tc->CheckCondition()) error = takeCondition(tc, &side, &exc, &ci);
         else if (error.empty() && r != NULLOBJECT) rexxToVal(side, r, result);   // may run Rexx code
         // The Python objects in the result are borrowed from their .PyObject
         // proxies, which only this thread context's local references keep
@@ -1388,7 +1442,7 @@ static PyObject *intoRexx(Inst *inst, PyObject *args, Py_ssize_t skip, PyObject 
             return NULL;
         }
         dropVal(exc);
-        PyErr_SetString(rexxErrorType, error.c_str());
+        raiseRexxError(error, ci);
         return NULL;
     }
     PyObject *py;
@@ -2049,7 +2103,23 @@ static bool makeTypes()
     if (rexxProxyType != NULL) return true;
     rexxProxyType = PyType_FromSpec(&rexxProxySpec);
     rexxBoundType = PyType_FromSpec(&rexxBoundSpec);
-    rexxErrorType = PyErr_NewException("oorexx.RexxError", PyExc_RuntimeError, NULL);
+    // a Rexx condition's parts as attributes (raiseRexxError); None when the
+    // error is no Rexx condition (a closed instance...)
+    PyObject *attrs = PyDict_New();
+    if (attrs != NULL)
+    {
+        for (const char *a : {"condition", "code", "rc", "message", "errortext", "position",
+                              "program", "description"})
+        {
+            PyDict_SetItemString(attrs, a, Py_None);
+        }
+        PyObject *doc = PyUnicode_FromString(
+            "A Rexx condition in Rexx code that Python called: condition, code (SYNTAX's, \"42.3\"), "
+            "rc, message, errortext, position (the line), program, description.");
+        if (doc != NULL) { PyDict_SetItemString(attrs, "__doc__", doc); Py_DECREF(doc); }
+    }
+    rexxErrorType = PyErr_NewException("oorexx.RexxError", PyExc_RuntimeError, attrs);
+    Py_XDECREF(attrs);
     interpreterType = PyType_FromSpec(&interpreterSpec);
     commandContextType = PyType_FromSpec(&ctxSpec);
     return rexxProxyType != NULL && rexxBoundType != NULL && rexxErrorType != NULL &&

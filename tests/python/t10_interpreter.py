@@ -61,6 +61,19 @@ check("Python callback",       r.routine("use arg f; return f~new(20) + 1")(lamb
 # errors
 check("Rexx error",            raises(lambda: r.eval("1 / 0")).startswith("RexxError: Rexx error 42.3"), True)
 check("syntax error",          raises(lambda: r.routine("x = (")).startswith("RexxError: Rexx error 35.1"), True)
+def caught(f):
+    try:
+        f()
+    except oorexx.RexxError as e:
+        return e
+err = caught(lambda: r.routine("say 'one'\nx = 1 / 0", name="DIVIDE")())
+check("RexxError's attributes", (err.condition, err.code, err.rc, err.position),
+      ("SYNTAX", "42.3", 42, 2))
+check("RexxError's texts", (err.message, err.errortext),
+      ("Arithmetic overflow; divisor must not be zero.", "Arithmetic overflow/underflow."))
+check("RexxError's program", err.program, "DIVIDE")
+err = caught(lambda: r.routine("raise syntax 93.900 array ('custom')")())
+check("a raised condition's attributes", (err.code, err.rc, err.message), ("93.900", 93, "custom."))
 
 # Rexx's standard streams go through Python's (stdio=True), with prefixes
 buf, ebuf = io.StringIO(), io.StringIO()
@@ -129,6 +142,8 @@ r2 = oorexx.Interpreter(initial_address="CALC2", command_environments={"CALC2": 
 check("initial_address + environments", r2.routine("'abcd'; return rc")(), 4)
 r2.close()
 check("closed",                raises(lambda: r2.eval("1")), "RexxError: the Rexx interpreter instance has been closed")
+check("no condition: None attributes", (lambda e: (e.condition, e.code, e.rc))(caught(lambda: r2.eval("1"))),
+      (None, None, None))
 with oorexx.Interpreter() as r3:
     check("context manager",   r3.eval("2 + 2"), 4)
 # close from another thread than the creator's

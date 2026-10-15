@@ -81,7 +81,9 @@ sequence ends with <literal>IndexError</literal>, an iterator with
 <para>Any other Rexx condition that reaches Python, an error in Rexx code that
 Python called, is an <xref linkend="clsRexxError" xrefstyle="select:title"/>,
 whose text is Rexx's message:
-<literal>Rexx error 42.3: Arithmetic overflow; divisor must not be zero.</literal></para>
+<literal>Rexx error 42.3: Arithmetic overflow; divisor must not be zero.</literal>
+Its attributes are the parts of the condition: its code, its line, its
+program and its texts (<xref linkend="clsRexxError"/>).</para>
 <example id="ex.conditions-python">
 <title>Rexx errors and Python exceptions, seen from Python</title>
 <programlisting language="python">import oorexx

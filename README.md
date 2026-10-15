@@ -256,7 +256,11 @@ The bridge was suggested by Rony G. Flatscher, author of
 bridge it is modelled after; the `.JSObject` bridge of
 [ooRexx/WASM](https://github.com/JosepMariaBlasco/oorexxwasm) is its sister.
 The tests use ooRexxUnit, ooRexx's own test framework (CPL 1.0), fetched from
-ooRexx's SVN, not included here.
+ooRexx's SVN, not included here. `tests/python/t70_identity_lifetime.py` asks of this bridge
+what Tom Dyer's qualification probes for his ooRexx/Python proof of concept in
+[Alchemy](https://github.com/animatedads/alchemy) ask of his, contributed by
+him under the Apache License 2.0; `oorexx.RexxError`'s attributes follow his
+bridge's.
 
 Written by Josep Maria Blasco, with Claude (Anthropic) as coding assistant.
 

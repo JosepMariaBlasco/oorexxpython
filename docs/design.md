@@ -315,6 +315,14 @@ sequence ends with `IndexError`, an iterator with `StopIteration`, a mapping
 says "missing" with `KeyError`. Any other Rexx condition is still a
 `RexxError`.
 
+A `RexxError` carries the condition's parts as attributes (`condition`,
+`code`, `rc`, `message`, `errortext`, `position`, `program`, `description`),
+as Tom Dyer's bridge in Alchemy does: Python code can tell errors apart, or
+log where they happened, without parsing the text. They are read from the
+condition (`DecodeConditionInfo`) under the kernel lock, when it is cleared,
+and set on the exception with the GIL (`takeCondition`, `raiseRexxError` in
+`bridge.cpp`); `None` when the error is not a Rexx condition.
+
 `.py~raise(exc)` raises a Python exception from Rexx code: `exc` is an
 exception, or an exception class called with the rest of the arguments
 (`.py~raise(.py~IndexError, i)`). It is the same SYNTAX 98.900, so Rexx

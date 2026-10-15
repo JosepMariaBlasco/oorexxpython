@@ -224,6 +224,52 @@ an Object</screen>
 condition's code: <literal>Rexx error 42.3: Arithmetic overflow; divisor must
 not be zero.</literal> A Python exception that went through Rexx code is raised
 as itself instead (<xref linkend="condRoundTrip"/>).</para>
+<para>Its attributes are the parts of the Rexx condition, as Rexx's
+<computeroutput>condition("O")</computeroutput> has them:</para>
+<variablelist>
+<varlistentry><term><literal>condition</literal></term>
+<listitem><para>the condition's name: <literal>"SYNTAX"</literal> for an
+error.</para></listitem></varlistentry>
+<varlistentry><term><literal>code</literal></term>
+<listitem><para>a SYNTAX condition's code, a <literal>str</literal>:
+<literal>"42.3"</literal>.</para></listitem></varlistentry>
+<varlistentry><term><literal>rc</literal></term>
+<listitem><para>an <literal>int</literal>: a SYNTAX condition's major
+number, <literal>42</literal>.</para></listitem></varlistentry>
+<varlistentry><term><literal>message</literal></term>
+<listitem><para>the condition's message, the secondary one for an
+error.</para></listitem></varlistentry>
+<varlistentry><term><literal>errortext</literal></term>
+<listitem><para>the error's primary text: <literal>"Arithmetic
+overflow/underflow."</literal></para></listitem></varlistentry>
+<varlistentry><term><literal>position</literal></term>
+<listitem><para>the line where it was raised, an <literal>int</literal>.</para></listitem></varlistentry>
+<varlistentry><term><literal>program</literal></term>
+<listitem><para>the program where it was raised: a file name, or a
+routine's name.</para></listitem></varlistentry>
+<varlistentry><term><literal>description</literal></term>
+<listitem><para>the condition's description, if it has one.</para></listitem></varlistentry>
+</variablelist>
+<para>An attribute the condition does not have is &None;, and so are all of
+them when the error is not a Rexx condition (an interpreter that has been
+closed).</para>
+<example id="ex.pymodule-rexxerror">
+<title>The parts of a Rexx condition</title>
+<programlisting language="python">import oorexx
+
+with oorexx.Interpreter() as rexx:
+    divide = rexx.routine("say 'one'\nreturn 1 / 0", name="DIVIDE")
+    try:
+        divide()
+    except oorexx.RexxError as e:
+        print(e)
+        print(e.condition, e.code, e.rc, e.position, e.program)
+        print(e.errortext)</programlisting>
+<screen>REXXout&gt;one
+Rexx error 42.3: Arithmetic overflow; divisor must not be zero.
+SYNTAX 42.3 42 2 DIVIDE
+Arithmetic overflow/underflow.</screen>
+</example>
 </section>
 
 <!-- ===================================================================== -->
