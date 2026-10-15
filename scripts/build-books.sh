@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # build-books.sh: builds the documentation books in docs/books (DocBook 4.5,
-# the format of the ooRexx books) as PDFs, with ooRexx's own documentation
+# the format of the ooRexx books) as PDFs and HTML, with ooRexx's own documentation
 # tools: bldoc_orx's hldoc2pdf, which highlights the Rexx listings with the
-# Rexx Parser.
+# Rexx Parser, and hldoc2HTML.
 #
-#   scripts/build-books.sh                  # every book -> $OUT/<book>.pdf
+#   scripts/build-books.sh                  # every book -> $OUT/<book>.pdf,
+#                                           # $OUT/<book>-html/ (and .zip)
 #   BOOKS=pythonref scripts/build-books.sh  # one of them
 #   DIAGRAMS=1 scripts/build-books.sh       # also regenerate the syntax
 #                                           # diagrams (images/*.svg) from
@@ -16,6 +17,9 @@
 #               (the books' Common_Content) and, for DIAGRAMS=1,
 #               tools/RailRoadDiagrams (rr.war);
 #                 svn co https://svn.code.sf.net/p/oorexx/code-0/docs/trunk docSVN
+#               or only what the PDFs and HTML need (2 MB; CI does this):
+#                 svn export .../docs/trunk/tools/bldoc_orx docSVN/tools/bldoc_orx
+#                 svn export .../docs/trunk/oorexx docSVN/oorexx
 #   REXX_PARSER the Rexx Parser (default $ORXPY_WORK/rexx-parser), from
 #               https://rexx.epbcn.com/rexx-parser/
 #   rexx, xsltproc, the DocBook 4.5 DTD and the DocBook XSL stylesheets
@@ -41,7 +45,7 @@ for need in "$DOCS_SVN/tools/bldoc_orx/hldocprep.rex" "$DOCS_SVN/oorexx/en-US/Le
             "$REXX_PARSER/bin/Rexx.Parser.cls"; do
   [ -f "$need" ] || { echo "build-books.sh: $need not found (see the comments at the top)" >&2; exit 2; }
 done
-for tool in rexx xsltproc fop java; do
+for tool in rexx xsltproc fop java zip; do
   command -v $tool >/dev/null || { echo "build-books.sh: $tool not on the PATH" >&2; exit 2; }
 done
 export PATH="$REXX_PARSER/bin:$PATH"
@@ -63,7 +67,10 @@ cp -r "$DOCS_SVN/oorexx" "$STAGE/docs/oorexx"
 cp -r "$DOCS_SVN/tools/bldoc_orx" "$STAGE/bldoc"
 ( cd "$STAGE/bldoc"
   rm -rf .svn bldoc.env work_folder/* fo_files/* log_files/* pdf_files/* html_folders/* hl-styles \
-         pdf-hl.xsl html-hl.xsl rexx-highlights.xsl rexx-highlights-html.xsl )
+         pdf-hl.xsl html-hl.xsl rexx-highlights.xsl rexx-highlights-html.xsl
+  # the HTML pages' header names ooRexx's books ("Open Object Rexx"): ours
+  sed -i.bak 's|<xsl:variable name="clean_title">[^<]*<|<xsl:variable name="clean_title">ooRexx and Python<|' \
+    xhtml-common.xsl && rm -f xhtml-common.xsl.bak )
 
 # the edition: today, and the commit the books come from; the version: the
 # latest release tag, when the clone has the tags (else the .ent's)
@@ -106,5 +113,15 @@ for book in $BOOKS; do
     exit 1
   fi
   cp "pdf_files/$book.pdf" "$OUT/$book.pdf"
+  # the HTML: hldoc2HTML on the work files hldocprep left (chunked, one page
+  # per section), as a folder and a zip
+  if ! rexx hldoc2HTML.rex >>"$log" 2>&1 || [ ! -f "html_folders/$book/index.html" ]; then
+    tail -30 "$log" >&2
+    echo "build-books.sh: the HTML of $book failed (log: $log)" >&2
+    exit 1
+  fi
+  rm -rf "$OUT/$book-html" "$OUT/$book-html.zip"
+  cp -r "html_folders/$book" "$OUT/$book-html"
+  (cd "$OUT" && zip -qr "$book-html.zip" "$book-html")
   echo "build-books.sh: $OUT/$book.pdf ($(grep -c '\[WARN\]' "$foplog" || true) FOP warnings, as ooRexx's books have; log: $STAGE/bldoc/$foplog)"
 done

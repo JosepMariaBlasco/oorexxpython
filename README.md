@@ -51,8 +51,18 @@ Python on all four (GitHub Actions: `.github/workflows/build.yml`), and on
 Linux also with ooRexx 5.2.0, the minimum: all but the three tests that use an
 interpreter from several threads at once, which needs 5.3.0
 ([`docs/design.md`](docs/design.md), *ooRexx versions*). The design is
-still being discussed ([the specification](docs/ooRexx-and-Python.md)) and
-parts of the API may change.
+still being discussed, and parts of the API may change.
+
+## Documentation
+
+Two books, in the format of ooRexx's own and built with its documentation
+tools, as PDF and HTML: **ooRexx and Python: Reference** (`pythonref`, in the
+style of ooRexx's `rexxref`: every class, method and routine, with syntax
+diagrams and small examples) and **ooRexx and Python: Cookbook**
+(`pythoncookbook`: the main concepts, one recipe per sample). Each release
+carries them; every push builds them (artifact `oorexxpython-docs` of the
+[Actions](https://github.com/JosepMariaBlasco/oorexxpython/actions) run).
+Their sources are in [`docs/books`](docs/books).
 
 ## Installing
 
@@ -231,8 +241,6 @@ is a failure). `PYTHONS="3.9 3.13"` and `TESTS=Threads.testGroup` choose;
 - `scripts/` — `build.sh`, `setup-pythons.sh`, `setup-oorexxunit.sh`, and
   `setup-oorexx.sh` (builds ooRexx from SVN, when no build with headers is
   at hand).
-- `docs/ooRexx-and-Python.md` — the specification: what the bridge does,
-  for Rexx and Python programmers (a living document, for discussion).
 - `docs/design.md` — how the bridge works and why: names, values, keyword
   arguments, threads and locks, lifetime.
 - `docs/books/` — two books in the format of ooRexx's own, built with its

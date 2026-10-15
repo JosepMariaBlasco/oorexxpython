@@ -10,7 +10,8 @@
 # with the environment variables, then installed into ooRexx by install.rex
 # (and uninstalled). A tag
 # vX.Y.Z[-suffix] (git tag v0.1.0 && git push origin v0.1.0) also makes a
-# GitHub release with the four zips; pushes to main publish nothing.
+# GitHub release with the four zips and the books (two PDFs, two zips of
+# HTML: the books job); pushes to main publish nothing.
 name: build
 
 on:
@@ -250,9 +251,59 @@ jobs:
           name: test-logs-linux-x64-oorexx-5.2.0
           path: ${{ runner.temp }}/tests*
 
+  # The books (docs/books), as PDFs and HTML, with ooRexx's own documentation
+  # tools (docs/trunk/tools/bldoc_orx, from ooRexx's SVN) and the Rexx
+  # Parser, which highlights their Rexx listings: artifact oorexxpython-docs
+  books:
+    name: books
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0                  # the tags: the books' version
+      - name: DocBook, xsltproc, FOP, Subversion
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq subversion xsltproc docbook-xml docbook-xsl fop fonts-liberation zip >/dev/null
+      - name: ooRexx r${{ env.OOREXX_REV }} (portable)
+        run: |
+          curl -sSfL --retry 3 -o "$RUNNER_TEMP/oorexx.zip" \
+            "$OOREXX_URL/oorexx-5.3.0-$OOREXX_REV.ubuntu2404.x86_64-portable-release.zip"
+          unzip -q "$RUNNER_TEMP/oorexx.zip" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/oorexx-5.3.0-$OOREXX_REV.ubuntu2404.x86_64-portable-release/bin" >> "$GITHUB_PATH"
+      - name: ooRexx's documentation tools, and the Rexx Parser
+        run: |
+          U=https://svn.code.sf.net/p/oorexx/code-0/docs/trunk
+          mkdir -p "$RUNNER_TEMP/docSVN/tools"
+          svn export -q "$U/tools/bldoc_orx" "$RUNNER_TEMP/docSVN/tools/bldoc_orx"
+          svn export -q "$U/oorexx" "$RUNNER_TEMP/docSVN/oorexx"
+          P=https://rexx.epbcn.com/rexx-parser/
+          zip=$(curl -sSfL --retry 3 "$P" | grep -o 'Rexx-Parser-[^"/]*\.zip' | sort -u | tail -1)
+          echo "Rexx Parser: $zip"
+          curl -sSfL --retry 3 -o "$RUNNER_TEMP/parser.zip" "$P$zip"
+          mkdir -p "$RUNNER_TEMP/rexx-parser" && unzip -q "$RUNNER_TEMP/parser.zip" -d "$RUNNER_TEMP/rexx-parser"
+          test -f "$RUNNER_TEMP/rexx-parser/bin/Rexx.Parser.cls"
+      - name: Build the books
+        run: |
+          DOCS_SVN=$RUNNER_TEMP/docSVN REXX_PARSER=$RUNNER_TEMP/rexx-parser \
+          STAGE=$RUNNER_TEMP/books-build OUT=$RUNNER_TEMP/books scripts/build-books.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: oorexxpython-docs
+          path: |
+            ${{ runner.temp }}/books/*.pdf
+            ${{ runner.temp }}/books/*-html.zip
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: books-logs
+          path: |
+            ${{ runner.temp }}/books-build/*.log
+            ${{ runner.temp }}/books-build/bldoc/log_files
+
   release:
     if: github.ref_type == 'tag'
-    needs: [unix, windows]
+    needs: [unix, windows, books]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -268,4 +319,4 @@ jobs:
         run: |
           pre=(); case "$GITHUB_REF_NAME" in *-*) pre=(--prerelease) ;; esac
           gh release create "$GITHUB_REF_NAME" -R "$GITHUB_REPOSITORY" "${pre[@]}" \
-            --title "$GITHUB_REF_NAME" --generate-notes dist/*.zip
+            --title "$GITHUB_REF_NAME" --generate-notes dist/*.zip dist/*.pdf

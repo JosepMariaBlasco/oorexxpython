@@ -1,8 +1,10 @@
 # The books
 
 Two books document the bridge, in the format and with the tools of ooRexx's
-own books (DocBook 4.5, built with `docs/trunk/tools/bldoc_orx` of ooRexx's
-SVN, whose highlighting of Rexx listings is the Rexx Parser's):
+own books (DocBook 4.5, built as PDF and HTML with `docs/trunk/tools/bldoc_orx`
+of ooRexx's SVN, whose highlighting of Rexx listings is the Rexx Parser's).
+CI builds them on every push (artifact `oorexxpython-docs`), and a release
+carries them:
 
 - `pythonref/` — **ooRexx and Python: Reference**, in the style of ooRexx's
   `rexxref`: the classes, methods and routines of `python.cls`, and the
@@ -31,7 +33,7 @@ SVN, whose highlighting of Rexx listings is the Rexx Parser's):
 svn co https://svn.code.sf.net/p/oorexx/code-0/docs/trunk docSVN   # next to the clone
 # the Rexx Parser, from https://rexx.epbcn.com/rexx-parser/, unzipped as rexx-parser
 sudo apt install xsltproc docbook-xml docbook-xsl fop fonts-liberation
-oorexxpython/scripts/build-books.sh          # -> books/pythonref.pdf, books/pythoncookbook.pdf
+oorexxpython/scripts/build-books.sh          # -> books/<book>.pdf, books/<book>-html/ (and .zip)
 ```
 
 `scripts/build-books.sh` explains its options (`BOOKS=`, `DIAGRAMS=1`,
