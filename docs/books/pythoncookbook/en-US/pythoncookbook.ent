@@ -1,7 +1,7 @@
 <!ENTITY PRODUCT "ooRexx/Python">
 <!ENTITY BOOKID "pythoncookbook">
 <!ENTITY YEAR "2026">
-<!ENTITY HOLDER "Josep Maria Blasco">
+<!ENTITY HOLDER "Josep Maria Blasco and Rony G. Flatscher">
 <!ENTITY VERSION "0.1.0-preview.12">
 <!ENTITY EDITION "(set by scripts/build-books.sh)">
 <!ENTITY Rexx "ooRexx">
