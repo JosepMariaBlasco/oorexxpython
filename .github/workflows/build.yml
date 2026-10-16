@@ -8,10 +8,11 @@
 # (scripts/package.sh; artifacts oorexxpython-<platform>), which is checked
 # unzipped, as a user would install it, with the system's own Python: first
 # with the environment variables, then installed into ooRexx by install.rex
-# (and uninstalled). A tag
-# vX.Y.Z[-suffix] (git tag v0.1.0 && git push origin v0.1.0) also makes a
-# GitHub release with the four zips and the books (two PDFs, two zips of
-# HTML: the books job); pushes to main publish nothing.
+# (and uninstalled). The Windows zip and the books also make the Windows
+# installer (windows-installer job: NSIS), tried with ooRexx's own installer.
+# A tag vX.Y.Z[-suffix] (git tag v0.1.0 && git push origin v0.1.0) also makes
+# a GitHub release with the four zips, the Windows installer and the books
+# (two PDFs, two zips of HTML: the books job); pushes to main publish nothing.
 name: build
 
 on:
@@ -119,7 +120,7 @@ jobs:
           ORX_PYTHON=$PY rexx "$S/01-hello.rex" && "$PY" "$S/30-run-rexx.py"
           rexx oorexxpython-uninstall status
           rexx oorexxpython-uninstall
-          ! "$PY" -c "import oorexx" 2>/dev/null
+          if "$PY" -c "import oorexx" 2>/dev/null; then echo "oorexx still importable"; exit 1; fi
           test ! -e "$BIN/python.cls" && test ! -e "$BIN/oorexxpython-uninstall.rex" && test ! -e "$S"
       - uses: actions/upload-artifact@v4
         if: always()
@@ -193,7 +194,7 @@ jobs:
           rexx "$(cygpath -w "$S/01-hello.rex")" && python "$(cygpath -w "$S/30-run-rexx.py")"
           rexx oorexxpython-uninstall status
           rexx oorexxpython-uninstall
-          ! python -c "import oorexx" 2>/dev/null
+          if python -c "import oorexx" 2>/dev/null; then echo "oorexx still importable"; exit 1; fi
           test ! -e "$BIN/rexxpython.dll" && test ! -e "$BIN/oorexxpython-uninstall.rex" && test ! -e "$S"
       - uses: actions/upload-artifact@v4
         if: always()
@@ -301,9 +302,99 @@ jobs:
             ${{ runner.temp }}/books-build/*.log
             ${{ runner.temp }}/books-build/bldoc/log_files
 
+  # The Windows installer (scripts/windows-installer.sh: NSIS, a wrapper around
+  # install.rex), from the Windows zip and the books; then tried as a user
+  # would: ooRexx from its own installer, ours silently with two Pythons, the
+  # one Rexx uses not the PATH's, and its uninstaller
+  windows-installer:
+    name: windows-installer
+    needs: [windows, books]
+    runs-on: windows-2022
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/download-artifact@v4
+        with:
+          name: oorexxpython-windows-x64
+          path: ${{ runner.temp }}/zip
+      - uses: actions/download-artifact@v4
+        with:
+          name: oorexxpython-docs
+          path: ${{ runner.temp }}/docs
+      - name: NSIS
+        run: |
+          if ! command -v makensis && [ ! -x "/c/Program Files (x86)/NSIS/makensis.exe" ]; then
+            choco install nsis -y --no-progress
+          fi
+      - name: Build the installer
+        run: scripts/windows-installer.sh "$RUNNER_TEMP"/zip/*.zip "$RUNNER_TEMP/docs" "$RUNNER_TEMP/dist"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: oorexxpython-windows-x64-installer
+          path: ${{ runner.temp }}/dist/*.exe
+      - name: ooRexx r${{ env.OOREXX_REV }} (its installer, silent)
+        shell: pwsh
+        run: |
+          $exe = "$env:RUNNER_TEMP\oorexx-setup.exe"
+          curl.exe -sSfL --retry 3 -o $exe "https://downloads.sourceforge.net/project/oorexx/oorexx/5.3.0beta/oorexx-5.3.0-$env:OOREXX_REV.windows.x86_64.exe"
+          $p = Start-Process $exe -ArgumentList '/S' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { exit $p.ExitCode }
+          & "C:\Program Files\ooRexx\rexx.exe" -v
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install (silent), two Pythons, Rexx uses the one not on the PATH
+        shell: pwsh
+        run: |
+          uv python install 3.13
+          $py13 = (uv python find 3.13)
+          $py12 = (Get-Command python).Source
+          "PY13=$py13" | Out-File -Append $env:GITHUB_ENV
+          $exe = (Get-ChildItem "$env:RUNNER_TEMP\dist\*.exe").FullName
+          $p = Start-Process $exe -ArgumentList '/S', "/PYTHON=$py12;$py13", "/REXXPYTHON=$py13" -Wait -PassThru
+          Get-Content "$env:TEMP\oorexxpython-install.log"
+          if ($p.ExitCode -ne 0) { exit $p.ExitCode }
+      - name: Installed, with no variables
+        run: |
+          R="/c/Program Files/ooRexx"
+          export PATH="$R:$PATH"
+          unset ORX_PYTHON REXX_PATH PYTHONPATH
+          rexx oorexxpython-uninstall status
+          cat "$R/oorexxpython.cfg"
+          cd "$RUNNER_TEMP"
+          printf "say .py~import('sys')~version~word(1)\n::requires 'python.cls'\n" > v.rex
+          v=$(rexx v.rex); echo "Rexx uses Python $v"; case $v in 3.13.*) ;; *) exit 1 ;; esac
+          python -c "import oorexx; print(oorexx.Interpreter().eval(\"'ok'\"))"
+          "$PY13" -c "import oorexx; print(oorexx.Interpreter().eval(\"'ok'\"))"
+          rexx "$(cygpath -w "$R/samples/python/01-hello.rex")"
+          test -f "$R/doc/pythonref.pdf" && test -f "$R/doc/pythoncookbook.pdf" && test -f "$R/uninstall-oorexxpython.exe"
+          SM="/c/ProgramData/Microsoft/Windows/Start Menu/Programs/Open Object Rexx"
+          ls -R "$SM" | grep -i python
+          test -f "$SM/ooRexx Documentation/ooRexx and Python - Reference.lnk"
+          test -f "$SM/ooRexx Samples/ooRexx and Python samples.lnk"
+          reg query 'HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall\ooRexxPython' /reg:32
+      - name: Uninstall (silent)
+        shell: pwsh
+        run: |
+          $p = Start-Process "C:\Program Files\ooRexx\uninstall-oorexxpython.exe" -ArgumentList '/S', '_?=C:\Program Files\ooRexx' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { exit $p.ExitCode }
+          Remove-Item "C:\Program Files\ooRexx\uninstall-oorexxpython.exe"   # _?= leaves it
+      - name: Uninstalled
+        run: |
+          R="/c/Program Files/ooRexx"
+          test ! -e "$R/rexxpython.dll" && test ! -e "$R/oorexxpython.cfg" && test ! -e "$R/doc/pythonref.pdf"
+          test ! -e "$R/samples/python" && test ! -e "$R/oorexxpython-uninstall.rex"
+          if python -c "import oorexx" 2>/dev/null; then echo "oorexx still importable"; exit 1; fi
+          if ls -R "/c/ProgramData/Microsoft/Windows/Start Menu/Programs/Open Object Rexx" | grep -i python; then exit 1; fi
+          if reg query 'HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall\ooRexxPython' /reg:32; then exit 1; fi
+          test -f "$R/rexx.exe"           # ooRexx itself untouched
+
   release:
     if: github.ref_type == 'tag'
-    needs: [unix, windows, books]
+    needs: [unix, windows, books, windows-installer]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -319,4 +410,4 @@ jobs:
         run: |
           pre=(); case "$GITHUB_REF_NAME" in *-*) pre=(--prerelease) ;; esac
           gh release create "$GITHUB_REF_NAME" -R "$GITHUB_REPOSITORY" "${pre[@]}" \
-            --title "$GITHUB_REF_NAME" --generate-notes dist/*.zip dist/*.pdf
+            --title "$GITHUB_REF_NAME" --generate-notes dist/*.zip dist/*.pdf dist/*.exe

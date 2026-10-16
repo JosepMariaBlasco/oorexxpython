@@ -10,8 +10,9 @@
  *
  *  - If Python is already in the process (a Python program running Rexx code
  *    that requires python.cls), it is used: nothing else is loaded.
- *  - Otherwise the Python to use is found (ORX_PYTHON, else "python3" on the
- *    PATH; "python" on Windows), asked for its library, home and sys.path,
+ *  - Otherwise the Python to use is found (ORX_PYTHON, else the one an
+ *    installation recorded in oorexxpython.cfg next to this library, else
+ *    "python3" on the PATH; "python" on Windows), asked for its library, home and sys.path,
  *    and its library is loaded: on Linux and macOS with RTLD_GLOBAL, so that
  *    C extension modules (numpy...) find the Py* symbols; on Windows
  *    python3X.dll and python3.dll from its home, which is where the bridge's
@@ -27,6 +28,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 #endif
 #include "oorexxapi.h"
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -84,6 +86,38 @@ static std::string ownDirectory()
     size_t slash = path.rfind('/');
 #endif
     return slash == std::string::npos ? std::string(".") : path.substr(0, slash);
+}
+
+// The Python an installation chose for ooRexx (install.rex, the Windows
+// installer): "python = EXE" in oorexxpython.cfg next to this library.  Lines
+// "key = value"; blank lines and lines starting with # are ignored; the key
+// in any case.  "" if there is no file or no such line.
+static std::string configuredPython(std::string &file)
+{
+    file = ownDirectory() + "/oorexxpython.cfg";
+#ifdef _WIN32
+    for (char &c : file) if (c == '/') c = '\\';
+#endif
+    FILE *f = fopen(file.c_str(), "r");
+    if (f == NULL) return "";
+    std::string found;
+    char line[4096];
+    while (fgets(line, sizeof line, f) != NULL)
+    {
+        std::string s = line;
+        size_t eq = s.find('=');
+        if (s.empty() || s[0] == '#' || eq == std::string::npos) continue;
+        auto trim = [](std::string t) {
+            size_t a = t.find_first_not_of(" \t\r\n");
+            size_t b = t.find_last_not_of(" \t\r\n");
+            return a == std::string::npos ? std::string() : t.substr(a, b - a + 1);
+        };
+        std::string key = trim(s.substr(0, eq));
+        for (char &c : key) c = (char)tolower((unsigned char)c);
+        if (key == "python") found = trim(s.substr(eq + 1));
+    }
+    fclose(f);
+    return found;
 }
 
 // "exe" -c "code" as a command line for popen (code has no double quotes)
@@ -225,12 +259,18 @@ RexxPackageEntry *RexxEntry RexxGetPackage(void)
     PythonInfo info;
     if (!pythonPresent)
     {
+        // ORX_PYTHON, else the installation's choice, else the PATH's
         const char *chosen = getenv("ORX_PYTHON");
-        std::string exe = chosen != NULL && *chosen != '\0' ? chosen : defaultPython;
+        std::string cfg, exe, from;
+        if (chosen != NULL && *chosen != '\0') { exe = chosen; from = "ORX_PYTHON"; }
+        else if (!(exe = configuredPython(cfg)).empty()) from = cfg;
+        else exe = defaultPython;
         if (!askPython(exe, info))
         {
-            complain("cannot run the Python executable \"" + exe +
-                     "\" (set ORX_PYTHON to the Python to use)");
+            complain("cannot run the Python executable \"" + exe + "\"" +
+                     (from.empty() ? std::string(" (set ORX_PYTHON to the Python to use)")
+                      : from == cfg ? " (named in " + cfg + "; set ORX_PYTHON, or install the bridge again)"
+                      : std::string(" (from ORX_PYTHON)")));
             return NULL;
         }
         std::string error;

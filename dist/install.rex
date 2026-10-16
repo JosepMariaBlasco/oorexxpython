@@ -2,7 +2,7 @@
  * so that Rexx programs find python.cls and Python programs "import oorexx"
  * with no environment variables.
  *
- *   rexx install [install] [--python EXE]... [--user]
+ *   rexx install [install] [--python EXE]... [--rexx-python EXE] [--user]
  *   rexx install uninstall
  *   rexx install status
  *   rexx oorexxpython-uninstall [status]    (from anywhere, once installed)
@@ -17,6 +17,11 @@
  *                   Python given with --python (default: ORX_PYTHON, else
  *                   python3 on the PATH; Windows: python), or in its user
  *                   site-packages with --user.
+ *   ooRexx's Python: the Python that Rexx programs use (when ORX_PYTHON is
+ *                   not set), recorded as "python = EXE" in oorexxpython.cfg
+ *                   next to the bridge: --rexx-python EXE, else the one
+ *                   recorded by an earlier install (if it still exists),
+ *                   else the first --python.
  *   This program:   copied as oorexxpython-uninstall.rex next to rexx, which
  *                   uninstalls by default, so the unzipped folder can go.
  *   The samples:    in ooRexx's samples folder, under python/ (Windows:
@@ -36,7 +41,7 @@ uninstaller = "oorexxpython-uninstall.rex"
 -- the copy next to rexx uninstalls by default
 if .File~new(me)~name~caselessEquals(uninstaller) then command = "uninstall"
 else command = "install"
-pythons = .array~new; user = .false
+pythons = .array~new; user = .false; rexxPython = ""
 do while args \= ""
   parse var args word args
   select case word~lower
@@ -46,6 +51,12 @@ do while args \= ""
       if exe~left(1) == '"' then parse value exe args with '"' exe '"' args
       if exe == "" then call fail "--python needs the path of a Python executable"
       pythons~append(exe)
+    end
+    when "--rexx-python", "-rexx-python" then do
+      parse var args exe args
+      if exe~left(1) == '"' then parse value exe args with '"' exe '"' args
+      if exe == "" then call fail "--rexx-python needs the path of a Python executable"
+      rexxPython = exe
     end
     when "--user", "-user" then user = .true
     when "-h", "--help", "-?", "help", "/?" then call help
@@ -68,6 +79,7 @@ bin = .File~new(rexxExe)~parent
 lib = .RexxInfo~libraryPath~absolutePath
 if windows then home = bin; else home = join(lib, "oorexxpython")
 manifest = join(home, "oorexxpython-installed.txt")
+config = join(home, "oorexxpython.cfg")
 
 select case command
   when "status"    then call status
@@ -97,10 +109,12 @@ install:
   if same(from, home) then call fail "install.rex is already in" home
 
   if pythons~isEmpty then do
-    exe = value("ORX_PYTHON", , "ENVIRONMENT")
+    if rexxPython \== "" then exe = rexxPython
+    else exe = value("ORX_PYTHON", , "ENVIRONMENT")
     if exe == "" then if windows then exe = "python"; else exe = "python3"
     pythons~append(exe)
   end
+  if rexxPython \== "", \pythons~hasItem(rexxPython) then pythons~append(rexxPython)
 
   done = readManifest()                 -- what an earlier install left
   -- the bridge
@@ -132,10 +146,12 @@ install:
 
   -- Python
   ok = .true
+  executables = .Directory~new           -- exe as given -> sys.executable
   do exe over pythons
     info = pythonInfo(exe)
     if info == .nil then do; ok = .false; iterate; end
     parse var info version "0a"x executable "0a"x site
+    executables[exe] = executable
     if \.File~new(site)~isDirectory then .File~new(site)~makeDirs
     pth = join(site, "oorexxpython.pth")
     if \writeFile(pth, home) then call denied pth
@@ -144,11 +160,36 @@ install:
     say "  Python" version "("executable"): oorexxpython.pth in" site
   end
 
+  -- ooRexx's Python: --rexx-python, else the earlier choice, else the first
+  chosen = ""
+  if rexxPython \== "" then chosen = executables[rexxPython]
+  else do
+    chosen = configuredPython()
+    if chosen \== "", \.File~new(chosen)~exists then chosen = ""
+    if chosen == "" then do exe over pythons
+      if executables~hasIndex(exe) then do; chosen = executables[exe]; leave; end
+    end
+  end
+  if chosen == .nil | chosen == "" then do
+    say "  ooRexx's Python: none could be run"
+    ok = .false
+  end
+  else do
+    text = "# The Python that ooRexx uses for the bridge (written by install.rex;" || "0a"x ||,
+           "# the environment variable ORX_PYTHON, when set, takes precedence)" || "0a"x ||,
+           "python =" chosen
+    if \writeFile(config, text) then call denied config
+    done~put(config, "file")
+    call writeManifest done
+    say "  ooRexx's Python:" chosen "(in" config")"
+  end
+
   -- check it, as another program would: from elsewhere, with no variables
   say "Checking:"
   do exe over pythons
-    if \check(exe) then ok = .false
+    if executables~hasIndex(exe), \check(exe) then ok = .false
   end
+  if chosen \== .nil, chosen \== "", \check("") then ok = .false
   if \ok then do
     say "ooRexx/Python: installed, but a check FAILED (above)"
     exit 1
@@ -199,6 +240,8 @@ status:
     return
   end
   say "ooRexx/Python: installed in" home
+  py = configuredPython()
+  if py \== "" then say "  ooRexx's Python:" py
   do kind over "file", "dir", "link", "pth"
     do path over done~allAt(kind)
       if .File~new(path)~exists then state = ""; else state = "  (MISSING)"
@@ -238,14 +281,15 @@ pythonInfo: procedure expose user windows
   return out[1] || "0a"x || out[2] || "0a"x || out[3]
 
 -- run a Rexx program and a Python program in a temporary folder, with
--- REXX_PATH, PYTHONPATH and the library path cleared and ORX_PYTHON = exe
+-- REXX_PATH, PYTHONPATH and the library path cleared and ORX_PYTHON = exe;
+-- exe = "": only the Rexx program, with no ORX_PYTHON (ooRexx's Python)
 check: procedure expose rexxExe home windows
   use arg exe
   temp = SysTempFileName(join(.File~temporaryPath~absolutePath, "orxpy????"))
   .File~new(temp)~makeDirs
   rexxProg = .array~of(-
     "sys = .py~import('sys')",-
-    "say '    Rexx -> Python: ooRexx' .RexxInfo~version 'r'.RexxInfo~revision',' 'Python' sys~version~word(1)",-
+    "say '    Rexx -> Python: ooRexx' .RexxInfo~version 'r'.RexxInfo~revision',' 'Python' sys~version~word(1) '('sys~executable')'",-
     "if .py~list((1, 2))~__str__ \== '[1, 2]' then exit 1",-
     "exit 0",-
     "::requires 'python.cls'")
@@ -267,17 +311,36 @@ check: procedure expose rexxExe home windows
   call directory temp
   address system quote(rexxExe) "check.rex"
   okRexx = rc = 0
-  address system quote(exe) "-" with input using (pyProg)
-  okPython = rc = 0
+  if exe == "" then okPython = .true
+  else do
+    address system quote(exe) "-" with input using (pyProg)
+    okPython = rc = 0
+  end
   call directory here
   do var over saved~allIndexes
     call value var, saved[var], "ENVIRONMENT"
   end
   call SysFileDelete join(temp, "check.rex")
   call SysRmDir temp
-  if \okRexx then say "    Rexx -> Python with" exe": FAILED"
+  if \okRexx then do
+    if exe == "" then say "    Rexx -> Python with ooRexx's Python (no ORX_PYTHON): FAILED"
+    else say "    Rexx -> Python with" exe": FAILED"
+  end
   if \okPython then say "    Python -> Rexx with" exe": FAILED"
   return okRexx & okPython
+
+-- the Python recorded in oorexxpython.cfg, or ""
+configuredPython: procedure expose config
+  if \.File~new(config)~exists then return ""
+  s = .Stream~new(config)
+  found = ""
+  do line over s~arrayIn
+    if line~strip~left(1) == "#" then iterate
+    parse var line key "=" value
+    if key~strip~caselessEquals("python") then found = value~strip
+  end
+  s~close
+  return found
 
 -- ooRexx's samples folder: beside rexx.exe (Windows), beside bin/ (the
 -- portable builds), share/ooRexx/samples (Linux packages), else one of ours
@@ -372,14 +435,16 @@ fail:
   exit 1
 
 help:
-  say "Usage: rexx install [install] [--python EXE]... [--user]"
+  say "Usage: rexx install [install] [--python EXE]... [--rexx-python EXE] [--user]"
   say "       rexx install uninstall"
   say "       rexx install status"
   say "       rexx oorexxpython-uninstall [status]   (once installed, from anywhere)"
   say "Installs the ooRexx/Python bridge into the ooRexx that runs this program,"
   say "and makes it importable from the given Pythons (default: ORX_PYTHON, else"
   say "the python3 on the PATH; Windows: python).  --user: into the Pythons' user"
-  say "site-packages instead of their site-packages."
+  say "site-packages instead of their site-packages.  --rexx-python: the Python"
+  say "that Rexx programs use (recorded in oorexxpython.cfg; ORX_PYTHON overrides"
+  say "it); default: the one an earlier install recorded, else the first --python."
   exit 0
 
 ::class DescendingLength                -- longer paths (deeper folders) first
