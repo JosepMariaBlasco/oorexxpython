@@ -305,7 +305,10 @@ final: return
  * override.  The object comes back to Rexx as itself.  The pair lives while
  * either side holds it, and the class's UNINIT runs once, when it is over.
  * The results of special methods are converted as Python requires
- * (__bool__ -> bool, __len__ -> int, __str__ -> str...).
+ * (__bool__ -> bool, __len__ -> int, __str__ -> str...).  The Rexx class
+ * lives as long as its interpreter instance (.local["PY.EXTENDED"]): the
+ * Python class may outlive every Rexx reference to it (its package's
+ * included), as classes do in Python.
  */
 ::routine py.extend public
   use strict arg class, base
@@ -340,10 +343,19 @@ final: return
   end
   helper = py.extendHelper()
   -- the Python class reaches its Rexx class only through a WeakReference:
-  -- the Rexx class holds the Python class, not the other way round
+  -- the Rexx class holds the Python class, not the other way round (a cycle
+  -- across the two collectors would never be collected); the instance keeps
+  -- the Rexx class, below, so the reference never goes stale while Python
+  -- can still make objects of it
   pyclass = helper~make(.py~tuple(bases), .py~str(class~id), specs, .WeakReference~new(class), -
                         .context~package~findRoutine("PY.NEWFOR"))
   class~"PY.CLASS="(pyclass)
+  extended = .local["PY.EXTENDED"]
+  if extended == .nil then do
+    extended = .IdentityTable~new
+    .local["PY.EXTENDED"] = extended
+  end
+  extended[class] = pyclass
   return pyclass
 
 -- "a.b.C": the attribute C of the module a.b

@@ -204,8 +204,10 @@ collector decides: if Python no longer holds it either, the pair is over; if
 Python hands it to Rexx again, Rexx holds it again.</para>
 <para>The class's <methodname>uninit</methodname>, if it has one, runs once,
 when the pair is over, not when only Rexx lets it go; the Python object is
-gone by then. A Rexx class that extends a Python class, and the Python class
-it makes, are released as any class is.</para>
+gone by then. A Rexx class that extends a Python class lives as long as its
+interpreter instance, even when no Rexx code refers to it any more: Python
+code may still make objects of the Python class, which needs the Rexx class
+(classes live that long in Python too).</para>
 </section>
 
 <section id="extendThreads"><title>Threads</title>

@@ -377,8 +377,15 @@ w~start; w~join
   `.Worker~pyClass` is it later, for Python code that makes the objects
   itself (`json.dumps(x, cls=.MyEncoder~pyClass)`, `socketserver`'s
   handlers). It reaches the Rexx class only through a `WeakReference`: the
-  Rexx class holds the Python class, not the other way round, so a class
-  made at run time can go.
+  Rexx class holds the Python class, not the other way round (a cycle across
+  the two collectors would never be collected). The interpreter instance
+  keeps every extended Rexx class (`.local["PY.EXTENDED"]`), as long as it
+  lives: Python code may hold the Python class after Rexx dropped every
+  reference to the Rexx class and its package (a routine made with
+  `Interpreter.routine`, called once), and without it the Rexx collector
+  took the class while Python still made objects of it ("the Rexx class of
+  this Python class is gone"; seen about once in 400 runs of t50's stress
+  test). Classes live that long in Python too.
 - **The overrides**: every public method of the Rexx class and of its
   superclasses below `PyObject`, except `INIT`, `UNINIT`, `UNKNOWN` and
   names with a dot (Rexx's own: a dot cannot be part of a Python name),
