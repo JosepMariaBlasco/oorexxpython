@@ -66,9 +66,11 @@ Their sources are in [`docs/books`](docs/books).
 
 ## Installing
 
-You need ooRexx and Python on your computer, and the bridge's zip for your
-system. The installer puts the bridge into your ooRexx and tells your Python
-where it is: no environment variables to set.
+You need ooRexx and Python on your computer, and then the bridge: on
+Windows, its installer program; on Linux and macOS, its zip, whose
+`install.rex` does the same. Either one puts the bridge into your ooRexx,
+tells your Pythons where it is and records which Python Rexx programs use:
+no environment variables to set.
 
 1. **ooRexx 5.2.0 or later.** Get it from
    [SourceForge](https://sourceforge.net/projects/oorexx/files/oorexx/) and
@@ -78,52 +80,47 @@ where it is: no environment variables to set.
 2. **Python 3.9 or later**, any version: the bridge is one binary for all of
    them. If you want the samples that use numpy, matplotlib and pandas,
    install them too: `pip install numpy matplotlib pandas`.
-3. **The bridge.** From
+3. **The bridge**, from
    [the releases page](https://github.com/JosepMariaBlasco/oorexxpython/releases),
-   download the zip for your system under the newest version
-   (`windows-x64`, `linux-x64`, `macos-arm64` for Apple silicon,
-   `macos-x64` for Intel Macs) and unzip it anywhere.
-4. **Install.** Open a terminal in the unzipped folder `oorexxpython` and
-   run the installer, as shown below for each system. It installs, then
-   checks both directions, and ends with `ooRexx/Python: installed and OK`.
-5. **Try it.** The installer copies the samples into ooRexx's samples
-   folder, under `python`. Go there and run one: `rexx 01-hello.rex`, or
-   `python 30-run-rexx.py` (`python3` on Linux and macOS). Their
-   [README](samples/README.md) lists them all. The unzipped folder is no
-   longer needed: you can delete it.
+   under the newest version, as below for each system. Both ways check both
+   directions at the end (`ooRexx/Python: installed and OK`).
+4. **Try it.** The samples are in ooRexx's samples folder, under `python`.
+   Go there and run one: `rexx 01-hello.rex`, or `python 30-run-rexx.py`
+   (`python3` on Linux and macOS). Their [README](samples/README.md) lists
+   them all.
 
 ### Windows
 
-The simplest way: download `oorexxpython-VERSION-windows-x64.exe` from the
-releases page instead of the zip, and run it. It finds ooRexx and the
-Pythons installed on the computer (python.org's, uv's), lets you choose
-which ones will `import oorexx` and which one Rexx programs use, and checks
-both directions. It also puts the books and the samples' slide deck in
-ooRexx's Start menu folder, and adds an entry to Settings > Apps, to
-uninstall it. Windows may warn that the program is not signed ("Windows
-protected your PC": More info, Run anyway), as with ooRexx's own installer.
-For an unattended install: `oorexxpython-VERSION-windows-x64.exe /S
-/PYTHON=C:\path\to\python.exe /D=C:\Program Files\ooRexx` (`/D` last;
-without `/PYTHON`, every Python it finds; what it did is in
-`%TEMP%\oorexxpython-install.log`).
+- Python: from [python.org](https://www.python.org/downloads/) or from the
+  Microsoft Store (Python install manager). It need not be on the `PATH`.
+- Download `oorexxpython-VERSION-windows-x64.exe` and run it. Windows may
+  warn that the program is not signed ("Windows protected your PC": More
+  info, Run anyway), as it does with ooRexx's own installer.
+- It finds ooRexx (or asks for its folder) and the Pythons installed on the
+  computer, and asks which of them will `import oorexx` and which one Rexx
+  programs use; another Python can be given by its `python.exe`.
+- It puts the samples in `C:\Program Files\ooRexx\samples\python`, the books
+  in ooRexx's `doc` folder, and, in ooRexx's Start menu folder, the books
+  (ooRexx Documentation), the samples' slide deck (ooRexx Samples) and
+  "Uninstall ooRexx-Python". It can also be uninstalled from Settings >
+  Apps. To update, run the new version's installer.
+- Unattended: `oorexxpython-VERSION-windows-x64.exe /S
+  /PYTHON=C:\path\to\python.exe /D=C:\Program Files\ooRexx` (`/D` last;
+  several Pythons separated by `;`; `/REXXPYTHON=` for the one Rexx uses;
+  without `/PYTHON`, every Python it finds). What it did is in
+  `%TEMP%\oorexxpython-install.log`.
+- The zip works on Windows too, for a portable ooRexx or when you prefer
+  the command line (below).
 
-With the zip:
+### The zip: Linux, macOS (and Windows, if you prefer)
 
-- Python: the installer from [python.org](https://www.python.org/downloads/),
-  with **"Add python.exe to PATH"** ticked, so that `python` runs in a
-  terminal (or give it with `--python`).
-- ooRexx in `C:\Program Files\ooRexx` (the default) needs an administrator:
-  open the terminal **as administrator** (right-click on Command Prompt or
-  Terminal, "Run as administrator"), then
+Download the zip for your system (`linux-x64`, `macos-arm64` for Apple
+silicon, `macos-x64` for Intel Macs, `windows-x64`), unzip it anywhere, open a terminal in
+the unzipped folder `oorexxpython` and run `rexx install`, as below. The
+samples are then in ooRexx's samples folder, and the unzipped folder is no
+longer needed: you can delete it.
 
-  ```bat
-  cd C:\path\to\oorexxpython
-  rexx install
-  ```
-
-- The samples end up in `C:\Program Files\ooRexx\samples\python`.
-
-### Linux
+#### Linux
 
 - Python: your distribution's `python3`, with its shared library, which some
   distributions package apart. On Debian and Ubuntu, that is
@@ -140,7 +137,7 @@ With the zip:
 - The samples end up in `/usr/local/share/ooRexx/samples/python` (or
   `/usr/share/...`, where ooRexx is).
 
-### macOS
+#### macOS
 
 - Python: the installer from [python.org](https://www.python.org/downloads/),
   or Homebrew's (`brew install python`).
@@ -152,6 +149,20 @@ With the zip:
   sudo rexx install --python $(which python3)
   ```
 
+#### Windows, with the zip
+
+- ooRexx in `C:\Program Files\ooRexx` (the default) needs an administrator:
+  open the terminal **as administrator** (right-click on Command Prompt or
+  Terminal, "Run as administrator"), then
+
+  ```bat
+  cd C:\path\to\oorexxpython
+  rexx install --python C:\path\to\python.exe
+  ```
+
+  (without `--python`, the `python` on the `PATH`).
+- The samples end up in `C:\Program Files\ooRexx\samples\python`.
+
 ### A portable ooRexx
 
 An ooRexx unzipped from one of the portable builds, with its `bin` on the
@@ -162,7 +173,8 @@ An ooRexx unzipped from one of the portable builds, with its `bin` on the
 
 - `rexx oorexxpython-uninstall status`, from any folder, shows what was
   installed and where; `rexx oorexxpython-uninstall` removes exactly that.
-- **Updating**: run the new version's `rexx install`; it replaces the old one.
+- **Updating**: run the new version's `rexx install` (or installer); it
+  replaces the old one.
 - **Another Python**: `rexx install --python /path/to/python`, as many times
   as you like (each Python gets its own link to the bridge); `--user` puts
   the link in your user folder, which needs no administrator.

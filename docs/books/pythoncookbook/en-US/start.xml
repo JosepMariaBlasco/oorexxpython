@@ -10,18 +10,26 @@
 <section id="ckInstall"><title>Installing</title>
 <indexterm><primary>installing</primary></indexterm>
 <para>You need ooRexx 5.2.0 or later (5.3.0 to use the bridge from several
-threads at once), Python 3.9 or later, and the bridge's zip for your system
-from the project's releases page,
-<ulink url="https://github.com/JosepMariaBlasco/oorexxpython/releases">https://github.com/JosepMariaBlasco/oorexxpython/releases</ulink>.
-Unzip it, open a terminal in the unzipped folder, and run the installer:</para>
-<screen>rexx install                                 <lineannotation>Windows, as administrator</lineannotation>
-sudo rexx install --python $(which python3)  <lineannotation>Linux and macOS</lineannotation></screen>
-<para>It puts the bridge into your ooRexx, makes it importable from your
-Python, checks both directions, and ends with <literal>ooRexx/Python:
-installed and OK</literal>. The zip's <filename>README.md</filename> has the
-details for each system. On Windows, the release's
+threads at once), Python 3.9 or later, and the bridge, from the project's
+releases page,
+<ulink url="https://github.com/JosepMariaBlasco/oorexxpython/releases">https://github.com/JosepMariaBlasco/oorexxpython/releases</ulink>.</para>
+<para><emphasis role="bold">On Windows</emphasis>, download
 <filename>oorexxpython-</filename><replaceable>version</replaceable><filename>-windows-x64.exe</filename>
-does all that with a wizard instead.</para>
+and run it. It finds ooRexx and the Pythons installed on the computer (from
+python.org or the Microsoft Store), and asks which of them will import the
+bridge and which one Rexx programs use. It also puts these books and the
+samples' slide deck in ooRexx's Start menu folder, and can be uninstalled
+from Settings &gt; Apps.</para>
+<para><emphasis role="bold">On Linux and macOS</emphasis>, download the zip for
+your system, unzip it, open a terminal in the unzipped folder, and run its
+installer (the zip works on Windows too: <command>rexx install</command>, from
+a terminal opened as administrator):</para>
+<screen>sudo rexx install --python $(which python3)</screen>
+<para>Either way, the bridge goes into your ooRexx, becomes importable from
+your Python, and both directions are checked: the installation ends with
+<literal>ooRexx/Python: installed and OK</literal>. The samples are then in
+ooRexx's samples folder, under <filename>python</filename>. The project's
+<filename>README.md</filename> has the details for each system.</para>
 <para>One bridge works with every Python from 3.9 on: it uses only Python's
 Stable ABI. A Rexx program uses the Python named by the environment variable
 <envar>ORX_PYTHON</envar>, or else the one chosen when the bridge was
