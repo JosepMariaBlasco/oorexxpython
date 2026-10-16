@@ -310,6 +310,7 @@ jobs:
     name: windows-installer
     needs: [windows, books]
     runs-on: windows-2022
+    timeout-minutes: 20
     defaults:
       run:
         shell: bash
@@ -340,7 +341,8 @@ jobs:
         run: |
           $exe = "$env:RUNNER_TEMP\oorexx-setup.exe"
           curl.exe -sSfL --retry 3 -o $exe "https://downloads.sourceforge.net/project/oorexx/oorexx/5.3.0beta/oorexx-5.3.0-$env:OOREXX_REV.windows.x86_64.exe"
-          $p = Start-Process $exe -ArgumentList '/S' -Wait -PassThru
+          $p = Start-Process $exe -ArgumentList '/S' -PassThru
+          $p.WaitForExit()
           if ($p.ExitCode -ne 0) { exit $p.ExitCode }
           & "C:\Program Files\ooRexx\rexx.exe" -v
       - uses: actions/setup-python@v5
@@ -354,7 +356,10 @@ jobs:
           $py12 = (Get-Command python).Source
           "PY13=$py13" | Out-File -Append $env:GITHUB_ENV
           $exe = (Get-ChildItem "$env:RUNNER_TEMP\dist\*.exe").FullName
-          $p = Start-Process $exe -ArgumentList '/S', "/PYTHON=$py12;$py13", "/REXXPYTHON=$py13" -Wait -PassThru
+          # not Start-Process -Wait: it waits for the descendants too, and rexx.exe
+          # leaves ooRexx's rxapi.exe running
+          $p = Start-Process $exe -ArgumentList '/S', "/PYTHON=$py12;$py13", "/REXXPYTHON=$py13" -PassThru
+          $p.WaitForExit()
           Get-Content "$env:TEMP\oorexxpython-install.log"
           if ($p.ExitCode -ne 0) { exit $p.ExitCode }
       - name: Installed, with no variables
@@ -379,7 +384,8 @@ jobs:
       - name: Uninstall (silent)
         shell: pwsh
         run: |
-          $p = Start-Process "C:\Program Files\ooRexx\uninstall-oorexxpython.exe" -ArgumentList '/S', '_?=C:\Program Files\ooRexx' -Wait -PassThru
+          $p = Start-Process "C:\Program Files\ooRexx\uninstall-oorexxpython.exe" -ArgumentList '/S', '_?=C:\Program Files\ooRexx' -PassThru
+          $p.WaitForExit()
           if ($p.ExitCode -ne 0) { exit $p.ExitCode }
           Remove-Item "C:\Program Files\ooRexx\uninstall-oorexxpython.exe"   # _?= leaves it
       - name: Uninstalled
