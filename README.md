@@ -94,9 +94,24 @@ where it is: no environment variables to set.
 
 ### Windows
 
+The simplest way: download `oorexxpython-VERSION-windows-x64.exe` from the
+releases page instead of the zip, and run it. It finds ooRexx and the
+Pythons installed on the computer (python.org's, uv's), lets you choose
+which ones will `import oorexx` and which one Rexx programs use, and checks
+both directions. It also puts the books and the samples' slide deck in
+ooRexx's Start menu folder, and adds an entry to Settings > Apps, to
+uninstall it. Windows may warn that the program is not signed ("Windows
+protected your PC": More info, Run anyway), as with ooRexx's own installer.
+For an unattended install: `oorexxpython-VERSION-windows-x64.exe /S
+/PYTHON=C:\path\to\python.exe /D=C:\Program Files\ooRexx` (`/D` last;
+without `/PYTHON`, every Python it finds; what it did is in
+`%TEMP%\oorexxpython-install.log`).
+
+With the zip:
+
 - Python: the installer from [python.org](https://www.python.org/downloads/),
   with **"Add python.exe to PATH"** ticked, so that `python` runs in a
-  terminal.
+  terminal (or give it with `--python`).
 - ooRexx in `C:\Program Files\ooRexx` (the default) needs an administrator:
   open the terminal **as administrator** (right-click on Command Prompt or
   Terminal, "Run as administrator"), then
@@ -151,9 +166,12 @@ An ooRexx unzipped from one of the portable builds, with its `bin` on the
 - **Another Python**: `rexx install --python /path/to/python`, as many times
   as you like (each Python gets its own link to the bridge); `--user` puts
   the link in your user folder, which needs no administrator.
-- **Which Python Rexx uses**: the one you installed for, if it is the
-  `python3` on the `PATH` (`python` on Windows); otherwise set `ORX_PYTHON`
-  to its full path. Its installed packages are the ones Rexx programs see.
+- **Which Python Rexx uses**: the one the installer recorded in
+  `oorexxpython.cfg`, next to the bridge: the first `--python` (or the one
+  named with `--rexx-python`); installing again keeps that choice unless
+  `--rexx-python` names another. The environment variable `ORX_PYTHON`,
+  when set, takes precedence. Its installed packages are the ones Rexx
+  programs see.
 - **Without installing**: the zip's own `README.md` says which environment
   variables to set instead.
 - **The newest build**: every push to this repository builds the same zips,

@@ -116,6 +116,26 @@ itself, and the bridge loads `python.cls` from its own folder.
   portable builds, `share/ooRexx/samples` in the Linux packages). So the
   unzipped folder can be deleted once installed.
 
+- **The Python that Rexx programs use:** recorded as `python = EXE` in
+  `oorexxpython.cfg`, in that same folder: `--rexx-python`, else the one an
+  earlier install recorded (if it still exists), else the first `--python`
+  (its `sys.executable`). The loader reads it when `ORX_PYTHON` is not set
+  (*Who starts whom*). Without it, a Python that is not on the `PATH` could
+  not be used from Rexx without a variable, and on Windows that is the
+  usual case: python.org's installer does not add Python to the `PATH` by
+  default, and `python` may then be Windows' alias that opens the Store.
+
+- **Windows installer:** `dist/windows/oorexxpython.nsi` (NSIS), built from
+  the Windows zip and the books by `scripts/windows-installer.sh`. It is a
+  wrapper around `install.rex`, so the installation is the same on every
+  platform: it finds ooRexx (the registry key of ooRexx's own installer, or
+  a folder the user picks), the Pythons registered as PEP 514 says (HKCU and
+  HKLM, every company: python.org's, uv's), runs `install.rex` with the
+  chosen ones, and adds what a Windows user expects and `install.rex` does
+  not: the books in ooRexx's `doc` folder, shortcuts in ooRexx's Start menu
+  folder, an entry in Settings > Apps, and an uninstaller that runs
+  `oorexxpython-uninstall.rex` first.
+
 What was installed is listed in `oorexxpython-installed.txt` in that folder;
 `rexx oorexxpython-uninstall` (or `rexx install uninstall`) removes exactly
 what it lists, the uninstaller last. The ooRexx is the one
@@ -553,7 +573,8 @@ a positive one, FAILURE for a negative one.
   embeds ooRexx.
 - **Rexx starts** (`rexx prog.rex` using numpy): the loader must find and
   load a libpython at run time. It takes the Python in `ORX_PYTHON`, else the
-  `python3` on the `PATH`; asks that executable for its library, home and
+  one an installation recorded in `oorexxpython.cfg` next to the loader
+  (*Installation*), else the `python3` on the `PATH`; asks that executable for its library, home and
   `sys.path`; loads that libpython with `RTLD_GLOBAL` (otherwise C extension
   modules such as numpy fail with undefined `Py*` symbols); initializes
   Python with `Py_InitializeEx(0)` and `PYTHONHOME` set to the executable's

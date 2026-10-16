@@ -32,14 +32,17 @@ rexx install
 ```
 
 It installs the bridge into the ooRexx that runs it and makes it importable
-from the Python that ooRexx will use (`ORX_PYTHON`, else the `python3` on the
-`PATH`; Windows: `python`), then checks both directions from another folder
-with no environment variables. Nothing else to set: Rexx programs find
-`python.cls`, Python programs `import oorexx`.
+from the Python given (`--python`; default: `ORX_PYTHON`, else the `python3`
+on the `PATH`; Windows: `python`), records that Python as the one Rexx
+programs use (in `oorexxpython.cfg`, next to the bridge), then checks both
+directions from another folder with no environment variables. Nothing else
+to set: Rexx programs find `python.cls`, Python programs `import oorexx`.
 
 - **Windows**: the bridge goes into ooRexx's folder (next to `rexx.exe`). In
   `C:\Program Files\ooRexx`, run it from a terminal opened *as
-  administrator*.
+  administrator*. Or use the release's installer,
+  `oorexxpython-VERSION-windows-x64.exe`, instead of this zip: it does the
+  same, with a wizard.
 - **Linux and macOS**: the bridge goes into ooRexx's `lib/oorexxpython/`,
   with links in its `lib` and `bin`. An ooRexx in `/usr` or `/usr/local`
   needs `sudo rexx install`; `sudo` may find another `python3` than yours, so
@@ -48,6 +51,10 @@ with no environment variables. Nothing else to set: Rexx programs find
   `--python` as you like; again later adds them). `--user` puts the link in
   the Pythons' user site-packages instead (no administrator needed for that
   part).
+- **The Python Rexx programs use**: the first `--python`, or the one named
+  with `--rexx-python /path/to/python`; installing again keeps the earlier
+  choice unless `--rexx-python` names another. `ORX_PYTHON`, when set,
+  takes precedence.
 - It also copies itself next to `rexx`, as `oorexxpython-uninstall.rex`, and
   the samples into ooRexx's samples folder, under `python` (Windows:
   `samples\python` beside `rexx.exe`; Linux packages:
@@ -85,7 +92,8 @@ set PYTHONPATH=C:\path\to\oorexxpython
 ```
 
 **Which Python ooRexx uses**: the one in `ORX_PYTHON` (the full path of its
-executable), else the `python3` on the `PATH` (Windows: `python`). Its
+executable), else the one an installation recorded (`oorexxpython.cfg` next
+to the bridge), else the `python3` on the `PATH` (Windows: `python`). Its
 installed packages are the ones Rexx programs see.
 
 ## Check

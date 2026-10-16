@@ -95,7 +95,8 @@ finds a Python, loads it, and hands over to the bridge.</para></listitem>
 </variablelist>
 <para>The installer of the binary release (<command>rexx install</command>)
 puts them into the ooRexx installation and makes the module importable from
-the Python it is given; the release's <filename>README.md</filename>
+the Python it is given (on Windows, the release's installer program does the
+same with a wizard); the release's <filename>README.md</filename>
 explains it, and how to use the bridge without installing it.</para>
 </section>
 
@@ -105,8 +106,10 @@ explains it, and how to use the bridge without installing it.</para>
 <secondary>ORX_PYTHON</secondary></indexterm>
 <para>A program started by Python uses that Python. A program started by
 <command>rexx</command> uses the Python named by the environment variable
-<envar>ORX_PYTHON</envar> (a full path to its executable), or else the
-<command>python3</command> on the <envar>PATH</envar>
+<envar>ORX_PYTHON</envar> (a full path to its executable), or else the one
+the installer recorded (a line <literal>python = </literal><replaceable>executable</replaceable>
+in the file <filename>oorexxpython.cfg</filename>, next to the bridge), or
+else the <command>python3</command> on the <envar>PATH</envar>
 (<command>python</command> on Windows). It sees that Python's installed
 packages, a virtual environment's too.</para>
 <para>The Python is loaded once per process, the first time a program requires

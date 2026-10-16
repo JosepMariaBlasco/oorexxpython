@@ -19,10 +19,13 @@ sudo rexx install --python $(which python3)  <lineannotation>Linux and macOS</li
 <para>It puts the bridge into your ooRexx, makes it importable from your
 Python, checks both directions, and ends with <literal>ooRexx/Python:
 installed and OK</literal>. The zip's <filename>README.md</filename> has the
-details for each system.</para>
+details for each system. On Windows, the release's
+<filename>oorexxpython-</filename><replaceable>version</replaceable><filename>-windows-x64.exe</filename>
+does all that with a wizard instead.</para>
 <para>One bridge works with every Python from 3.9 on: it uses only Python's
 Stable ABI. A Rexx program uses the Python named by the environment variable
-<envar>ORX_PYTHON</envar>, or else the <command>python3</command> on the
+<envar>ORX_PYTHON</envar>, or else the one chosen when the bridge was
+installed, or else the <command>python3</command> on the
 <envar>PATH</envar> (<command>python</command> on Windows), with its installed
 packages: install numpy, matplotlib and pandas there
 (<command>pip install numpy matplotlib pandas</command>) for the samples that
