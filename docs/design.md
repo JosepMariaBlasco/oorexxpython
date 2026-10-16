@@ -61,8 +61,13 @@ before `Py_InitializeEx`), and no `PyObject_GetBuffer` before 3.11 (numpy
 data goes through ordinary calls such as `tobytes()`). A bridge needs none of
 those.
 
-Free-threaded CPython (3.13t, 3.14t) is not supported: the Stable ABI does not cover
-it before 3.15.
+Free-threaded CPython (3.13t, 3.14t, 3.15t) is not supported. Its builds
+refuse extensions built for `abi3`, as the bridge is. Python 3.15 adds a
+Stable ABI for them, `abi3t` (PEP 803), but supporting it would mean a second
+build with 3.15 as its minimum, opaque `PyObject`s, the module initialized
+through `PyModExport`, and, above all, new locking: the bridge relies on the
+GIL (*Threads and locks*), and `abi3t` only makes an extension loadable
+without it, not safe. Not planned.
 
 ## Platforms
 
