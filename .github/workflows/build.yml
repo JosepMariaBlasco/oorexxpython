@@ -351,6 +351,8 @@ jobs:
       - name: Install (silent), two Pythons, Rexx uses the one not on the PATH
         shell: pwsh
         run: |
+          # the PATH a new session has, with ooRexx's folder that its installer added
+          $env:PATH = [Environment]::GetEnvironmentVariable('PATH', 'Machine') + ';' + $env:PATH
           uv python install 3.13
           $py13 = (uv python find 3.13)
           $py12 = (Get-Command python).Source

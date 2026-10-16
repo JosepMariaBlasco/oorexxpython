@@ -192,6 +192,12 @@ install:
   if chosen \== .nil, chosen \== "", \check("") then ok = .false
   if \ok then do
     say "ooRexx/Python: installed, but a check FAILED (above)"
+    -- ::requires finds python.cls through the PATH (design.md, *Installation*)
+    if \onPath(bin) then do
+      say "  ooRexx's folder," bin", is not on the PATH, so Rexx programs cannot find"
+      say "  python.cls: add it to the PATH (ooRexx's own installer does; a terminal"
+      say "  or program started before it ran still has the old PATH)"
+    end
     exit 1
   end
   say "ooRexx/Python: installed and OK"
@@ -328,6 +334,21 @@ check: procedure expose rexxExe home windows
   end
   if \okPython then say "    Python -> Rexx with" exe": FAILED"
   return okRexx & okPython
+
+-- is the folder on the PATH?
+onPath: procedure expose windows
+  use arg dir
+  if windows then sep = ";"; else sep = ":"
+  dir = .File~new(dir)~absolutePath
+  path = value("PATH", , "ENVIRONMENT")
+  do while path \== ""
+    parse var path entry (sep) path
+    if entry == "" then iterate
+    entry = .File~new(entry~strip(, '"'))~absolutePath
+    if .File~isCaseSensitive then do; if entry == dir then return .true; end
+    else if entry~caselessEquals(dir) then return .true
+  end
+  return .false
 
 -- the Python recorded in oorexxpython.cfg, or ""
 configuredPython: procedure expose config
