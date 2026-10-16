@@ -23,7 +23,7 @@ Windows: [releases](https://github.com/JosepMariaBlasco/oorexxpython/releases)
   Rexx object, which calls Python again.
 - **One build for every Python 3 from 3.9**: the bridge uses Python's Stable
   ABI only, so the same binary works with 3.9, 3.10, 3.11, 3.12, 3.13,
-  3.14 and later, with no virtual environments and no per-version builds.
+  3.14, 3.15 and later, with no virtual environments and no per-version builds.
 
 ```rexx
 np = .py~import("numpy")
@@ -46,7 +46,7 @@ with oorexx.Interpreter() as rexx:
 **Status: prototype.** Both directions work and are covered by automated
 tests (ooRexxUnit test groups and Python checks, every nutshell sample
 included), on Linux x86_64, macOS (arm64 and x86_64) and Windows x64, with CPython
-3.9–3.14, against ooRexx 5.3.0 (trunk). Every push runs them all with every
+3.9–3.15, against ooRexx 5.3.0 (trunk). Every push runs them all with every
 Python on all four (GitHub Actions: `.github/workflows/build.yml`), and on
 Linux also with ooRexx 5.2.0, the minimum: all but the three tests that use an
 interpreter from several threads at once, which needs 5.3.0
@@ -197,7 +197,7 @@ macOS or Windows, with:
 
 ```bash
 git clone https://github.com/JosepMariaBlasco/oorexxpython
-oorexxpython/scripts/setup-pythons.sh        # CPython 3.9 ... 3.14, with uv
+oorexxpython/scripts/setup-pythons.sh        # CPython 3.9 ... 3.15, with uv
 oorexxpython/scripts/build.sh                # the bridge, seconds
 oorexxpython/samples/run-one.sh 01-hello.rex
 ```
@@ -231,7 +231,7 @@ To use the bridge from your own programs:
 ```bash
 oorexxpython/scripts/setup-oorexxunit.sh     # ooRexxUnit, from ooRexx's SVN
 # numpy, matplotlib and pandas in each Python, for Numpy.testGroup:
-for v in 3.9 3.10 3.11 3.12 3.13 3.14; do
+for v in 3.9 3.10 3.11 3.12 3.13 3.14 3.15; do
   uv pip install --python "$(uv python find $v)" --break-system-packages numpy matplotlib pandas
 done
 oorexxpython/tests/run.sh                    # every test with every Python, ~1 min

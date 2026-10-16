@@ -1,5 +1,5 @@
 # Builds the bridge once (Stable ABI) and runs every test with every Python,
-# 3.9 to 3.14, on Linux, macOS (arm64 and x64) and Windows. ooRexx comes from its portable
+# 3.9 to 3.15, on Linux, macOS (arm64 and x64) and Windows. ooRexx comes from its portable
 # builds on SourceForge, pinned to one revision; a newer one is taken
 # deliberately, after checking it. One more job runs the tests on Linux with
 # ooRexx 5.2.0, the minimum.
@@ -25,7 +25,7 @@ on:
 env:
   OOREXX_REV: "13271"
   OOREXX_URL: https://downloads.sourceforge.net/project/oorexx/oorexx/5.3.0beta/portable
-  PYTHONS: "3.9 3.10 3.11 3.12 3.13 3.14"
+  PYTHONS: "3.9 3.10 3.11 3.12 3.13 3.14 3.15"
 
 jobs:
   unix:
@@ -80,8 +80,8 @@ jobs:
         run: scripts/build.sh
       - name: Tests
         run: OUT=$RUNNER_TEMP/tests tests/run.sh
-      - name: Heavy threads stress test (3.9 and 3.14)
-        run: OUT=$RUNNER_TEMP/tests-heavy PYTHONS="3.9 3.14" TESTS=Threads.testGroup ORXPY_THREADS="16 16 2000" TIMEOUT=600 tests/run.sh
+      - name: Heavy threads stress test (3.9 and 3.15)
+        run: OUT=$RUNNER_TEMP/tests-heavy PYTHONS="3.9 3.15" TESTS=Threads.testGroup ORXPY_THREADS="16 16 2000" TIMEOUT=600 tests/run.sh
       - name: Package
         run: |
           if [ "$GITHUB_REF_TYPE" = tag ]; then export ORXPY_VERSION=${GITHUB_REF_NAME#v}; fi
@@ -160,8 +160,8 @@ jobs:
         run: scripts/build.sh
       - name: Tests
         run: OUT=$RUNNER_TEMP/tests tests/run.sh
-      - name: Heavy threads stress test (3.9 and 3.14)
-        run: OUT=$RUNNER_TEMP/tests-heavy PYTHONS="3.9 3.14" TESTS=Threads.testGroup ORXPY_THREADS="16 16 2000" TIMEOUT=600 tests/run.sh
+      - name: Heavy threads stress test (3.9 and 3.15)
+        run: OUT=$RUNNER_TEMP/tests-heavy PYTHONS="3.9 3.15" TESTS=Threads.testGroup ORXPY_THREADS="16 16 2000" TIMEOUT=600 tests/run.sh
       - name: Package
         run: |
           if [ "$GITHUB_REF_TYPE" = tag ]; then export ORXPY_VERSION=${GITHUB_REF_NAME#v}; fi
@@ -211,7 +211,7 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       OOREXX_MIN: oorexx-5.2.0-13156.ubuntu2404.x86_64-portable-release
-      PYTHONS: "3.9 3.14"
+      PYTHONS: "3.9 3.15"
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -239,10 +239,10 @@ jobs:
       - name: The package, installed into ooRexx 5.2.0 (rexx install)
         run: |
           export UV_PYTHON_INSTALL_DIR=$(cd .. && pwd)/pythons
-          ORX_PYTHON=$(uv python find 3.14) scripts/package.sh "$RUNNER_TEMP/dist"
+          ORX_PYTHON=$(uv python find 3.15) scripts/package.sh "$RUNNER_TEMP/dist"
           mkdir -p "$RUNNER_TEMP/try" && cd "$RUNNER_TEMP/try" && unzip -q "$RUNNER_TEMP"/dist/*.zip
           cd oorexxpython
-          rexx install --python "$(uv python find 3.9)" --python "$(uv python find 3.14)"
+          rexx install --python "$(uv python find 3.9)" --python "$(uv python find 3.15)"
           cd "$RUNNER_TEMP" && rm -rf "$RUNNER_TEMP/try/oorexxpython"
           rexx oorexxpython-uninstall
           test ! -e "$(dirname "$(command -v rexx)")/oorexxpython-uninstall.rex"

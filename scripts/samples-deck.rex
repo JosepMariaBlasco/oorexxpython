@@ -54,7 +54,7 @@
   deck~append("- Each sample is a short program, ooRexx using Python (`.rex`) or")
   deck~append("  Python using ooRexx (`.py`).")
   deck~append("- Next to it: the Python it replaces, and its output, exactly.")
-  deck~append("- Every sample is run with every Python from 3.9 to 3.14, on Linux,")
+  deck~append("- Every sample is run with every Python from 3.9 to 3.15, on Linux,")
   deck~append("  macOS and Windows, and its output checked.")
   deck~append("- A Rexx program needs `::requires ""python.cls""`; a Python program,")
   deck~append("  `import oorexx`.")

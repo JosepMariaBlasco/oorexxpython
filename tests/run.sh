@@ -14,7 +14,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 BUILD=${BUILD:-$WORK/build}
 UNIT=${OOREXXUNIT_DIR:-$WORK/oorexxunit}
 export UV_PYTHON_INSTALL_DIR=${UV_PYTHON_INSTALL_DIR:-$(native_path "$WORK/pythons")}
-PYTHONS=${PYTHONS:-3.9 3.10 3.11 3.12 3.13 3.14}
+PYTHONS=${PYTHONS:-3.9 3.10 3.11 3.12 3.13 3.14 3.15}
 TESTS=${TESTS:-$(cd "$HERE/rexx" && ls *.testGroup; cd "$HERE/python" && ls t*.py)}
 for s in ${SKIP:-}; do TESTS=$(printf '%s\n' $TESTS | grep -vx -- "$s"); done
 [ -f "$UNIT/testOORexx.rex" ] || { echo "ooRexxUnit missing: run scripts/setup-oorexxunit.sh"; exit 2; }

@@ -52,7 +52,7 @@ The bridge is compiled once, with `Py_LIMITED_API=0x03090000` against the
 3.9 headers, and uses only the **Stable ABI** (PEP 384, PEP 652). The same
 binary loads into every CPython from 3.9 up, with no virtual environments and
 no per-version builds; the tests run that one build with 3.9, 3.10, 3.11,
-3.12, 3.13 and 3.14. Any use of an API outside the Stable ABI would be a design
+3.12, 3.13, 3.14 and 3.15. Any use of an API outside the Stable ABI would be a design
 change.
 
 What it costs: no object internals or fast macros (`PyTuple_GET_ITEM`), no

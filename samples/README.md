@@ -3,7 +3,7 @@
 Short programs, each showing one thing. Every file starts with the Python it
 replaces, as a comment, and ends with an `Output:` block: what it prints,
 exactly. `tests/rexx/Samples.testGroup` runs them all with every Python
-(3.9–3.14) and checks that output, so they stay true.
+(3.9–3.15) and checks that output, so they stay true.
 
 Licensed under the Apache License, Version 2.0.
 
