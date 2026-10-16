@@ -72,6 +72,7 @@ check("RexxError's attributes", (err.condition, err.code, err.rc, err.position),
 check("RexxError's texts", (err.message, err.errortext),
       ("Arithmetic overflow; divisor must not be zero.", "Arithmetic overflow/underflow."))
 check("RexxError's program", err.program, "DIVIDE")
+check("RexxError's traceback", err.traceback.splitlines()[0], "     2 *-* x = 1 / 0")
 err = caught(lambda: r.routine("raise syntax 93.900 array ('custom')")())
 check("a raised condition's attributes", (err.code, err.rc, err.message), ("93.900", 93, "custom."))
 
@@ -135,7 +136,11 @@ check("caller's variables",    r.routine(
     "question = 'what?'; address calc 'setvar'; return rc answer")(), "what? 42")
 check("raise_error -> ERROR",  r.routine(
     "signal on error; address calc 'fail'; return 'no'\nerror: return 'ERROR' rc")(), "ERROR 7")
-check("Python exception -> SYNTAX", raises(lambda: r.routine("address calc 'boom'")()).find("ValueError: bad command") > 0, True)
+check("Python exception -> SYNTAX", r.routine(
+    "signal on syntax; address calc 'boom'; return 'no'\n"
+    "syntax: c = condition('O'); return c~code .py~type(c~additional[2])~getattr('__name__')")(),
+    "98.900 ValueError")
+check("... and back as itself", raises(lambda: r.routine("address calc 'boom'")()).startswith("ValueError:"), True)
 
 # options
 r2 = oorexx.Interpreter(initial_address="CALC2", command_environments={"CALC2": lambda c, ctx: len(c)})

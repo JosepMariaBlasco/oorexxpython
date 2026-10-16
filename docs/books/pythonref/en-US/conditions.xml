@@ -19,10 +19,14 @@ Its condition object has, in the <literal>ADDITIONAL</literal> Array:</para>
 <varlistentry><term><computeroutput>additional[1]</computeroutput></term>
 <listitem><para>the message.</para></listitem></varlistentry>
 <varlistentry><term><computeroutput>additional[2]</computeroutput></term>
-<listitem><para>the traceback, as Python formats it.</para></listitem></varlistentry>
-<varlistentry><term><computeroutput>additional[3]</computeroutput></term>
 <listitem><para>the exception itself, a <classname>PyObject</classname>.</para></listitem></varlistentry>
+<varlistentry><term><computeroutput>additional[3]</computeroutput></term>
+<listitem><para>the traceback, as Python formats it (an empty string for an
+exception raised with <xref linkend="mthPythonRaise" xrefstyle="select:title"/>,
+which has none yet).</para></listitem></varlistentry>
 </variablelist>
+<para>This is the layout of BSF4ooRexx, whose
+<literal>additional[2]</literal> is the Java exception.</para>
 <para>Rexx code traps it as any SYNTAX condition, with
 <computeroutput>signal on syntax</computeroutput> or
 <computeroutput>call on syntax</computeroutput>.</para>
@@ -36,7 +40,7 @@ syntax:
   c = condition("O")
   say c~code
   say c~message
-  e = c~additional[3]                   -- the exception
+  e = c~additional[2]                   -- the exception
   say .py~type(e)~getattr("__name__") e~args
 
 ::requires "python.cls"</programlisting>
@@ -57,7 +61,7 @@ when Python raises it.</para>
 .py~raise(.py~KeyError, "missing")
 syntax:
   say condition("O")~message
-  say .py~isinstance(condition("O")~additional[3], .py~KeyError)
+  say .py~isinstance(condition("O")~additional[2], .py~KeyError)
 
 ::requires "python.cls"</programlisting>
 <screen>Python error: KeyError: 'missing'.
@@ -83,7 +87,7 @@ Python called, is an <xref linkend="clsRexxError" xrefstyle="select:title"/>,
 whose text is Rexx's message:
 <literal>Rexx error 42.3: Arithmetic overflow; divisor must not be zero.</literal>
 Its attributes are the parts of the condition: its code, its line, its
-program and its texts (<xref linkend="clsRexxError"/>).</para>
+program, its texts and its traceback (<xref linkend="clsRexxError"/>).</para>
 <example id="ex.conditions-python">
 <title>Rexx errors and Python exceptions, seen from Python</title>
 <programlisting language="python">import oorexx

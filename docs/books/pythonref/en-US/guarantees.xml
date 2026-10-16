@@ -18,7 +18,7 @@ itself, and so is a Python object that goes to Rexx and back.</para></listitem>
 <listitem><para>Names are looked up when the message arrives, so an attribute
 added later is found.</para></listitem>
 <listitem><para>What Python raised is kept in
-<computeroutput>condition("O")~additional[3]</computeroutput>, and is raised
+<computeroutput>condition("O")~additional[2]</computeroutput>, and is raised
 again as itself if it goes back to Python.</para></listitem>
 <listitem><para>A <classname>PyObject</classname> keeps its Python object
 alive while Rexx holds it, and an <classname>oorexx.RexxObject</classname> its

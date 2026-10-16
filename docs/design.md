@@ -327,8 +327,13 @@ so that the related APIs of both bridges take their arguments the same way.
 ### Exceptions
 
 A Python exception becomes SYNTAX 98.900 "Python error: Type: message", with
-the traceback in `condition("O")~additional[2]` and the exception itself, a
-`.PyObject`, in `additional[3]`.
+the exception itself, a `.PyObject`, in `condition("O")~additional[2]` and
+the traceback, as text, in `additional[3]`. This is BSF4ooRexx's layout
+(`[1]` the message, `[2]` the host's exception, `[3]` its traceback), which
+the ooRexx bridges for .NET, Lua and JavaScript share. (Until
+0.1.0-preview.13 the two were the other way round.) The condition stays
+98.900, "execution error", where BSF4ooRexx raises 40.900: a Python call is
+not a call to a Rexx routine.
 
 **A Python exception that goes back to Python is raised again as itself**,
 not as an `oorexx.RexxError`: Python calls Rexx code (a callback, an
@@ -341,12 +346,15 @@ says "missing" with `KeyError`. Any other Rexx condition is still a
 `RexxError`.
 
 A `RexxError` carries the condition's parts as attributes (`condition`,
-`code`, `rc`, `message`, `errortext`, `position`, `program`, `description`),
+`code`, `rc`, `message`, `errortext`, `position`, `program`, `description`,
+`traceback`),
 as Tom Dyer's bridge in Alchemy does: Python code can tell errors apart, or
 log where they happened, without parsing the text. They are read from the
 condition (`DecodeConditionInfo`) under the kernel lock, when it is cleared,
 and set on the exception with the GIL (`takeCondition`, `raiseRexxError` in
-`bridge.cpp`); `None` when the error is not a Rexx condition.
+`bridge.cpp`); `None` when the error is not a Rexx condition. `traceback` is
+not in `DecodeConditionInfo`'s result: it is the condition object's
+`TRACEBACK` List, its lines joined by line ends, as Rexx shows them.
 
 `.py~raise(exc)` raises a Python exception from Rexx code: `exc` is an
 exception, or an exception class called with the rest of the arguments

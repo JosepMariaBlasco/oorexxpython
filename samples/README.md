@@ -37,7 +37,7 @@ by `scripts/samples-deck.rex` (edit those, not the deck), and the skin
 | `03-names.rex` | Python names from upper-case Rexx symbols; `getattr` for the exact name |
 | `04-keywords.rex` | keyword arguments: `.py~kw(...)`, `py.kw(...)`, from a Directory |
 | `05-items.rex` | `o[k]`, `o[k] = v`, `DO ... OVER` a Python object |
-| `06-errors.rex` | Python exceptions as SYNTAX 98.900, the traceback |
+| `06-errors.rex` | Python exceptions as SYNTAX 98.900: the exception, its traceback |
 | `07-callbacks.rex` | Rexx routines and objects called from Python |
 | `08-box.rex` | `py.box(type, value)`: choosing the Python type (float, bytes, fraction, decimal) |
 | `09-threads.rex` | Rexx threads and a Python thread pool, together |

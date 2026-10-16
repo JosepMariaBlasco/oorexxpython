@@ -17,9 +17,10 @@ the Rexx condition SYNTAX 98.900, so <computeroutput>signal on syntax</computero
 traps it, as any Rexx error. Its message is
 <literal>Python error: </literal> and Python's own. The condition object
 carries more, in its <literal>ADDITIONAL</literal> Array:
-<computeroutput>additional[2]</computeroutput> is Python's traceback, as text,
-and <computeroutput>additional[3]</computeroutput> the exception itself, a
-Python object, whose type and arguments can be looked at.</para>
+<computeroutput>additional[2]</computeroutput> is the exception itself, a
+Python object, whose type and arguments can be looked at, and
+<computeroutput>additional[3]</computeroutput> Python's traceback, as
+text.</para>
 <para>The other way works too: <computeroutput>.py~raise(.py~KeyError,
 "missing")</computeroutput> raises a Python exception from Rexx code, and a
 Python exception that goes through Rexx code back to Python is raised there

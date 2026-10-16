@@ -12,7 +12,8 @@
 /** syntaxOf(receiver, messageName [, args...])
  * Sends the message and returns the SYNTAX condition object it raises; the test
  * fails if none is raised.  (The bridge's errors carry more than a code: the
- * message, and the Python traceback in additional[2].)
+ * message, the Python exception in additional[2] and its traceback in
+ * additional[3].)
  */
 ::method syntaxOf
   use strict arg receiver, name, ...

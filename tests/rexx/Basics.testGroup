@@ -132,13 +132,14 @@ syntax:
   co = self~syntaxOf(.py, "int", "abc")
   self~assertSame("98.900", co~code, "error code")
   self~assertSame("Python error: ValueError: invalid literal for int() with base 10: 'abc'.", co~message, "error message")
-  self~assertTrue(pos("ValueError", co~additional[2]) > 0, "traceback")
+  self~assertSame(1, .py~isinstance(co~additional[2], .py~ValueError), "the exception")
+  self~assertTrue(pos("ValueError", co~additional[3]) > 0, "traceback")
 
 ::method test_python_error_frames
   b = .py
   b~exec(self~py("def boom():", "    raise KeyError('deep')"))
   co = self~syntaxOf(b~main, "boom")
-  self~assertTrue(pos('line 2, in boom', co~additional[2]) > 0, "traceback frames")
+  self~assertTrue(pos('line 2, in boom', co~additional[3]) > 0, "traceback frames")
 
 ::method test_missing_attribute
   co = self~syntaxOf(self~makeT, "nonesuch")

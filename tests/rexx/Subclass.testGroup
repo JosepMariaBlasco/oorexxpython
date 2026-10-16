@@ -248,7 +248,7 @@ collect: procedure
   c = self~syntaxOf(.py, "RAISE", .py~KeyError~new("k"))
   self~assertSame(98.900, c~code)
   self~assertSame("Python error: KeyError: 'k'", c~additional[1])
-  self~assertSame(1, .py~isinstance(c~additional[3], .py~KeyError))
+  self~assertSame(1, .py~isinstance(c~additional[2], .py~KeyError))
   c = self~syntaxOf(.py, "RAISE", "not an exception")
   self~assertSame(93.900, c~code)
 

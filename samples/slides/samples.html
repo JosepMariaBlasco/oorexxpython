@@ -3214,7 +3214,6 @@ html.ed-on.ms-on #ms-layer { display: block; }
 }
 
 /* The master editor's expert mode (v305): the master's rules for an element. */
-#ed-bar .ms-expert { margin-left: 4px; }
 #ed-bar .ms-target { font: 12px ui-monospace, monospace; background: #1d1d24; padding: 2px 6px; border-radius: 4px; }
 #ed-bar .ms-kids button { font: 11.5px ui-monospace, monospace !important; padding: 1px 5px !important; }
 #ed-bar .ms-group { margin-top: 4px; font-weight: 600; opacity: 0.85; }
@@ -3255,8 +3254,6 @@ html.ed-on.ms-on #ms-layer { display: block; }
 
 /* The skin editor (v313, skin.js): the values in groups, a control each.     */
 #ed-bar .ed-skin { margin-left: 4px; }
-#ed-bar .sk-head .ed-k { width: auto; margin-right: 6px; opacity: 1; font-weight: 600; }
-#ed-bar .sk-file { margin-right: auto; opacity: 0.8; }
 #ed-bar .sk-group { margin: 2px 0; }
 #ed-bar .sk-group > summary { cursor: pointer; padding: 3px 0; font-weight: 600; user-select: none; }
 #ed-bar .sk-count { font-weight: 400; opacity: 0.6; font-size: 12px; }
@@ -3276,6 +3273,15 @@ html.ed-on.ms-on #ms-layer { display: block; }
 #ed-bar .sk-changed .ed-k { color: #ffb36b; opacity: 1; }
 #ed-bar .sk-inline { margin-left: 6px; }
 html.sk-on #ed-bar { width: 440px; }
+#ed-bar .sk-field select.sk-unit { flex: none; padding: 1px 2px; }
+/* (v314) Edit mode: Simple | Expert, one segmented control in both editors */
+#ed-bar .ed-mode { flex-wrap: nowrap; padding-bottom: 4px; border-bottom: 1px solid #44444f; margin-bottom: 4px; }
+#ed-bar .ed-mode .ed-what { width: auto; margin-right: 6px; opacity: 1; font-weight: 600; }
+#ed-bar .ed-mode .ed-file { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: 0.85; }
+#ed-bar .ed-seg { display: inline-flex; margin-left: auto; flex: none; }
+#ed-bar .ed-seg button { border-radius: 0; margin: 0; }
+#ed-bar .ed-seg button:first-child { border-radius: 4px 0 0 4px; }
+#ed-bar .ed-seg button:last-child { border-radius: 0 4px 4px 0; border-left: 0; }
 /* Pandoc syntax highlighting: pygments (default) */
 /* Generated for RexxPub from Pandoc's built-in pygments theme */
 
@@ -4552,11 +4558,11 @@ Cy 45
      <div class="chrome"></div>
   </section>
 
-  <section class="slide logo-oorexx" id="ex06-errors" data-title="Python exceptions as SYNTAX 98.900, the traceback">
+  <section class="slide logo-oorexx" id="ex06-errors" data-title="Python exceptions as SYNTAX 98.900: the exception, its traceback">
     <p class="kicker">06-errors.rex</p>
 
 <div class="title">
-<p>Python exceptions as SYNTAX 98.900, the traceback</p>
+<p>Python exceptions as SYNTAX 98.900: the exception, its traceback</p>
 </div>
 <div class="body">
 <p>A Python exception is a Rexx SYNTAX condition (98.900).</p>
@@ -4570,10 +4576,11 @@ Cy 45
 <span id="rx6-6"><a href="#rx6-6" aria-hidden="true" tabindex="-1"></a><span class="rx-const rx-label">syntax</span><span class="rx-spe">:</span></span>
 <span id="rx6-7"><a href="#rx6-7" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-var">co</span><span class="rx-ws"> </span><span class="rx-asg">=</span><span class="rx-ws"> </span><span class="rx-const rx-bif-func">condition</span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">O</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">)</span></span>
 <span id="rx6-8"><a href="#rx6-8" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">say</span><span class="rx-ws"> </span><span class="rx-str rx-oquo">"</span><span class="rx-str">caught</span><span class="rx-str rx-cquo">"</span><span class="rx-op"> </span><span class="rx-var">co</span><span class="rx-op">~</span><span class="rx-const rx-method">code</span><span class="rx-str rx-oquo">"</span><span class="rx-str">:</span><span class="rx-str rx-cquo">"</span><span class="rx-op"> </span><span class="rx-var">co</span><span class="rx-op">~</span><span class="rx-const rx-method">message</span></span>
-<span id="rx6-9"><a href="#rx6-9" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-lncm">-- the Python traceback, as text, is in additional[2]</span></span>
-<span id="rx6-10"><a href="#rx6-10" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">say</span><span class="rx-ws"> </span><span class="rx-str rx-oquo">"</span><span class="rx-str">Python says:</span><span class="rx-str rx-cquo">"</span><span class="rx-op"> </span><span class="rx-var">co</span><span class="rx-op">~</span><span class="rx-const rx-method">additional</span><span class="rx-spe">[</span><span class="rx-int rx-ipart">2</span><span class="rx-spe">]</span><span class="rx-op">~</span><span class="rx-const rx-method">strip</span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">T</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-xstr rx-oquo">"</span><span class="rx-xstr">0a</span><span class="rx-xstr rx-cquo">"</span><span class="rx-xstr rx-ssuf">x</span><span class="rx-spe">)</span></span>
-<span id="rx6-11"><a href="#rx6-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="rx6-12"><a href="#rx6-12" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">requires</span><span class="rx-ws"> </span><span class="rx-const rx-requires rx-oquo">"</span><span class="rx-const rx-requires">python.cls</span><span class="rx-const rx-requires rx-cquo">"</span></span></code></pre>
+<span id="rx6-9"><a href="#rx6-9" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-lncm">-- the exception itself is in additional[2], its traceback (text) in [3]</span></span>
+<span id="rx6-10"><a href="#rx6-10" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">say</span><span class="rx-ws"> </span><span class="rx-str rx-oquo">"</span><span class="rx-str">the exception:</span><span class="rx-str rx-cquo">"</span><span class="rx-op"> </span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">type</span><span class="rx-spe">(</span><span class="rx-var">co</span><span class="rx-op">~</span><span class="rx-const rx-method">additional</span><span class="rx-spe">[</span><span class="rx-int rx-ipart">2</span><span class="rx-spe">]</span><span class="rx-spe">)</span><span class="rx-op">~</span><span class="rx-const rx-method">getattr</span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">__name__</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">)</span></span>
+<span id="rx6-11"><a href="#rx6-11" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">say</span><span class="rx-ws"> </span><span class="rx-str rx-oquo">"</span><span class="rx-str">Python says:</span><span class="rx-str rx-cquo">"</span><span class="rx-op"> </span><span class="rx-var">co</span><span class="rx-op">~</span><span class="rx-const rx-method">additional</span><span class="rx-spe">[</span><span class="rx-int rx-ipart">3</span><span class="rx-spe">]</span><span class="rx-op">~</span><span class="rx-const rx-method">strip</span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">T</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-xstr rx-oquo">"</span><span class="rx-xstr">0a</span><span class="rx-xstr rx-cquo">"</span><span class="rx-xstr rx-ssuf">x</span><span class="rx-spe">)</span></span>
+<span id="rx6-12"><a href="#rx6-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="rx6-13"><a href="#rx6-13" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">requires</span><span class="rx-ws"> </span><span class="rx-const rx-requires rx-oquo">"</span><span class="rx-const rx-requires">python.cls</span><span class="rx-const rx-requires rx-cquo">"</span></span></code></pre>
 </div>
 <div class="row">
 <div class="col-3">
@@ -4586,6 +4593,7 @@ Cy 45
 <div class="col-9">
 <p class="label">Output</p>
 <pre class="output"><code>caught 98.900: Python error: ValueError: invalid literal for int() with base 10: &#39;abc&#39;.
+the exception: ValueError
 Python says: ValueError: invalid literal for int() with base 10: &#39;abc&#39;</code></pre>
 </div>
 </div>
@@ -6297,7 +6305,7 @@ ooRexx 1</code></pre>
   <div id="progress"></div>
 </div>
 <script type="application/json" id="build-warnings">[]</script>
-<script type="application/json" id="deck-about">{"print":false,"groups":{"deck":true,"system":true,"command":true,"links":true,"timing":true,"path":false},"deck":{"file":"samples.md","size":"35577","modified":"2026-10-16 13:48:17","built":"2026-10-16 13:48:36","seconds":"3.2","skin":"skin-default.css","masters":"master-default.css"},"system":{"os":"Linux 6.18.44-fc-v139 x86_64","oorexx":"REXX-ooRexx_5.3.0(MT)_64-bit 6.06 14 Oct 2026","pandoc":"pandoc 3.1.3","parser":"Rexx Parser beta 0.7, refresh 20261016"},"command":"md2slides samples.md","links":[["ooRexx","https://www.oorexx.org/"],["ooRexx on Wikipedia","https://en.wikipedia.org/wiki/Object_REXX"],["ooRexx sources","https://sourceforge.net/projects/oorexx/"],["Pandoc","https://pandoc.org/"],["The Rexx Parser (md2slides is part of it)","https://rexx.epbcn.com/rexx-parser/"],["The md2slides manual","https://rexx.epbcn.com/rexx-parser/doc/utilities/md2slides/"]]}</script>
+<script type="application/json" id="deck-about">{"print":false,"groups":{"deck":true,"system":true,"command":true,"links":true,"timing":true,"path":false},"deck":{"file":"samples.md","size":"35707","modified":"2026-10-16 17:13:55","built":"2026-10-16 17:14:12","seconds":"4.7","skin":"skin-default.css","masters":"master-default.css"},"system":{"os":"Linux 6.18.44-fc-v139 x86_64","oorexx":"REXX-ooRexx_5.3.0(MT)_64-bit 6.06 14 Oct 2026","pandoc":"pandoc 3.1.3","parser":"Rexx Parser beta 0.7, refresh 20261016"},"command":"md2slides samples.md","links":[["ooRexx","https://www.oorexx.org/"],["ooRexx on Wikipedia","https://en.wikipedia.org/wiki/Object_REXX"],["ooRexx sources","https://sourceforge.net/projects/oorexx/"],["Pandoc","https://pandoc.org/"],["The Rexx Parser (md2slides is part of it)","https://rexx.epbcn.com/rexx-parser/"],["The md2slides manual","https://rexx.epbcn.com/rexx-parser/doc/utilities/md2slides/"]]}</script>
 <script type="application/json" id="deck-timer">{"total":null,"warn":[300,60],"interval":10,"where":"footer","seconds":180,"sound":false,"record":false,"pauseMessage":"","countdownMessage":""}</script>
 <script type="application/json" id="deck-edit">null</script>
 <script type="application/json" id="deck-source-lines">null</script>
@@ -12101,13 +12109,20 @@ ooRexx 1</code></pre>
     if (sel && !p) sel = null;
     var kinds = {};
     slides().forEach(function (x, i) { var kk = kindOf(x); if (!(kk in kinds)) kinds[kk] = i; });
-    var html = '<div class="ed-row ms-kinds"><span class="ed-k">' + esc(KIND_NAME[k]) + '</span>' +
+    /* (v314, Rony 16/10) the first line names the master being edited, and  */
+    /* has the mode, as two buttons, so that it is the master's mode and     */
+    /* which one is on is clear                                              */
+    var html = '<div class="ed-row ed-mode"><span class="ed-k ed-what">Master</span><code class="ed-file">' +
+      esc(masterNames()) + '</code><span class="ed-seg" title="Edit mode"><button type="button" data-ms="mode" data-v="simple" class="' + (expert ? "" : "on") +
+      '" title="The master\u2019s values, by part">Simple</button><button type="button" data-ms="mode" ' +
+      'data-v="expert" class="' + (expert ? "on" : "") + '" title="The master\u2019s own rules, for any ' +
+      'element of the slide">Expert</button></span></div>' +
+      '<div class="ed-row ms-kinds"><span class="ed-k">' + esc(KIND_NAME[k]) + '</span>' +
       ["cover", "content", "section", "card"].filter(function (kk) { return kk in kinds && kk !== k; })
         .map(function (kk) {
           return '<button type="button" data-ms="go" data-v="' + kinds[kk] + '" title="Go to the first ' +
                  esc(KIND_NAME[kk].toLowerCase()) + '">' + esc(KIND_NAME[kk]) + '</button>';
-        }).join("") + '<button type="button" data-ms="expert" class="ms-expert' + (expert ? " on" : "") +
-      '" title="Expert: the master\u2019s own rules, for any element of the slide">Expert</button></div>';
+        }).join("") + '</div>';
     if (expert) {
       P.innerHTML = html + expertHtml();
       bindExpert();
@@ -12202,6 +12217,24 @@ ooRexx 1</code></pre>
 
   function base(f) { return String(f).split("/").pop(); }
 
+  /* The deck's masters, by name: from the server, or from their marks in  */
+  /* the deck's sheet (MasterMark).                                        */
+  function masterNames() {
+    var e = api.edit && api.edit();
+    if (e && e.masters && e.masters.length) return e.masters.map(base).join(" + ");
+    var out = [];
+    Array.prototype.forEach.call(document.styleSheets, function (sh) {
+      var rules;
+      try { rules = sh.cssRules; } catch (x) { return; }
+      if (!rules) return;
+      for (var i = 0; i < rules.length; i++) {
+        if (/^#md2slides-master-\d+$/.test(rules[i].selectorText || ""))
+          out.push(rules[i].style.getPropertyValue("--md2slides-master").trim().replace(/^"|"$/g, ""));
+      }
+    });
+    return out.join(" + ") || "the master";
+  }
+
   /* The server, and the master a value goes into when no master declares  */
   /* it: the last of the deck's masters.                                   */
   function server() {
@@ -12249,9 +12282,10 @@ ooRexx 1</code></pre>
   function click(b) {
     var what = b.getAttribute("data-ms"), v = b.getAttribute("data-v");
     if (what === "part") { sel = sel === v ? null : v; panel(); render(); return; }
-    if (what === "expert") {
+    if (what === "mode") {
+      if ((v === "expert") === expert) return;
       if (sheet) { closeSheet(); }
-      expert = !expert; target = null; adding = null; sel = null; xAsk = false; panel(); render(); return;
+      expert = v === "expert"; target = null; adding = null; sel = null; xAsk = false; panel(); render(); return;
     }
     if (what === "parent") { if (target && target !== api.slide()) target = target.parentElement; adding = null; panel(); render(); return; }
     if (what === "child") { if (target && target.children[+v]) target = target.children[+v]; adding = null; panel(); render(); return; }
@@ -12860,6 +12894,29 @@ ooRexx 1</code></pre>
   var open = { colours: true };   /* the groups shown open                    */
   var asking = null, asName = "", asSaid = "", saving = false;
   var sheet = null;               /* the whole skin as text (expert)          */
+  /* Units (v314; Rony, 16/10: "sizes may be easier expressed in centimetres */
+  /* or inches than in pixels"), chosen beside the value, as in the master   */
+  /* editor: px, pt, cm or in, of CSS (96 px to the inch). The skin keeps px. */
+  var UNITS = ["px", "pt", "cm", "in"], unit = "px";
+  try { unit = UNITS.indexOf(localStorage.getItem("md2slides-skin-unit")) >= 0
+               ? localStorage.getItem("md2slides-skin-unit") : "px"; } catch (e) { /* no storage */ }
+  function toUnit(px) {
+    if (unit === "pt") return Math.round(px * 0.75 * 100) / 100;
+    if (unit === "in") return Math.round(px / 96 * 1000) / 1000;
+    if (unit === "cm") return Math.round(px / 96 * 2.54 * 100) / 100;
+    return Math.round(px * 100) / 100;
+  }
+  function fromUnit(v) {
+    if (unit === "pt") return v / 0.75;
+    if (unit === "in") return v * 96;
+    if (unit === "cm") return v / 2.54 * 96;
+    return v;
+  }
+  function unitPick() {
+    return '<select class="sk-unit" data-sk-unit title="The unit of the sizes; the skin keeps px">' +
+      UNITS.map(function (u) { return '<option' + (u === unit ? " selected" : "") + '>' + u + '</option>'; }).join("") +
+      '</select>';
+  }
 
   /* ---------------------------------------------------------------------- */
   /* The values, by what they mean                                           */
@@ -13057,7 +13114,7 @@ ooRexx 1</code></pre>
         var x = px ? +px[1] : "", max = Math.max(100, Math.ceil((px ? +px[1] : 50) * 2 / 10) * 10);
         return head + '<input type="range" min="0" max="' + max + '" step="1"' + id + ' data-sk-k="px" value="' +
                (x === "" ? 0 : x) + '"><input type="number" class="sk-px" data-sk-t="' + esc(n) +
-               '" data-sk-k="px" step="any" value="' + x + '"' + ph + '><span class="sk-num">px</span></div>';
+               '" data-sk-k="u" step="any" value="' + (x === "" ? "" : toUnit(x)) + '"' + ph + '>' + unitPick() + '</div>';
       }
     }
     return head + '<input type="text" class="sk-text"' + id + ' value="' + esc(vv) + '"' + ph + '></div>';
@@ -13065,9 +13122,11 @@ ooRexx 1</code></pre>
 
   function panel() {
     if (!P || !on) return;
-    var html = '<div class="ed-row sk-head"><span class="ed-k">Skin</span><code class="sk-file">' +
-      esc(skinName()) + '</code><button type="button" data-sk="expert" class="' + (expert ? "on" : "") +
-      '" title="Expert: the values by their CSS names, and the whole skin as text">Expert</button></div>';
+    var html = '<div class="ed-row ed-mode"><span class="ed-k ed-what">Skin</span><code class="ed-file">' +
+      esc(skinName()) + '</code><span class="ed-seg" title="Edit mode"><button type="button" data-sk="mode" data-v="simple" class="' + (expert ? "" : "on") +
+      '" title="The values in groups, by plain names">Simple</button><button type="button" data-sk="mode" ' +
+      'data-v="expert" class="' + (expert ? "on" : "") + '" title="The values by their CSS names, and the ' +
+      'whole skin as text">Expert</button></span></div>';
     if (expert && sheet) { P.innerHTML = html + sheetHtml(); bindSheet(); P.parentNode.classList.add("ms-wide"); return; }
     P.parentNode.classList.remove("ms-wide");
     if (expert && server()) html += '<div class="ed-row"><button type="button" data-sk="sheet">The whole skin</button>' +
@@ -13099,6 +13158,16 @@ ooRexx 1</code></pre>
     Array.prototype.forEach.call(P.querySelectorAll("details.sk-group"), function (d) {
       d.addEventListener("toggle", function () { open[d.getAttribute("data-sk-g")] = d.open; });
     });
+    Array.prototype.forEach.call(P.querySelectorAll("[data-sk-unit]"), function (us) {
+      us.addEventListener("change", function () {
+        unit = us.value;
+        try { localStorage.setItem("md2slides-skin-unit", unit); } catch (e) { /* no storage */ }
+        var nm = us.parentNode.querySelector(".sk-px").getAttribute("data-sk-t");
+        panel();
+        var again = P.querySelector('.sk-px[data-sk-t="' + nm + '"]');
+        if (again) again.focus();
+      });
+    });
     Array.prototype.forEach.call(P.querySelectorAll("[data-sk-n], [data-sk-t]"), function (x) {
       var ev = x.tagName === "SELECT" || x.type === "color" ? "change" : "input";
       x.addEventListener(ev, function () { changed(x); });
@@ -13123,6 +13192,7 @@ ooRexx 1</code></pre>
     var raw = x.value, v;
     if (how === "pct") v = String(Math.round((100 - +raw)) / 100);
     else if (how === "px") { if (raw === "" || isNaN(+raw)) return; v = (Math.round(+raw * 100) / 100) + "px"; }
+    else if (how === "u") { if (raw === "" || isNaN(+raw)) return; v = (Math.round(fromUnit(+raw) * 100) / 100) + "px"; }
     else if (how === "s") { if (raw === "" || isNaN(+raw)) return; v = (+raw) + "s"; }
     else if (how === "string") v = quote(raw);
     else v = raw.trim();
@@ -13136,8 +13206,8 @@ ooRexx 1</code></pre>
     Array.prototype.forEach.call(row.querySelectorAll("input, select"), function (y) {
       if (y === x) return;
       if (y.type === "color") { var h = hex(v); if (h) y.value = h; }
-      else if (y.type === "range" && how === "px") y.value = parseFloat(v);
-      else if (y.classList.contains("sk-px")) y.value = parseFloat(v);
+      else if (y.type === "range" && (how === "px" || how === "u")) y.value = parseFloat(v);
+      else if (y.classList.contains("sk-px")) y.value = toUnit(parseFloat(v));
       else if (y.classList.contains("sk-text") && !y.hasAttribute("data-sk-k")) y.value = v;
     });
     var num = row.querySelector(".sk-num");
@@ -13267,7 +13337,11 @@ ooRexx 1</code></pre>
 
   function click(b) {
     var what = b.getAttribute("data-sk");
-    if (what === "expert") { if (sheet) closeSheet(); expert = !expert; panel(); return; }
+    if (what === "mode") {
+      if ((b.getAttribute("data-v") === "expert") === expert) return;
+      if (sheet) closeSheet();
+      expert = b.getAttribute("data-v") === "expert"; panel(); return;
+    }
     if (what === "sheet") { openSheet(); return; }
     if (what === "sheet-close") { closeSheet(); return; }
     if (what === "sheet-save") { sheet.ask = true; panel(); return; }
@@ -18746,6 +18820,9 @@ ooRexx 1</code></pre>
         'border-top:1px solid #444;padding-top:.5em}#np-notes p{margin:0 0 .6em}' +
       '#np-notes .np-none{color:#888;font-style:italic;font-size:18px}' +
       '#np-hint{font-size:15px;color:#ffd479;min-height:1em}' +
+      '#np-keys{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:15px;color:#aaa}' +
+      '#np-keys button{font:inherit;color:#eee;background:#3a3a3a;border:1px solid #555;border-radius:5px;' +
+        'padding:4px 10px;cursor:pointer}#np-keys button:hover{background:#4a4a4a}' +
       '</style></head><body>' +
       '<div id="np-top"><span id="np-num"></span><span id="np-title"></span>' +
       '<span id="np-clock"></span></div>' +
@@ -18755,6 +18832,14 @@ ooRexx 1</code></pre>
           '<div id="np-steps"></div>' +
           '<div id="np-times"><span id="np-elapsed"></span><span id="np-left-t"></span></div>' +
           '<div id="np-time"></div>' +
+          /* (v314; Rony, 16/10) what the keys here do, and the main ones as   */
+          /* buttons, for a presenter with no keyboard at hand                 */
+          '<div id="np-keys"><span>Keys pressed here go to the deck:</span>' +
+            '<button type="button" data-key="PageUp" title="PgUp">\u25c0 Back</button>' +
+            '<button type="button" data-key="PageDown" title="PgDn, space">Next \u25b6</button>' +
+            '<button type="button" data-key="f" title="f">Full screen</button>' +
+            '<button type="button" data-key="Escape" title="Esc: out of full screen, no black or white screen">Esc</button>' +
+            '<button type="button" data-key="F1" title="F1">Keys</button></div>' +
         '</div>' +
         '<div id="np-right">' +
           '<div class="np-label">Next</div>' +
@@ -18767,6 +18852,13 @@ ooRexx 1</code></pre>
     d.close();
     d.title = "Presenter — " + document.title;
     d.addEventListener("keydown", function (e) { onKey(e); });
+    d.getElementById("np-keys").addEventListener("click", function (e) {
+      var b = e.target.closest("button");
+      if (!b) return;
+      onKey({ key: b.getAttribute("data-key"), target: b, shiftKey: false, ctrlKey: false, altKey: false,
+              metaKey: false, preventDefault: function () {}, stopPropagation: function () {} });
+      b.blur();
+    });
     var url = mirrorURL();
     ["np-cur-f", "np-next-f"].forEach(function (id) {
       var f = d.getElementById(id);
@@ -19299,11 +19391,17 @@ ooRexx 1</code></pre>
         setBlank(isBlank() ? null : "#fff"); e.preventDefault(); break;
 
       case "f": case "F":
-        if (e.shiftKey) presentOnTwoScreens(e); else toggleFullscreen();
+        if (e.shiftKey) presentOnTwoScreens(e); else toggleFullscreen(e);
         e.preventDefault(); break;
 
       case "Escape":
-        setBlank(null); break;
+        setBlank(null);
+        /* (v314; Rony, 16/10, a talk on Zoom: the deck full screen hid the  */
+        /* presenter's window) Esc pressed there takes the deck out of full */
+        /* screen too; pressed in the deck, the browser does it itself.      */
+        if (keyWindow(e) !== window && document.fullscreenElement && document.exitFullscreen)
+          document.exitFullscreen();
+        break;
 
       default:
         /* A bare digit opens the overlay pre-filled, so typing "12<Enter>"      */
@@ -19531,10 +19629,18 @@ ooRexx 1</code></pre>
     touchFade = setTimeout(function () { touchBar.classList.remove("awake"); }, 4000);
   }
 
-  function toggleFullscreen() {
+  function toggleFullscreen(e) {
     var el = document.documentElement;
     if (!document.fullscreenElement) {
-      if (el.requestFullscreen) el.requestFullscreen();
+      if (!el.requestFullscreen) return;
+      var p = el.requestFullscreen();
+      /* (v314) From the presenter's window the browser says no: full screen  */
+      /* is asked for by a key or a click in the window that goes full screen. */
+      if (p && p.catch) p.catch(function () {
+        if (e && keyWindow(e) !== window) notesHint("Full screen is the deck's window's own: the browser " +
+          "takes it only from a key or a click there. Click the deck, press f, and come back here with " +
+          "Alt+Tab; Esc, pressed here, takes the deck out of full screen.");
+      });
     } else if (document.exitFullscreen) {
       document.exitFullscreen();
     }

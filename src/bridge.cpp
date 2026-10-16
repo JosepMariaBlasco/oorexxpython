@@ -1160,10 +1160,10 @@ static RexxObjectPtr finish(RexxSide &side, Val &result, PyError &err)
         std::string text = "Python error: " + err.message;
         if (!text.empty() && text.back() == '.') text.pop_back();   // the message adds one
         c->ArrayPut(extra, c->String(text.c_str()), 1);
-        c->ArrayPut(extra, c->String(err.traceback.c_str()), 2);
-        // the exception itself, as a .PyObject: if the condition goes back
-        // to Python, it is raised again as itself (docs/design.md,
-        // *Exceptions*)
+        // the exception itself, as a .PyObject, in [2] and the traceback in
+        // [3], as BSF4ooRexx does: if the condition goes back to Python, the
+        // exception is raised again as itself (docs/design.md, *Exceptions*)
+        c->ArrayPut(extra, c->String(err.traceback.c_str()), 3);
         if (err.exc != NULL && side.pyObjectClass != NULLOBJECT)
         {
             Val ev;
@@ -1172,7 +1172,7 @@ static RexxObjectPtr finish(RexxSide &side, Val &result, PyError &err)
             ev.owned = true;
             err.exc = NULL;               // the proxy takes our reference
             RexxObjectPtr eo = valToRexx(side, ev);
-            if (eo != NULLOBJECT) c->ArrayPut(extra, eo, 3);
+            if (eo != NULLOBJECT) c->ArrayPut(extra, eo, 2);
         }
         c->RaiseException(Rexx_Error_Execution_user_defined, extra);
         return NULLOBJECT;
@@ -1262,14 +1262,14 @@ static void rexxProxyDealloc(PyObject *self)
 struct ConditionInfo
 {
     bool set = false;
-    std::string condition, code, message, errortext, program, description;
+    std::string condition, code, message, errortext, program, description, traceback;
     long rc = 0;
     size_t position = 0;
 };
 
 // a pending Rexx condition as the text of an oorexx.RexxError (and cleared),
 // and its parts into ci; a Python exception that went through Rexx (SYNTAX
-// 98.900 with the exception as the third ADDITIONAL item: finish,
+// 98.900 with the exception as the second ADDITIONAL item: finish,
 // .py~raise) goes into exc, borrowed from its proxy, to be raised again as
 // itself
 static std::string takeCondition(RexxThreadContext *tc, RexxSide *side = NULL, Val *exc = NULL,
@@ -1281,9 +1281,9 @@ static std::string takeCondition(RexxThreadContext *tc, RexxSide *side = NULL, V
     if (side != NULL && exc != NULL && side->pyObjectClass != NULLOBJECT && info.code == 98900)
     {
         RexxObjectPtr add = tc->DirectoryAt(cond, "ADDITIONAL");
-        if (add != NULLOBJECT && tc->IsArray(add) && tc->ArrayItems((RexxArrayObject)add) >= 3)
+        if (add != NULLOBJECT && tc->IsArray(add) && tc->ArrayItems((RexxArrayObject)add) >= 2)
         {
-            RexxObjectPtr e = tc->ArrayAt((RexxArrayObject)add, 3);
+            RexxObjectPtr e = tc->ArrayAt((RexxArrayObject)add, 2);
             if (e != NULLOBJECT && tc->IsInstanceOf(e, side->pyObjectClass)) rexxToVal(*side, e, *exc);
         }
     }
@@ -1303,6 +1303,21 @@ static std::string takeCondition(RexxThreadContext *tc, RexxSide *side = NULL, V
         if (info.errortext != NULLOBJECT) ci->errortext = tc->CString(info.errortext);
         if (info.program != NULLOBJECT) ci->program = tc->CString(info.program);
         if (info.description != NULLOBJECT) ci->description = tc->CString(info.description);
+        // the Rexx traceback, as Rexx shows it (a List of lines in the
+        // condition object, not in RexxCondition)
+        RexxObjectPtr tb = tc->DirectoryAt(cond, "TRACEBACK");
+        RexxObjectPtr lines = tb != NULLOBJECT ? tc->SendMessage0(tb, "MAKEARRAY") : NULLOBJECT;
+        if (lines != NULLOBJECT && tc->IsArray(lines))
+        {
+            size_t n = tc->ArrayItems((RexxArrayObject)lines);
+            for (size_t i = 1; i <= n; i++)
+            {
+                RexxObjectPtr line = tc->ArrayAt((RexxArrayObject)lines, i);
+                if (line == NULLOBJECT) continue;
+                if (!ci->traceback.empty()) ci->traceback += "\n";
+                ci->traceback += tc->ObjectToStringValue(line);
+            }
+        }
     }
     tc->ClearCondition();
     if (name != "SYNTAX")
@@ -1332,6 +1347,7 @@ static void raiseRexxError(const std::string &text, const ConditionInfo &ci)
         str("errortext", ci.errortext, ci.errortext.empty());
         str("program", ci.program, ci.program.empty());
         str("description", ci.description, ci.description.empty());
+        str("traceback", ci.traceback, ci.traceback.empty());
         PyObject *rc = PyLong_FromLong(ci.rc);
         if (rc != NULL) { PyObject_SetAttrString(e, "rc", rc); Py_DECREF(rc); }
         PyObject *pos = ci.position != 0 ? PyLong_FromSize_t(ci.position) : (Py_INCREF(Py_None), Py_None);
@@ -2109,13 +2125,14 @@ static bool makeTypes()
     if (attrs != NULL)
     {
         for (const char *a : {"condition", "code", "rc", "message", "errortext", "position",
-                              "program", "description"})
+                              "program", "description", "traceback"})
         {
             PyDict_SetItemString(attrs, a, Py_None);
         }
         PyObject *doc = PyUnicode_FromString(
             "A Rexx condition in Rexx code that Python called: condition, code (SYNTAX's, \"42.3\"), "
-            "rc, message, errortext, position (the line), program, description.");
+            "rc, message, errortext, position (the line), program, description, traceback (the Rexx "
+            "traceback, as Rexx shows it).");
         if (doc != NULL) { PyDict_SetItemString(attrs, "__doc__", doc); Py_DECREF(doc); }
     }
     rexxErrorType = PyErr_NewException("oorexx.RexxError", PyExc_RuntimeError, attrs);
@@ -2888,21 +2905,13 @@ static RexxObjectPtr RexxEntry pythonCommandHandler(RexxExitContext *c, RexxStri
         }
         Py_DECREF(handler);
     }
-    if (err.set)
-    {
-        std::string message = "Python error: " + err.message;
-        if (!message.empty() && message.back() == '.') message.pop_back();
-        RexxArrayObject extra = c->NewArray(2);
-        c->ArrayPut(extra, c->String(message.c_str()), 1);
-        c->ArrayPut(extra, c->String(err.traceback.c_str()), 2);
-        c->RaiseException(Rexx_Error_Execution_user_defined, extra);
-        return NULLOBJECT;
-    }
     RexxSide side;
     if (!sideFor(c->threadContext, side))
     {
         side.tc = c->threadContext; side.inst = inst; side.pyObjectClass = NULLOBJECT; side.kwClass = NULLOBJECT;
     }
+    // a Python error: SYNTAX 98.900, as any other (finish)
+    if (err.set) return finish(side, rcVal, err);
     RexxObjectPtr rc = rcVal.kind == Val::NIL ? c->WholeNumber(0) : valToRexx(side, rcVal);
     if (holdsPython(rcVal)) { Gil gil; dropVal(rcVal); }
     if (!condition.empty()) c->RaiseCondition(condition.c_str(), command, NULLOBJECT, rc);

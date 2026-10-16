@@ -249,6 +249,9 @@ overflow/underflow."</literal></para></listitem></varlistentry>
 routine's name.</para></listitem></varlistentry>
 <varlistentry><term><literal>description</literal></term>
 <listitem><para>the condition's description, if it has one.</para></listitem></varlistentry>
+<varlistentry><term><literal>traceback</literal></term>
+<listitem><para>the Rexx traceback, as Rexx shows it when the error is not
+trapped: its lines joined by line ends.</para></listitem></varlistentry>
 </variablelist>
 <para>An attribute the condition does not have is &None;, and so are all of
 them when the error is not a Rexx condition (an interpreter that has been
@@ -264,11 +267,14 @@ with oorexx.Interpreter() as rexx:
     except oorexx.RexxError as e:
         print(e)
         print(e.condition, e.code, e.rc, e.position, e.program)
-        print(e.errortext)</programlisting>
+        print(e.errortext)
+        print(e.traceback)</programlisting>
 <screen>REXXout&gt;one
 Rexx error 42.3: Arithmetic overflow; divisor must not be zero.
 SYNTAX 42.3 42 2 DIVIDE
-Arithmetic overflow/underflow.</screen>
+Arithmetic overflow/underflow.
+     2 *-* return 1 / 0
+       *-* Compiled method "CALL" with scope "Routine".</screen>
 </example>
 </section>
 
@@ -284,7 +290,8 @@ the command, a <literal>str</literal>, and a
 is <literal>RC</literal>: a positive number raises <literal>ERROR</literal>, a
 negative one <literal>FAILURE</literal>, in the Rexx code that issued the
 command; &None; is 0. A Python exception in the handler is a SYNTAX error
-(98.900) there. An environment belongs to its interpreter instance; adding a
+(98.900) there, as any other (<xref linkend="condPythonInRexx"/>), and, if
+the Rexx code does not trap it, Python gets it back as itself. An environment belongs to its interpreter instance; adding a
 name again replaces it.</para>
 <example id="ex.pymodule-address">
 <title>ADDRESS environments written in Python</title>

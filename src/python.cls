@@ -56,8 +56,9 @@
  * parameter annotated bool); Rexx Arrays as lists (copies).
  * The design, and the reasons: docs/design.md.
  * A Python exception is SYNTAX 98.900 "Python error: Type: message", with
- * the traceback in condition("O")~additional[2] and the exception in
- * additional[3]; if it goes back to Python, it is raised again as itself.
+ * the exception in condition("O")~additional[2] and the traceback in
+ * additional[3], as BSF4ooRexx; if it goes back to Python, it is raised
+ * again as itself.
  */
 
 .local~py = .Python~new
@@ -263,7 +264,7 @@ final: return
   name = self~type(exc)~getattr("__name__")
   if text == "" then message = "Python error:" name
   else message = "Python error:" name":" text
-  raise syntax 98.900 array (message, "", exc)
+  raise syntax 98.900 array (message, exc, "")
 
 -- BSF4ooRexx-style routines (bsf.import ...), for those who prefer them
 ::routine py.import public
