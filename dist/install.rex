@@ -147,11 +147,14 @@ install:
   -- Python
   ok = .true
   executables = .Directory~new           -- exe as given -> sys.executable
+  withLib = .Directory~new               -- those with their shared library
+  noLib = .Array~new                     -- those without (installed, Rexx cannot load them)
   do exe over pythons
     info = pythonInfo(exe)
     if info == .nil then do; ok = .false; iterate; end
-    parse var info version "0a"x executable "0a"x site
+    parse var info version "0a"x executable "0a"x site "0a"x hasLib
     executables[exe] = executable
+    if hasLib then withLib[exe] = executable
     if \.File~new(site)~isDirectory then .File~new(site)~makeDirs
     pth = join(site, "oorexxpython.pth")
     if \writeFile(pth, home) then call denied pth
@@ -166,6 +169,10 @@ install:
   else do
     chosen = configuredPython()
     if chosen \== "", \.File~new(chosen)~exists then chosen = ""
+    -- the first that Rexx can load, else the first
+    if chosen == "" then do exe over pythons
+      if withLib~hasIndex(exe) then do; chosen = withLib[exe]; leave; end
+    end
     if chosen == "" then do exe over pythons
       if executables~hasIndex(exe) then do; chosen = executables[exe]; leave; end
     end
@@ -192,6 +199,9 @@ install:
   if chosen \== .nil, chosen \== "", \check("") then ok = .false
   if \ok then do
     say "ooRexx/Python: installed, but a check FAILED (above)"
+    do exe over noLib
+      say "  Python" exe "has no shared library installed: see above what to install"
+    end
     -- ::requires finds python.cls through the PATH (design.md, *Installation*)
     if \onPath(bin) then do
       say "  ooRexx's folder," bin", is not on the PATH, so Rexx programs cannot find"
@@ -269,14 +279,19 @@ link: procedure expose done
 
 -- the Python's version, executable and site-packages (or user
 -- site-packages), one per line; .nil (and a message) if it cannot be run
-pythonInfo: procedure expose user windows
+pythonInfo: procedure expose user windows noLib
   use arg exe
   code = .array~of(-
     "import site, sys, sysconfig",-
     "if sys.version_info < (3, 9): sys.exit('Python 3.9 or later is needed')",-
     "print('%d.%d.%d' % sys.version_info[:3])",-
     "print(sys.executable)",-
-    "print(site.getusersitepackages() if" (user~?("True", "False")) "else sysconfig.get_path('purelib'))")
+    "print(site.getusersitepackages() if" (user~?("True", "False")) "else sysconfig.get_path('purelib'))",-
+    "import os; v = lambda n: sysconfig.get_config_var(n) or ''",-
+    "c = [os.path.join(v('LIBDIR'), v('INSTSONAME'))] if v('INSTSONAME') else []",-
+    "c += [os.path.join(v('LIBDIR'), v('LDLIBRARY'))] if v('LDLIBRARY').endswith(('.so', '.dylib')) else []",-
+    "c += [os.path.join(v('PYTHONFRAMEWORKPREFIX'), v('LDLIBRARY'))] if v('PYTHONFRAMEWORKPREFIX') and '.framework/' in v('LDLIBRARY') else []",-
+    "print('shared' if os.name == 'nt' or any(os.path.exists(x) for x in c) else 'missing ' + c[0] if c else 'static')")
   out = .array~new; err = .array~new
   address system quote(exe) "-" with input using (code) output using (out) error using (err)
   if rc \= 0 | out~items < 3 then do
@@ -284,7 +299,47 @@ pythonInfo: procedure expose user windows
     say "    give the Python to use with --python EXE"
     return .nil
   end
-  return out[1] || "0a"x || out[2] || "0a"x || out[3]
+  shared = out[4]~string
+  if shared~word(1) == "missing" then do
+    call noLibpython out[1], shared~subword(2)
+    noLib~append(out[2])
+  end
+  else if shared == "static" then do
+    say "  Python" out[1] "("out[2]") has no shared library (it was built statically):"
+    say "    Rexx programs cannot load it; Python programs can still import oorexx."
+    say "    For Rexx, use another Python (python.org's, uv's, Homebrew's, your distribution's)."
+  end
+  return out[1] || "0a"x || out[2] || "0a"x || out[3] || "0a"x || (shared == "shared")
+
+-- a Python whose shared library (libpython3.X.so) is not installed: what to
+-- install, for the usual Linux distributions (/etc/os-release)
+noLibpython: procedure
+  use arg version, path
+  parse var version major "." minor "."
+  say "  Python" version": its shared library," path", is not installed:"
+  say "    Rexx programs cannot load this Python until it is (Python programs can"
+  say "    still import oorexx)."
+  ids = ""
+  if .File~new("/etc/os-release")~exists then do
+    s = .Stream~new("/etc/os-release")
+    do line over s~arrayIn
+      parse var line key "=" value
+      if key == "ID" | key == "ID_LIKE" then ids = ids value~strip(, '"')
+    end
+    s~close
+  end
+  ids = ids~lower
+  select
+    when ids~wordPos("debian") > 0 | ids~wordPos("ubuntu") > 0 then
+      say "    Install it: sudo apt install libpython"major"."minor
+    when ids~wordPos("fedora") > 0 | ids~wordPos("rhel") > 0 | ids~wordPos("centos") > 0 then
+      say "    Install it: sudo dnf install python"major"-libs"
+    when ids~wordPos("opensuse") > 0 | ids~wordPos("suse") > 0 then
+      say "    Install it: sudo zypper install libpython"major"_"minor"-1_0"
+    otherwise
+      say "    Install your system's package with libpython"major"."minor".so, or use another Python."
+  end
+  return
 
 -- run a Rexx program and a Python program in a temporary folder, with
 -- REXX_PATH, PYTHONPATH and the library path cleared and ORX_PYTHON = exe;

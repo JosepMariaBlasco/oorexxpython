@@ -125,7 +125,8 @@ longer needed: you can delete it.
 - Python: your distribution's `python3`, with its shared library, which some
   distributions package apart. On Debian and Ubuntu, that is
   `libpython3.X`, X being your Python's (`python3 --version`): for
-  example, `sudo apt install libpython3.12`.
+  example, `sudo apt install libpython3.12`. `rexx install` notices when it
+  is missing, and says what to install.
 - ooRexx installed from a package (in `/usr` or `/usr/local`) needs `sudo`,
   and `sudo` may find another `python3` than yours, so name yours:
 
