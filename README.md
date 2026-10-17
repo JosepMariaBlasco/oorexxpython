@@ -272,7 +272,8 @@ is a failure). `PYTHONS="3.9 3.13"` and `TESTS=Threads.testGroup` choose;
 - `tests/` — `run.sh`; `rexx/` (ooRexxUnit test groups: basics, booleans,
   callbacks, numpy, lifetime, threads, subclassing, and all the samples;
   `boolean-test.rex`, `boolean.cls`'s own tests), `python/` (the Python
-  side).
+  side), `probe/` (the conversion probe and its expected output, run by
+  `python/t80_conversion_probe.py`).
 - `scripts/` — `build.sh`, `setup-pythons.sh`, `setup-oorexxunit.sh`, and
   `setup-oorexx.sh` (builds ooRexx from SVN, when no build with headers is
   at hand).

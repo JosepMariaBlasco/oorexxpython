@@ -1,0 +1,76 @@
+'0'                              int:0
+'-0'                             int:0
+'42'                             int:42
+'-7'                             int:-7
+'007'                            str:'007'
+'+5'                             str:'+5'
+' 5'                             str:' 5'
+'5 '                             str:'5 '
+'3.14'                           float:3.14
+'.5'                             float:0.5
+'5.'                             float:5.0
+'1E3'                            float:1000.0
+'1e3'                            float:1000.0
+'1E+3'                           float:1000.0
+'1E-3'                           float:0.001
+'-1.5E2'                         float:-150.0
+'1.0'                            float:1.0
+'12345678901234567890123456789'  int:12345678901234567890123456789
+'3.14159265358979323846264'      float:3.141592653589793
+'1E999'                          float:inf
+'1E-999'                         float:0.0
+'.'                              str:'.'
+'-'                              str:'-'
+'E3'                             str:'E3'
+'1E'                             str:'1E'
+'0x10'                           str:'0x10'
+'1_000'                          str:'1_000'
+'inf'                            str:'inf'
+'NaN'                            str:'NaN'
+'abc'                            str:'abc'
+''                               str:''
+'1 2'                            str:'1 2'
+12345678901234567890 * 10 (DIGIT float:1.23456789e+20
+2**100 under DIGITS 30           float:1.2676506002282294e+30
+.true / .false                   int:1 int:0
+.Boolean~true / ~false           bool:True bool:False
+.array~of(.Boolean~true, 1)      list:[True, 1]
+.nil                             NoneType:None
+sparse Array [1,,x,]             list:[1, None, 'x', None]
+2-D Array 2x2                    list:[1, None, None, 4]
+nested ((1,2),(3,'a'))           list:[[1, 2], [3, 'a']]
+stem s.                          RexxObject:<Rexx S.>
+.directory~new                   RexxObject:<Rexx a Directory>
+.stringtable~new                 RexxObject:<Rexx a StringTable>
+.list~of(1,2)                    RexxObject:<Rexx a List>
+.mutablebuffer~new('12')         RexxObject:<Rexx 12>
+'é' (UTF-8 bytes)               str:'é'
+'ff'x (not UTF-8)                str:'\udcff'
+--- Python -> Rexx
+True                                          .Boolean~true
+False                                         .Boolean~false
+None                                          .nil
+0                                             '0' len 1
+-0.0                                          '-0.0' len 4
+10**30                                        '1000000000000000000000000000000' len 31
+2**0.5                                        '1.4142135623730951' len 18
+0.1+0.2                                       '0.30000000000000004' len 19
+1e16                                          '1e+16' len 5
+1e-7                                          '1e-07' len 5
+1.0                                           '1.0' len 3
+float('inf')                                  'inf' len 3
+float('nan')                                  'nan' len 3
+1+2j                                          PyObject: (1+2j)
+b'ab\xff'                                     'ab�' len 3
+'café'                                       'café' len 5
+''                                            '' len 0
+[1,2]                                         PyObject: [1, 2]
+(1,2)                                         PyObject: (1, 2)
+{'a':1}                                       PyObject: {'a': 1}
+{1}                                           PyObject: {1}
+__import__('decimal').Decimal('1.10')         PyObject: 1.10
+__import__('fractions').Fraction(3,4)         PyObject: 3/4
+__import__('enum').IntEnum('E','A B').B       '2' len 1
+'ff'x round trip to Python and back           1
+float repr as Rexx number: 1e16 + 1           1E+16
+np.float64(2.5) / np.int64(7) / np.bool_(True 2.5 7 1 0.10000000149011612
