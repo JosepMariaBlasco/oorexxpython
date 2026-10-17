@@ -66,4 +66,23 @@ t = .py~eval("lambda x: x")
 say left("'ff'x round trip to Python and back", 45) (t~new("ff"x) == "ff"x)
 say left("float repr as Rexx number: 1e16 + 1", 45) .py~eval("1e16") + 1
 say left("np.float64(2.5) / np.int64(7) / np.bool_(True) / np.float32(0.1)", 45) np~float64(2.5) np~int64(7) np~bool_(1) np~float32(0.1)
+say "--- float text (oorexx-bridges topics/float-text.md)"
+f = "1.0|1/3|0.1 + 0.2|1e16|1e21|1e-7|-0.0|float(2**53 + 1)|2**53 + 1|1.7976931348623157e308|5e-324|float('nan')|float('inf')|-float('inf')"
+do while f \= ""
+  parse var f x "|" f
+  r = .py~eval(x)
+  say left(x, 28) left("'"r"'", 26) "len" right(r~length, 2) " datatype N:" datatype(r, "N")
+end
+rule = .py~eval("lambda x: type(x).__name__ + ':' + repr(x)")
+asfloat = .py~eval("lambda x: repr(float(x)) if isinstance(x, str) else '(not a str)'")
+do s over "1E+16", "1e16", "1E16", " 1.5 ", "-0", "NaN", "nan", "Infinity", "inf", "1E+999"
+  say left("'"s"'", 12) left("rule:" rule~new(s), 36) "float(str):" asFloat(s)
+end
+exit
+
+asFloat: procedure expose asfloat   -- what float() makes of the Rexx string
+  signal on syntax
+  return asfloat~new(.py~box("str", arg(1)))
+syntax:
+  return condition("o")~message
 ::requires "python.cls"
