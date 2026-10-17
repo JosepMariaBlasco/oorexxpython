@@ -7,7 +7,7 @@
  * Licensed under the Apache License, Version 2.0.
  */
 k = .py~eval("lambda x: type(x).__name__ + ':' + repr(x)")
-list = '0|-0|42|-7|007|+5| 5|5 |3.14|.5|5.|1E3|1e3|1E+3|1E-3|-1.5E2|1.0|12345678901234567890123456789|3.14159265358979323846264|1E999|1E-999|.|-|E3|1E|0x10|1_000|inf|NaN|abc||1 2'
+list = '0|-0|42|-7|007|+5| 5|5 |3.14|.5|5.|1E3|1e3|1E+3|1E-3|-1.5E2|1.0|-0.0|12345678901234567890123456789|3.14159265358979323846264|1E999|-1E999|1E-999|.|-|E3|1E|0x10|1_000|inf|NaN|abc||1 2'
 do while list \= ""
   parse var list v "|" list
   say left("'"v"'", 32) k~new(v)
@@ -29,6 +29,20 @@ say left("2-D Array 2x3, m[i,j] = ij", 32) k~new(m)
 m = .array~new(2,2,2); m[1,2,1] = "a"; m[2,1,2] = "b"
 say left("3-D Array 2x2x2 [1,2,1] [2,1,2]", 32) k~new(m)
 say left("nested ((1,2),(3,'a'))", 32) k~new(((1,2),(3,"a")))
+a = .array~of(1, 2); a~append(a)
+say left("a~append(a)", 32) k~new(a) .py~eval("lambda x: x[2] is x")~new(a)
+b = .array~of(1); c = .array~of(2, b); b~append(c)
+say left("b = (1, c), c = (2, b)", 32) k~new(b) .py~eval("lambda x: x[1][1] is x")~new(b)
+x = .array~of(9)
+say left(".array~of(x, x)", 32) k~new(.array~of(x, x)) .py~eval("lambda x: x[0] is x[1]")~new(.array~of(x, x))
+t = 0; do 1000; t = .array~of(t); end
+say left("Arrays nested 1000 deep", 32) .py~eval("lambda x: 'ok'")~new(t)
+t = .array~of(t)
+signal on syntax name tooDeep
+say left("Arrays nested 1001 deep", 32) .py~eval("lambda x: 'ok'")~new(t)
+tooDeep:
+signal off syntax
+if symbol("RC") == "VAR" then say left("Arrays nested 1001 deep", 32) "SYNTAX" condition("o")~code condition("o")~message
 s.1 = "a"; s.0 = 1
 say left("stem s.", 32) k~new(s.)
 say left(".directory~new", 32) k~new(.directory~new)

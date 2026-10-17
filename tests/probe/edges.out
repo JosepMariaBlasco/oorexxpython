@@ -15,10 +15,12 @@
 '1E-3'                           float:0.001
 '-1.5E2'                         float:-150.0
 '1.0'                            float:1.0
+'-0.0'                           float:-0.0
 '12345678901234567890123456789'  int:12345678901234567890123456789
 '3.14159265358979323846264'      float:3.141592653589793
-'1E999'                          float:inf
-'1E-999'                         float:0.0
+'1E999'                          Decimal:Decimal('1E+999')
+'-1E999'                         Decimal:Decimal('-1E+999')
+'1E-999'                         Decimal:Decimal('1E-999')
 '.'                              str:'.'
 '-'                              str:'-'
 'E3'                             str:'E3'
@@ -41,6 +43,11 @@ sparse Array [1,,x,]             list:[1, None, 'x', None]
 2-D Array 2x3, m[i,j] = ij       list:[[11, 12, 13], [21, 22, 23]]
 3-D Array 2x2x2 [1,2,1] [2,1,2]  list:[[[None, None], ['a', None]], [[None, 'b'], [None, None]]]
 nested ((1,2),(3,'a'))           list:[[1, 2], [3, 'a']]
+a~append(a)                      list:[1, 2, [...]] 1
+b = (1, c), c = (2, b)           list:[1, [2, [...]]] 1
+.array~of(x, x)                  list:[[9], [9]] 1
+Arrays nested 1000 deep          ok
+Arrays nested 1001 deep          SYNTAX 98.900 Python error: ValueError: ooRexx/Python: Rexx Arrays nested more than 1000 deep cannot be copied.
 stem s.                          RexxObject:<Rexx S.>
 .directory~new                   RexxObject:<Rexx a Directory>
 .stringtable~new                 RexxObject:<Rexx a StringTable>

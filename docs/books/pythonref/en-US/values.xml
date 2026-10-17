@@ -72,7 +72,18 @@ an item, go to Python as follows:</para>
   sign;</para></listitem>
   <listitem><para>a <literal>float</literal> when it is any other Rexx number
   with a decimal point or an exponent: <literal>3.14</literal>,
-  <literal>1E3</literal>;</para></listitem>
+  <literal>1E3</literal>. Like any <literal>float</literal>, it is rounded to
+  the nearest double: <literal>3.14159265358979323846264</literal> is
+  <literal>3.141592653589793</literal> (<computeroutput>.py~decimal(x)</computeroutput>
+  keeps every digit). <literal>-0.0</literal> is the float
+  <literal>-0.0</literal>, and <literal>-0</literal>, a whole number, the
+  int <literal>0</literal>;</para></listitem>
+  <listitem><para>a <literal>decimal.Decimal</literal>, exact, when the
+  float would be a value of another kind: when the number overflows
+  (<literal>1E999</literal>, <literal>-1E999</literal> would be infinite) or
+  underflows (<literal>1E-999</literal> would be zero, and it is not zero).
+  It comes back to Rexx as a <classname>PyObject</classname>, as
+  <computeroutput>.py~decimal</computeroutput> gives;</para></listitem>
   <listitem><para>a <literal>str</literal> otherwise:
   <literal>"007"</literal>, <literal>" 5"</literal>,
   <literal>"+5"</literal>, and any text.</para></listitem>
@@ -87,7 +98,11 @@ multi-dimensional Array goes as lists nested by dimension, the first
 outermost: a 2&times;3 Array <literal>m</literal> is a list of 2 lists of 3,
 where <computeroutput>m[i, j]</computeroutput> is Python's
 <computeroutput>m[i-1][j-1]</computeroutput>, which numpy takes as a 2-D
-array.</para></listitem>
+array. The copy has the structure of the original: an Array that contains
+itself is a list that contains itself, Arrays that contain each other keep
+the cycle, and an Array that appears twice in one value is one list. Arrays
+nested more than 1000 deep cannot be copied (a
+<literal>ValueError</literal>).</para></listitem>
 <listitem><para>A <classname>PyObject</classname> goes as its Python
 object.</para></listitem>
 <listitem><para>Any other Rexx object goes by reference, as an

@@ -252,7 +252,14 @@ From Rexx to Python, a Rexx string becomes:
 - a canonical integer (`0`, `42`, `-7`: no leading zeros, blanks or `+`) →
   `int` (exact: Python ints are arbitrary precision);
 - any other valid Rexx number with a decimal point or an exponent (`3.14`,
-  `-0.5`, `1E3`) → `float`;
+  `-0.5`, `1E3`) → `float`, rounded to the nearest double as any `float` is
+  (`3.14159265358979323846264` is `3.141592653589793`; `.py~decimal(x)`
+  keeps every digit). `-0.0` is the float `-0.0` (and `-0`, a canonical
+  integer, the int `0`). The exception is a number that the float would
+  turn into a value of another kind: when it overflows (`1E999`, `-1E999`:
+  `inf`) or underflows to zero while it is not zero (`1E-999`), it goes as
+  `decimal.Decimal`, exact, and comes back to Rexx as a `.PyObject`, as
+  `.py~decimal` does (until 0.1.0-preview.13: `inf` and `0.0`, silently);
 - anything else (`"007"`, `" 5"`, `"+5"`, text) → `str`.
 
 Rexx Arrays go as `list`s (copies), each item under the same rule; an empty
@@ -261,7 +268,14 @@ goes as lists nested by dimension, the first outermost (`m[i, j]` is
 `m[i-1][j-1]`; numpy makes a 2-D array of it), not flattened: its shape is
 information (until 0.1.0-preview.13 it was flattened silently). The ooRexx
 bridges for JavaScript and Lua do the same, and .NET's makes an array of the
-same rank. The way back is not symmetric: a list of lists comes to Rexx as a
+same rank. The copy has the structure of the original: while one value is
+converted, an Array met again is the list already made for it, so an Array
+that contains itself is a list that contains itself (`a~append(a)`: `x[2] is
+x`), Arrays that contain each other keep the cycle, and an Array that appears
+twice (`.array~of(x, x)`) is one list; each conversion starts afresh (`f(x,
+x)` gets two lists). Arrays nested more than 1000 deep are an error
+(`ValueError`, SYNTAX 98.900 in Rexx), since the copy recurses (until
+0.1.0-preview.13 a cycle crashed the process). The way back is not symmetric: a list of lists comes to Rexx as a
 `.PyObject`, as any list. A
 `.Boolean` goes as a `bool` (see *Booleans*).
 

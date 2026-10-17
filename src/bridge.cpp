@@ -44,6 +44,7 @@ static void unsetEnv(const char *name) { unsetenv(name); }
 #include <string>
 #include <vector>
 #include <map>
+#include <cmath>
 #include <mutex>
 #include <atomic>
 #include <functional>
@@ -160,12 +161,15 @@ class Gil
 
 struct Val
 {
-    enum Kind { NIL, STR, REF, LIST, REXX } kind = NIL;
+    enum Kind { NIL, STR, REF, LIST, REXX, LINK, TOO_DEEP } kind = NIL;
     std::string s;                        // STR: the bytes
     PyObject *ref = NULL;                 // REF: a Python object
                                           // REXX: its Python proxy, if it came from Python
     bool owned = false;                   // REF/REXX: we hold a reference to ref
     std::vector<Val> items;               // LIST
+    size_t id = 0;                        // LIST: its number in its conversion (from 1);
+                                          // LINK: the LIST it stands for (an Array met
+                                          // again: a cycle, or an Array that appears twice)
     RexxObjectPtr robj = NULLOBJECT;      // REXX: a Rexx object
     struct Inst *inst = NULL;             // REXX: its interpreter instance
     bool boolean = false;                 // STR: a boolean ("1"/"0"): Python's
@@ -474,7 +478,31 @@ static void nest(Val &v, const std::vector<size_t> &dims)
     nestLevel(flat, dims, stride, 0, 0, v);
 }
 
+/*
+ * One value is converted with a memo of the Arrays already copied, so that
+ * the copy has the structure of the original: an Array met again (one that
+ * contains itself, Arrays that contain each other, an Array that appears
+ * twice) is a LINK to the list made for it (docs/design.md, *Values*). The
+ * copy recurses in C, so Arrays nested deeper than maxArrayDepth are an
+ * error.
+ */
+static const size_t maxArrayDepth = 1000;
+
+struct ArrayMemo
+{
+    std::map<RexxObjectPtr, size_t> ids;  // Array -> its LIST's id
+    size_t depth = 0;
+};
+
+static void rexxToVal(RexxSide &side, RexxObjectPtr o, Val &v, ArrayMemo &memo);
+
 static void rexxToVal(RexxSide &side, RexxObjectPtr o, Val &v)
+{
+    ArrayMemo memo;
+    rexxToVal(side, o, v, memo);
+}
+
+static void rexxToVal(RexxSide &side, RexxObjectPtr o, Val &v, ArrayMemo &memo)
 {
     RexxThreadContext *c = side.tc;
     if (o == NULLOBJECT || o == c->Nil())
@@ -512,11 +540,27 @@ static void rexxToVal(RexxSide &side, RexxObjectPtr o, Val &v)
     }
     else if (c->IsArray(o))
     {
+        auto seen = memo.ids.find(o);
+        if (seen != memo.ids.end())
+        {
+            v.kind = Val::LINK;
+            v.id = seen->second;
+            return;
+        }
+        if (memo.depth >= maxArrayDepth)
+        {
+            v.kind = Val::TOO_DEEP;
+            return;
+        }
         v.kind = Val::LIST;
+        v.id = memo.ids.size() + 1;
+        memo.ids[o] = v.id;
         RexxArrayObject a = (RexxArrayObject)o;
         size_t n = c->ArraySize(a);
         v.items.resize(n);
-        for (size_t i = 1; i <= n; i++) rexxToVal(side, c->ArrayAt(a, i), v.items[i - 1]);
+        memo.depth++;
+        for (size_t i = 1; i <= n; i++) rexxToVal(side, c->ArrayAt(a, i), v.items[i - 1], memo);
+        memo.depth--;
         // a multi-dimensional Array: nested lists, by dimension, the first
         // outermost (docs/design.md, *Values*)
         if (c->ArrayDimension(a) > 1)
@@ -628,11 +672,46 @@ static NumberKind numberKind(const std::string &s)
     return isDigits(x, end) ? FLOAT_NUMBER : NOT_NUMBER;
 }
 
-// a new reference, or NULL with a Python error set
+// is d, the double of the Rexx number s, a value of another kind: not
+// finite, or zero while s is not?
+static bool floatChangesKind(double d, const std::string &s)
+{
+    if (!std::isfinite(d)) return true;
+    if (d != 0.0) return false;
+    for (char ch : s)
+    {
+        if (ch == 'e' || ch == 'E') break;
+        if (ch >= '1' && ch <= '9') return true;
+    }
+    return false;
+}
+
+// a new reference, or NULL with a Python error set; lists: the lists made so
+// far in this conversion, by id (borrowed: the result holds them)
+static PyObject *valToPy(const Val &v, std::vector<PyObject *> &lists);
+
 static PyObject *valToPy(const Val &v)
+{
+    std::vector<PyObject *> lists;
+    return valToPy(v, lists);
+}
+
+static PyObject *valToPy(const Val &v, std::vector<PyObject *> &lists)
 {
     switch (v.kind)
     {
+        case Val::LINK:
+            if (v.id == 0 || v.id > lists.size() || lists[v.id - 1] == NULL)
+            {
+                PyErr_SetString(PyExc_SystemError, "ooRexx/Python: a Rexx Array met again could not be found");
+                return NULL;
+            }
+            Py_INCREF(lists[v.id - 1]);
+            return lists[v.id - 1];
+        case Val::TOO_DEEP:
+            PyErr_Format(PyExc_ValueError,
+                "ooRexx/Python: Rexx Arrays nested more than %d deep cannot be copied", (int)maxArrayDepth);
+            return NULL;
         case Val::NIL:
             Py_INCREF(Py_None);
             return Py_None;
@@ -658,9 +737,14 @@ static PyObject *valToPy(const Val &v)
         {
             PyObject *list = PyList_New((Py_ssize_t)v.items.size());
             if (list == NULL) return NULL;
+            if (v.id != 0)
+            {
+                if (lists.size() < v.id) lists.resize(v.id, NULL);
+                lists[v.id - 1] = list;
+            }
             for (size_t i = 0; i < v.items.size(); i++)
             {
-                PyObject *item = valToPy(v.items[i]);
+                PyObject *item = valToPy(v.items[i], lists);
                 if (item == NULL) { Py_DECREF(list); return NULL; }
                 PyList_SetItem(list, (Py_ssize_t)i, item);
             }
@@ -678,6 +762,18 @@ static PyObject *valToPy(const Val &v)
                     PyObject *text = PyUnicode_FromString(v.s.c_str());
                     if (text == NULL) return NULL;
                     PyObject *f = PyFloat_FromString(text);
+                    // a float of another kind (overflow: inf; underflow: 0.0
+                    // for a number that is not zero) would lose the value
+                    // silently: decimal.Decimal, exact (docs/design.md, *Values*)
+                    if (f != NULL && floatChangesKind(PyFloat_AsDouble(f), v.s))
+                    {
+                        Py_DECREF(f);
+                        PyObject *m = PyImport_ImportModule("decimal");
+                        PyObject *d = m != NULL ? PyObject_GetAttrString(m, "Decimal") : NULL;
+                        f = d != NULL ? PyObject_CallFunctionObjArgs(d, text, NULL) : NULL;
+                        Py_XDECREF(d);
+                        Py_XDECREF(m);
+                    }
                     Py_DECREF(text);
                     return f;
                 }
