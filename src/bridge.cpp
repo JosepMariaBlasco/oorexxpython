@@ -529,6 +529,7 @@ static void rexxToVal(RexxSide &side, RexxObjectPtr o, Val &v, ArrayMemo &memo)
         RexxStringObject str = c->ObjectToString(o);
         v.kind = Val::STR;
         v.s.assign(c->StringData(str), c->StringLength(str));
+        if ((RexxObjectPtr)str != o) c->ReleaseLocalReference(str);
     }
     else if (c->IsInstanceOf(o, side.pyObjectClass))
     {
@@ -536,6 +537,7 @@ static void rexxToVal(RexxSide &side, RexxObjectPtr o, Val &v, ArrayMemo &memo)
         v.kind = Val::REF;
         v.ref = p != NULLOBJECT ? (PyObject *)c->PointerValue((RexxPointerObject)p) : NULL;
         v.owned = false;                  // the proxy keeps it alive during the call
+        if (p != NULLOBJECT) c->ReleaseLocalReference(p);
         if (v.ref == NULL) v.kind = Val::NIL;
     }
     else if (c->IsArray(o))
@@ -559,7 +561,16 @@ static void rexxToVal(RexxSide &side, RexxObjectPtr o, Val &v, ArrayMemo &memo)
         size_t n = c->ArraySize(a);
         v.items.resize(n);
         memo.depth++;
-        for (size_t i = 1; i <= n; i++) rexxToVal(side, c->ArrayAt(a, i), v.items[i - 1], memo);
+        // each item is a local reference of the native method in progress,
+        // kept until it returns unless released: released once copied, so a
+        // big Array costs no more than its copy (an Array of 1,000,000
+        // strings sent three times grew the process by 161 MB otherwise)
+        for (size_t i = 1; i <= n; i++)
+        {
+            RexxObjectPtr item = c->ArrayAt(a, i);
+            rexxToVal(side, item, v.items[i - 1], memo);
+            if (item != NULLOBJECT) c->ReleaseLocalReference(item);
+        }
         memo.depth--;
         // a multi-dimensional Array: nested lists, by dimension, the first
         // outermost (docs/design.md, *Values*)
@@ -573,10 +584,13 @@ static void rexxToVal(RexxSide &side, RexxObjectPtr o, Val &v, ArrayMemo &memo)
                 for (size_t i = 1; i <= k; i++)
                 {
                     wholenumber_t w = 0;
-                    c->ObjectToWholeNumber(c->ArrayAt((RexxArrayObject)d, i), &w);
+                    RexxObjectPtr x = c->ArrayAt((RexxArrayObject)d, i);
+                    c->ObjectToWholeNumber(x, &w);
+                    if (x != NULLOBJECT) c->ReleaseLocalReference(x);
                     dims.push_back((size_t)w);
                 }
             }
+            if (d != NULLOBJECT) c->ReleaseLocalReference(d);
             size_t total = 1;
             for (size_t x : dims) total *= x;
             if (dims.size() > 1 && total == n) nest(v, dims);
