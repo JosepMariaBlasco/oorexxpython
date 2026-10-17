@@ -1,7 +1,8 @@
 /* 02-values.rex: which values cross as Rexx strings, which stay Python objects.
  *
- * Python str, int, float, bool and None come back as Rexx strings (.nil for
- * None); everything else is a .PyObject, a reference to the Python object.
+ * Python str, int, float and None come back as Rexx strings (.nil for None),
+ * bool as .Boolean~true or ~false (1 and 0 for Rexx); everything else is a
+ * .PyObject, a reference to the Python object.
  * Rexx numbers go to Python as int or float; other strings as str.
  *
  * Python:

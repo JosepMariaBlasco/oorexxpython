@@ -25,8 +25,10 @@ Rexx as follows:</para>
 <listitem><para>Python's <literal>str</literal>, <literal>int</literal>,
 <literal>float</literal> and <literal>bytes</literal> come back as Rexx
 strings, with their value. A <literal>bool</literal> comes back as
-<literal>1</literal> or <literal>0</literal>, Rexx's &true; and
-&false;.</para></listitem>
+<computeroutput>.Boolean~true</computeroutput> or
+<computeroutput>.Boolean~false</computeroutput>, which Rexx takes as
+<literal>1</literal> and <literal>0</literal>, its &true; and &false;
+(<xref linkend="valuesBoolean"/>).</para></listitem>
 <listitem><para>numpy's scalars (<literal>numpy.float64</literal>,
 <literal>numpy.int64</literal> and the like) come back as their values,
 as Rexx strings.</para></listitem>
@@ -76,6 +78,8 @@ an item, go to Python as follows:</para>
   <literal>"+5"</literal>, and any text.</para></listitem>
   </itemizedlist></listitem>
 <listitem><para>&nil; goes as &None;.</para></listitem>
+<listitem><para>A <classname>Boolean</classname> goes as a
+<literal>bool</literal> (<xref linkend="valuesBoolean"/>).</para></listitem>
 <listitem><para>A Rexx Array goes as a Python <literal>list</literal>, a
 copy, its items converted by the same rules (nested Arrays as nested
 lists).</para></listitem>
@@ -119,8 +123,49 @@ say (l[0] == d) l[0]~class~id
 </example>
 </section>
 
-<section id="valuesBool"><title>Parameters Annotated bool</title>
+<section id="valuesBoolean"><title>Booleans</title>
+<indexterm><primary>Boolean class</primary></indexterm>
 <indexterm><primary>bool</primary></indexterm>
+<para>Rexx's &true; and &false; are the strings <literal>1</literal> and
+<literal>0</literal>: nothing tells &false; from the number
+<literal>0</literal>. For a real boolean, <filename>python.cls</filename>
+brings the <classname>Boolean</classname> class, from
+<filename>boolean.cls</filename>, which the ooRexx bridges share and which
+is proposed for ooRexx itself. It has two instances,
+<computeroutput>.Boolean~true</computeroutput> and
+<computeroutput>.Boolean~false</computeroutput>, that are
+<literal>1</literal> and <literal>0</literal> wherever Rexx uses them
+(<literal>IF</literal>, operators, <literal>DATATYPE</literal>, string
+methods) and answer <computeroutput>isA(.Boolean)</computeroutput>;
+<computeroutput>.Boolean~of(value)</computeroutput> gives the one for a
+logical value.</para>
+<itemizedlist>
+<listitem><para>Python's <literal>True</literal> and
+<literal>False</literal> come to Rexx as
+<computeroutput>.Boolean~true</computeroutput> and
+<computeroutput>.Boolean~false</computeroutput>.</para></listitem>
+<listitem><para>A <classname>Boolean</classname> goes to Python as
+<literal>True</literal> or <literal>False</literal>, so a bool that goes
+through Rexx and back is still a bool.</para></listitem>
+<listitem><para>&true; and &false; go as the <literal>int</literal>s 1 and 0,
+by the number rule, except to a parameter annotated
+<literal>bool</literal> (below).</para></listitem>
+</itemizedlist>
+<example id="ex.values-boolean">
+<title>Booleans</title>
+<programlisting language="rexx">t = .py~eval("1 &lt; 2")
+say t t~class~id (t + 1)
+json = .py~import("json")
+say json~dumps(.array~of(.Boolean~true, .true))
+
+::requires "python.cls"</programlisting>
+<screen>1 Boolean 2
+[true, 1]</screen>
+</example>
+</section>
+
+<section id="valuesBool"><title>Parameters Annotated bool</title>
+<indexterm><primary>bool</primary><secondary>annotation</secondary></indexterm>
 <para>Rexx's &true; and &false; are the strings <literal>1</literal> and
 <literal>0</literal>, so by the number rule they go to Python as
 <literal>int</literal>s. One exception is taken from the called function's own
@@ -128,8 +173,9 @@ annotations: a <literal>1</literal> or <literal>0</literal> passed to a
 parameter annotated <literal>bool</literal> goes as <literal>True</literal> or
 <literal>False</literal>, so that &true; works for pandas'
 <literal>inplace=</literal>. For a function without annotations that insists
-on a real <literal>bool</literal>, <computeroutput>.py~box("bool", 1)</computeroutput>
-makes <literal>True</literal>.</para>
+on a real <literal>bool</literal>, pass
+<computeroutput>.Boolean~true</computeroutput> (or
+<computeroutput>.py~box("bool", 1)</computeroutput>).</para>
 
 <example id="ex.values-bool">
 <title>1 and 0 to a parameter annotated bool</title>

@@ -8,11 +8,16 @@
  *   rexx oorexxpython-uninstall [status]    (from anywhere, once installed)
  *
  * Where things go (docs/design.md, *Installation*):
- *   Windows:        the bridge, its package and python.cls in the folder of
- *                   rexx.exe and rexx.dll (C:\Program Files\ooRexx).
- *   Linux, macOS:   all three in ooRexx's lib/oorexxpython/; the package is
- *                   linked into lib/ (where ooRexx looks for libraries) and
- *                   python.cls into bin/ (on the PATH, where ::requires looks).
+ *   Windows:        the bridge, its package, python.cls and boolean.cls in
+ *                   the folder of rexx.exe and rexx.dll (C:\Program Files\ooRexx).
+ *   Linux, macOS:   all four in ooRexx's lib/oorexxpython/; the package is
+ *                   linked into lib/ (where ooRexx looks for libraries),
+ *                   python.cls and boolean.cls into bin/ (on the PATH, where
+ *                   ::requires looks).
+ *   boolean.cls:    .Boolean, which the ooRexx bridges share: one already in
+ *                   bin/ that another bridge installed is left as it is
+ *                   (ooRexx loads one boolean.cls per program, whichever
+ *                   comes first), and uninstall removes only ours.
  *   Python:         a one-line oorexxpython.pth in the site-packages of each
  *                   Python given with --python (default: ORX_PYTHON, else
  *                   python3 on the PATH; Windows: python), or in its user
@@ -100,7 +105,7 @@ install:
     call fail "ooRexx 5.2.0 or later is needed"
   if major = 5 & minor = 2 then
     say "  note: using the bridge from several threads at once needs ooRexx 5.3.0 r13265 or later"
-  do f over loader, bridge, "python.cls"
+  do f over loader, bridge, "python.cls", "boolean.cls"
     if \.File~new(join(from, f))~exists then
       call fail "no" f "next to install.rex: run it from the unzipped oorexxpython folder"
   end
@@ -120,17 +125,23 @@ install:
   -- the bridge
   if \.File~new(home)~isDirectory then
     if \.File~new(home)~makeDirs then call denied home
-  do f over loader, bridge, "python.cls"
+  shared = join(bin, "boolean.cls")      -- another bridge's, if not in our list
+  theirs = (.File~new(shared)~exists | SysIsFileLink(shared) = 1) & -
+           \(done~hasItem(shared, "link") | done~hasItem(shared, "file"))
+  do f over loader, bridge, "python.cls", "boolean.cls"
     target = join(home, f)
+    if windows & f == "boolean.cls" & theirs then iterate
     if SysFileCopy(join(from, f), target) \= 0 then call denied target
     done~put(target, "file")
   end
-  say "  installed" loader"," bridge "and python.cls in" home
+  say "  installed" loader"," bridge"," "python.cls and boolean.cls in" home
   if \windows then do
     call link join(home, loader), join(lib, loader)
     call link join(home, "python.cls"), join(bin, "python.cls")
     say "  linked" loader "into" lib "and python.cls into" bin
+    if \theirs then call link join(home, "boolean.cls"), shared
   end
+  if theirs then say "  kept the boolean.cls another ooRexx bridge installed in" bin
   -- the uninstaller, next to rexx
   target = join(bin, uninstaller)
   if SysFileCopy(me, target) \= 0 then call denied target
@@ -226,6 +237,7 @@ uninstall:
     do path over done~allAt(kind)
       if same(path, self) then iterate   -- last: it may be the one running
       if \.File~new(path)~exists & SysIsFileLink(path) \= 1 then iterate
+      if kind == "link", \linksInto(path, home) then iterate   -- replaced since: not ours
       if SysFileDelete(path) \= 0 then do
         say "  could not remove" path
         failed = .true
@@ -446,6 +458,14 @@ copyTree: procedure expose done windows
     end
   end
   return
+
+-- whether the link path still points into folder (another installer may have
+-- replaced it since)
+linksInto: procedure
+  use arg path, folder
+  address system "readlink '"path"'" with output stem out.
+  if rc \= 0 | out.0 = 0 then return .false
+  return out.1~startsWith(folder || .File~separator)
 
 -- the manifest: lines "kind path" (kind: file, dir, link, pth) -> a Relation
 readManifest: procedure expose manifest

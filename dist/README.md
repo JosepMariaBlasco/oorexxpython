@@ -138,4 +138,5 @@ under `python`. `20-numpy.rex`, `21-matplotlib.rex` and `23-pandas.rex` need
 
 ## Licence
 
-Apache License 2.0 (`LICENSE`).
+Apache License 2.0 (`LICENSE`), except `boolean.cls`, Common Public
+License 1.0, as ooRexx (its header).

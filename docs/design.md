@@ -238,8 +238,9 @@ is consistent with `==`, so `.PyObject`s work as keys of Rexx collections.
 
 ### Values
 
-From Python to Rexx: `str`, `int`, `float`, `bool` (1 / 0), `bytes` and
-`None` (`.nil`) come back as Rexx strings; everything else as a `.PyObject`,
+From Python to Rexx: `str`, `int`, `float`, `bytes` and `None` (`.nil`)
+come back as Rexx strings, `bool` as `.Boolean~true` / `.Boolean~false` (see
+*Booleans*); everything else as a `.PyObject`,
 by reference. numpy scalars (`np.float64`, `np.int64`...) are converted with
 `item()`, subclasses of `int` give their int value, floats use the plain
 `repr`. The Python objects of Rexx classes that extend Python classes are
@@ -254,7 +255,35 @@ From Rexx to Python, a Rexx string becomes:
   `-0.5`, `1E3`) → `float`;
 - anything else (`"007"`, `" 5"`, `"+5"`, text) → `str`.
 
-Rexx Arrays go as `list`s (copies), each item under the same rule.
+Rexx Arrays go as `list`s (copies), each item under the same rule. A
+`.Boolean` goes as a `bool` (see *Booleans*).
+
+### Booleans
+
+In Rexx, `.true` and `.false` are the strings `"1"` and `"0"`: nothing tells
+`.false` from `0`, so a Rexx program cannot hand a real boolean to Python as
+a value. The ooRexx bridges (for Python, .NET, Lua and JavaScript) share one
+class for that, `.Boolean`, from `boolean.cls`: two instances,
+`.Boolean~true` and `.Boolean~false`, that are `"1"` and `"0"` in every Rexx
+context (`IF`, operators, `DATATYPE`, string methods, stem and collection
+indexes) and answer `isA(.Boolean)`. The class is proposed for the ooRexx
+core (RFE #880, the name still open: `.Boolean` or `.Logical`); until it is
+there, each bridge carries the same verbatim copy (`src/boolean.cls`, the
+family's **version 1**; its tests `tests/rexx/boolean-test.rex`), CPL 1.0 as
+ooRexx. A program that requires two bridges gets one `.Boolean`: ooRexx loads
+one `boolean.cls` per interpreter instance, the first it finds.
+
+- Python's `True` and `False` come to Rexx as `.Boolean~true` and
+  `.Boolean~false` (until 0.1.0-preview.13: the strings `1` and `0`). Rexx
+  programs see no difference, and a bool that goes through Rexx and back is
+  a bool.
+- Any Rexx object with `isA(.Boolean)` (a subclass's too) goes to Python as
+  a `bool`, also to a module imported as `"string"`. `.true` and `.false`
+  are still the strings `1` and `0`: the number rule, and the `bool`
+  annotation below.
+- `python.cls` requires `boolean.cls`, and puts `.Boolean` in `.local` for
+  the Rexx code that Python runs (`oorexx.Interpreter`), which has no
+  `::requires`, as it does `.py`.
 
 One exception, by reflection: a `1` or `0` passed to a parameter annotated
 `bool` (also `bool | None`, `Optional[bool]`, or a name the function's

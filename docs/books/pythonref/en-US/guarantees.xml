@@ -14,7 +14,9 @@ Python object, however it came over.</para></listitem>
 <classname>oorexx.RexxObject</classname>s is true when they are the same Rexx
 object, and their hashes agree, so either can be a dict key.</para></listitem>
 <listitem><para>A Rexx object that goes to Python and back is the object
-itself, and so is a Python object that goes to Rexx and back.</para></listitem>
+itself, and so is a Python object that goes to Rexx and back. A
+<literal>bool</literal> that goes to Rexx and back is a
+<literal>bool</literal>.</para></listitem>
 <listitem><para>Names are looked up when the message arrives, so an attribute
 added later is found.</para></listitem>
 <listitem><para>What Python raised is kept in

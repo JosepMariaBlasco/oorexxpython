@@ -168,6 +168,8 @@ struct Val
     std::vector<Val> items;               // LIST
     RexxObjectPtr robj = NULLOBJECT;      // REXX: a Rexx object
     struct Inst *inst = NULL;             // REXX: its interpreter instance
+    bool boolean = false;                 // STR: a boolean ("1"/"0"): Python's
+                                          // bool, Rexx's .Boolean (*Values*)
     unsigned long keepKey = 0;            // REXX: robj is kept alive under this key
 };
 
@@ -193,6 +195,9 @@ struct RexxSide
     RexxClassObject pyObjectClass;
     RexxClassObject kwClass;
     RexxDirectoryObject keep = NULLOBJECT;
+    RexxClassObject booleanClass = NULLOBJECT;   // boolean.cls's .Boolean, and
+    RexxObjectPtr trueObj = NULLOBJECT;          // its two instances
+    RexxObjectPtr falseObj = NULLOBJECT;
     bool strings = false;                 // the receiver came from a module imported
                                           // as "string" (docs/design.md, *Values*)
 };
@@ -230,8 +235,11 @@ struct StringsScope
  */
 struct InstanceData
 {
-    RexxClassObject pyObjectClass, kwClass;
-    RexxDirectoryObject keep;
+    RexxClassObject pyObjectClass = NULLOBJECT, kwClass = NULLOBJECT;
+    RexxClassObject booleanClass = NULLOBJECT;    // .Boolean (boolean.cls, which
+    RexxObjectPtr trueObj = NULLOBJECT;           // python.cls requires) and its
+    RexxObjectPtr falseObj = NULLOBJECT;          // two instances
+    RexxDirectoryObject keep = NULLOBJECT;
     RexxObjectPtr graveyard;              // .PyObject~graveyard (see drainGraveyard)
 };
 static std::mutex instancesLock;
@@ -283,6 +291,20 @@ static RexxObjectPtr graveyardOf(RexxThreadContext *tc, RexxClassObject pyObject
     return q == NULLOBJECT ? NULLOBJECT : tc->RequestGlobalReference(q);
 }
 
+// .Boolean and its two instances into d (global references, once per
+// instance); without boolean.cls, booleans cross as "1" and "0"
+static void setBooleans(RexxThreadContext *tc, InstanceData &d, RexxClassObject cls)
+{
+    if (cls == NULLOBJECT) return;
+    RexxObjectPtr t = tc->SendMessage0(cls, "TRUE");
+    RexxObjectPtr f = t != NULLOBJECT ? tc->SendMessage0(cls, "FALSE") : NULLOBJECT;
+    if (tc->CheckCondition()) tc->ClearCondition();
+    if (t == NULLOBJECT || f == NULLOBJECT) return;
+    d.booleanClass = (RexxClassObject)tc->RequestGlobalReference(cls);
+    d.trueObj = tc->RequestGlobalReference(t);
+    d.falseObj = tc->RequestGlobalReference(f);
+}
+
 static bool findClasses(RexxMethodContext *context, RexxSide &side)
 {
     side.tc = context->threadContext;
@@ -306,15 +328,22 @@ static bool findClasses(RexxMethodContext *context, RexxSide &side)
             InstanceData d;
             d.pyObjectClass = (RexxClassObject)side.tc->RequestGlobalReference(side.pyObjectClass);
             d.kwClass = (RexxClassObject)side.tc->RequestGlobalReference(side.kwClass);
+            setBooleans(side.tc, d, context->FindContextClass("BOOLEAN"));
             d.keep = (RexxDirectoryObject)side.tc->RequestGlobalReference(side.tc->NewDirectory());
             d.graveyard = graveyardOf(side.tc, side.pyObjectClass);
             instances[side.inst] = d;
             side.keep = d.keep;
+            side.booleanClass = d.booleanClass;
+            side.trueObj = d.trueObj;
+            side.falseObj = d.falseObj;
             graveyard = d.graveyard;
         }
         else
         {
             side.keep = it->second.keep;
+            side.booleanClass = it->second.booleanClass;
+            side.trueObj = it->second.trueObj;
+            side.falseObj = it->second.falseObj;
             graveyard = it->second.graveyard;
         }
     }
@@ -335,6 +364,9 @@ static bool sideFor(RexxThreadContext *tc, RexxSide &side, RexxObjectPtr *gravey
     side.pyObjectClass = it->second.pyObjectClass;
     side.kwClass = it->second.kwClass;
     side.keep = it->second.keep;
+    side.booleanClass = it->second.booleanClass;
+    side.trueObj = it->second.trueObj;
+    side.falseObj = it->second.falseObj;
     if (graveyard != NULL) *graveyard = it->second.graveyard;
     return true;
 }
@@ -423,6 +455,13 @@ static void rexxToVal(RexxSide &side, RexxObjectPtr o, Val &v)
     if (o == NULLOBJECT || o == c->Nil())
     {
         v.kind = Val::NIL;
+    }
+    else if (side.booleanClass != NULLOBJECT && c->IsInstanceOf(o, side.booleanClass))
+    {
+        // a .Boolean (or a subclass's): Python's bool (docs/design.md, *Values*)
+        v.kind = Val::STR;
+        v.s = c->ObjectToStringValue(o);
+        v.boolean = true;
     }
     else if (c->IsString(o))
     {
@@ -584,6 +623,7 @@ static PyObject *valToPy(const Val &v)
         }
         case Val::STR:
         default:
+            if (v.boolean) return PyBool_FromLong(v.s == "1");
             if (argStrings) return pyText(v.s.data(), v.s.size());
             switch (numberKind(v.s))
             {
@@ -675,6 +715,7 @@ static void pyToVal(PyObject *o, Val &v, bool keep = false)
         {
             v.kind = Val::STR;
             v.s = o == Py_True ? "1" : "0";
+            v.boolean = true;
             Py_DECREF(o);
             return;
         }
@@ -1067,6 +1108,9 @@ static RexxObjectPtr valToRexx(RexxSide &side, Val &v)
     switch (v.kind)
     {
         case Val::STR:
+            // a bool: .Boolean~true or ~false (docs/design.md, *Values*);
+            // "1"/"0" where boolean.cls is not loaded
+            if (v.boolean && side.trueObj != NULLOBJECT) return v.s == "1" ? side.trueObj : side.falseObj;
             return c->String(v.s.data(), v.s.size());
         case Val::REF:
         {
@@ -2354,6 +2398,7 @@ static PyObject *interpreterNew(PyTypeObject *type, PyObject *args, PyObject *kw
             d.kwClass = (RexxClassObject)tc->RequestGlobalReference(tc->FindPackageClass(package, "PYKWARGS"));
             d.keep = (RexxDirectoryObject)tc->RequestGlobalReference(tc->NewDirectory());
             d.graveyard = graveyardOf(tc, d.pyObjectClass);
+            setBooleans(tc, d, tc->FindPackageClass(package, "BOOLEAN"));
             {
                 std::lock_guard<std::mutex> guard(instancesLock);
                 instances[inst] = d;

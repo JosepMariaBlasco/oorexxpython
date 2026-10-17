@@ -219,7 +219,7 @@ Everything goes into the directory that contains your clone
 (`$ORXPY_WORK`, overridable), next to it:
 
 ```
-build/        oorexx.abi3.so, librexxpython.so, python.cls
+build/        oorexx.abi3.so, librexxpython.so, python.cls, boolean.cls
               (macOS: librexxpython.dylib; Windows: oorexx.pyd, rexxpython.dll)
 pythons/      the CPython versions to test against
 oorexxunit/   ooRexx's test framework (for the tests)
@@ -264,10 +264,14 @@ is a failure). `PYTHONS="3.9 3.13"` and `TESTS=Threads.testGroup` choose;
   - `loader.cpp` — `librexxpython.so`, the ooRexx package that finds and
     loads a Python when Rexx starts, then hands over to the bridge.
   - `python.cls` — the Rexx side: `.py`, `.PyObject`, `py.import` & co.
+  - `boolean.cls` — `.Boolean`, Python's `bool` in Rexx: the class the
+    ooRexx bridges share, proposed for ooRexx itself (version 1 of the
+    family's copy, unchanged; CPL 1.0).
 - `samples/` — short "nutshell" programs, one feature each, both ways;
   each shows the Python it replaces and its exact output (see its README).
-- `tests/` — `run.sh`; `rexx/` (ooRexxUnit test groups: basics, callbacks,
-  numpy, lifetime, threads, subclassing, and all the samples), `python/` (the Python
+- `tests/` — `run.sh`; `rexx/` (ooRexxUnit test groups: basics, booleans,
+  callbacks, numpy, lifetime, threads, subclassing, and all the samples;
+  `boolean-test.rex`, `boolean.cls`'s own tests), `python/` (the Python
   side).
 - `scripts/` — `build.sh`, `setup-pythons.sh`, `setup-oorexxunit.sh`, and
   `setup-oorexx.sh` (builds ooRexx from SVN, when no build with headers is
@@ -297,4 +301,6 @@ Written by Josep Maria Blasco, with Claude (Anthropic) as coding assistant.
 
 ## License
 
-Apache License 2.0 (`LICENSE`).
+Apache License 2.0 (`LICENSE`), except `src/boolean.cls` and
+`tests/rexx/boolean-test.rex`, Common Public License 1.0, as ooRexx (their
+headers).

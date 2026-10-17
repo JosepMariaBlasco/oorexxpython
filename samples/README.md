@@ -99,9 +99,9 @@ by `scripts/samples-deck.rex` (edit those, not the deck), and the skin
   of a Rexx string (02).
 - `.true` and `.false` are the Rexx strings `1` and `0`, so they go to
   Python as ints, except to a parameter annotated `bool`, where they go as
-  `True` and `False` (pandas' `inplace=`, 23). For a function without
-  annotations that insists on a real `bool`, `py.box("bool", 1)` makes
-  `True`.
+  `True` and `False` (pandas' `inplace=`, 23). For a real `bool`, use
+  `.Boolean~true` and `.Boolean~false`, which are `1` and `0` for Rexx;
+  Python's `True` and `False` come back as them (10).
 - A Rexx class that extends a Python class is a subclass of `PyObject` that
   calls `.py~extend(self, base)` in its `ACTIVATE` class method. Its INIT
   passes the arguments to the base with `self~init:super(...)`, and

@@ -58,6 +58,14 @@ lst = [1, 2]
 check("identity Python obj",   r.routine("use arg o; return o")(lst) is lst, True)
 check("Python callback",       r.routine("use arg f; return f~new(20) + 1")(lambda x: x * 2), 41)
 
+# booleans: Python's bool is .Boolean in Rexx (which Rexx code run from Python
+# sees without ::requires), and back
+f = r.routine("use arg x; return x")
+check("bool -> .Boolean",      r.routine("use arg t, f; return t~class~id f~isA(.Boolean) (t + 1)")(True, False), "Boolean 1 2")
+check("bool round trip",       [f(True), f(False)], [True, False])
+check(".Boolean -> bool",      r.routine("return .Boolean~of(2 > 1)")(), True)
+check("Rexx logical stays 1",  r.eval("1 = 1"), 1)
+
 # errors
 check("Rexx error",            raises(lambda: r.eval("1 / 0")).startswith("RexxError: Rexx error 42.3"), True)
 check("syntax error",          raises(lambda: r.routine("x = (")).startswith("RexxError: Rexx error 35.1"), True)

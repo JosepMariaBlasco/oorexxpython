@@ -6,6 +6,7 @@
 #   librexxpython.so  the ooRexx package loader (librexxpython.dylib on macOS,
 #                     rexxpython.dll on Windows)
 #   python.cls        the Rexx side
+#   boolean.cls       .Boolean (the ooRexx bridges' shared copy; python.cls requires it)
 # Python headers: those of the minimum version (3.9), so nothing newer slips in.
 # ooRexx: the installation of the `rexx` on the PATH (OOREXX_HOME to choose
 # another), which must have include/oorexxapi.h and lib/librexx.* (rexx.lib
@@ -62,5 +63,5 @@ else
       "$SRC/bridge.cpp" -o "$BUILD/$BRIDGE" -lrexx -lrexxapi
   "$CXX" $CXXFLAGS -I"$OOREXX_HOME/include" "$SRC/loader.cpp" $LOADERFLAGS -o "$BUILD/$LOADER"
 fi
-cp "$SRC/python.cls" "$BUILD/"
+cp "$SRC/python.cls" "$SRC/boolean.cls" "$BUILD/"
 echo "built in $BUILD (ooRexx: $OOREXX_HOME)"

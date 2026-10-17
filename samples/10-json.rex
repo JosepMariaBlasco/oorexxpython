@@ -8,7 +8,7 @@
  *   print(data["langs"][1], data["year"])
  */
 json = .py~import("json")
-d = .py~dict(.py~kw("lang", "ooRexx", "since", 2004, "oo", py.box("bool", 1)))
+d = .py~dict(.py~kw("lang", "ooRexx", "since", 2004, "oo", .Boolean~true))
 text = json~dumps(d, .py~kw("sort_keys", .true))
 say text
 data = json~loads('{"langs": ["Rexx", "Python"], "year": 2026}')

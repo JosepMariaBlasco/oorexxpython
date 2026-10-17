@@ -18,9 +18,12 @@ learning before anything else.</para>
 from Python, and what Python gets from you.</para>
 <?sample 02-values.rex?>
 <para><emphasis role="bold">How it works.</emphasis> Coming back from Python,
-<literal>str</literal>, <literal>int</literal>, <literal>float</literal> and
-<literal>bool</literal> are Rexx strings (<literal>True</literal> is
-<literal>1</literal>), and <literal>None</literal> is <literal>.nil</literal>.
+<literal>str</literal>, <literal>int</literal> and <literal>float</literal>
+are Rexx strings, a <literal>bool</literal> is
+<computeroutput>.Boolean~true</computeroutput> or
+<computeroutput>.Boolean~false</computeroutput>, which Rexx takes as
+<literal>1</literal> and <literal>0</literal>, and <literal>None</literal> is
+<literal>.nil</literal>.
 Everything else, a dict here, stays in Python and comes to Rexx as a
 <classname>PyObject</classname>, a reference to it: its Rexx class is
 <classname>PyObject</classname>, and its Python type is

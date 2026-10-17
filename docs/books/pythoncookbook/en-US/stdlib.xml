@@ -19,9 +19,12 @@ worth knowing.</para>
 <para><emphasis role="bold">How it works.</emphasis>
 <computeroutput>.py~dict(.py~kw(...))</computeroutput> makes a dict from
 keyword arguments, as Python's <computeroutput>dict(a=1)</computeroutput>
-does. The value for <literal>"oo"</literal> is boxed as a
-<literal>bool</literal>: a Rexx <literal>1</literal> would go as the number 1,
-and JSON would say <literal>1</literal>, not <literal>true</literal>. What
+does. The value for <literal>"oo"</literal> is
+<computeroutput>.Boolean~true</computeroutput>, which goes to Python as
+<literal>True</literal>: <literal>.true</literal>, the Rexx string
+<literal>1</literal>, would go as the number 1, and JSON would say
+<literal>1</literal>, not <literal>true</literal>. A JSON
+<literal>true</literal> comes back as <computeroutput>.Boolean~true</computeroutput>. What
 <methodname>loads</methodname> returns is Python's: a dict, whose
 <literal>"langs"</literal> is a list, indexed from 0, and iterated with
 <literal>DO OVER</literal>.</para>

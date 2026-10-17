@@ -121,7 +121,7 @@ jobs:
           rexx oorexxpython-uninstall status
           rexx oorexxpython-uninstall
           if "$PY" -c "import oorexx" 2>/dev/null; then echo "oorexx still importable"; exit 1; fi
-          test ! -e "$BIN/python.cls" && test ! -e "$BIN/oorexxpython-uninstall.rex" && test ! -e "$S"
+          test ! -e "$BIN/python.cls" && test ! -e "$BIN/boolean.cls" && test ! -e "$BIN/oorexxpython-uninstall.rex" && test ! -e "$S"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

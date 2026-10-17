@@ -1,0 +1,69 @@
+#!/usr/bin/env rexx
+/*----------------------------------------------------------------------------*/
+/* Booleans.testGroup: Python's bool and Rexx's .Boolean (boolean.cls).       */
+/*                                                                            */
+/* Licensed under the Apache License, Version 2.0.                            */
+/*----------------------------------------------------------------------------*/
+  parse source . . fileSpec
+
+  group = .TestGroup~new(fileSpec)
+  group~add(.Booleans.testGroup)
+
+  if group~isAutomatedTest then return group
+
+  testResult = group~suite~execute~~print
+
+return testResult
+-- End of entry point.
+
+::requires 'PyTestCase.cls'
+
+::class "Booleans.testGroup" subclass PyTestCase public
+
+-- boolean.cls's own tests (the shared copy, boolean-test.rex next to this file)
+::method test_boolean_cls
+  self~assertSame(0, boolean_test(), "boolean-test.rex: all pass")
+
+-- Python -> Rexx: True and False are the two .Boolean instances
+::method test_from_python
+  t = .py~eval("1 < 2")
+  f = .py~eval("1 > 2")
+  self~assertTrue(t~isA(.Boolean), "True is a .Boolean")
+  self~assertTrue(f~isA(.Boolean), "False is a .Boolean")
+  self~assertSame(.Boolean~true~identityHash, t~identityHash, "True is .Boolean~true")
+  self~assertSame(.Boolean~false~identityHash, f~identityHash, "False is .Boolean~false")
+  -- and they are 1 and 0 for Rexx
+  self~assertSame("1", t~string, "string")
+  self~assertTrue(t = 1 & f = 0 & t == "1", "comparisons")
+  self~assertSame(2, t + 1, "arithmetic")
+  self~assertSame(0, \t, "not")
+  self~assertTrue(datatype(f, "O"), "a logical value")
+  -- a bool inside a container, and JSON's
+  self~assertTrue(.py~eval("[True]")[0]~isA(.Boolean), "an item")
+  self~assertTrue(.py~import("json")~loads("true")~isA(.Boolean), "json.loads")
+
+-- Rexx -> Python: a .Boolean is a bool; .true and .false stay the numbers 1 and 0
+::method test_to_python
+  self~assertSame("True",  .py~repr(.Boolean~true), ".Boolean~true")
+  self~assertSame("False", .py~repr(.Boolean~false), ".Boolean~false")
+  self~assertSame("bool",  .py~type(.Boolean~of(0))~getattr("__name__"), "the type")
+  self~assertSame("1",     .py~repr(.true), ".true is 1")
+  self~assertSame("[True, 0, False]", .py~repr(.array~of(.Boolean~true, 0, .Boolean~false)), "in an Array")
+  self~assertSame('{"a": true}', .py~import("json")~dumps(.py~dict(.py~kw("a", .Boolean~true))), "json.dumps")
+  -- a module imported as "string" takes Rexx strings as str, but a .Boolean is a bool
+  s = .py~import("builtins", "string")
+  self~assertSame("str",  s~type(1)~getattr("__name__"), "string module: 1")
+  self~assertSame("bool", s~type(.Boolean~true)~getattr("__name__"), "string module: .Boolean")
+
+-- a bool that goes to Rexx and back is a bool
+::method test_round_trip
+  b = .py
+  b~exec(self~py("def same(x): return x", "def kind(f): return type(f()).__name__"))
+  self~assertSame("bool", b~main~kind(.Routine~new("r", "return .Boolean~true")), "a Rexx routine's result")
+  self~assertSame("bool", b~main~kind(.Routine~new("r", "return .py~eval('True')")), "Python's True, through Rexx")
+  self~assertSame(.Boolean~true~identityHash, b~main~same(.Boolean~true)~identityHash, "Rexx")
+  self~assertSame("bool", b~type(b~main~same(b~eval("False")))~getattr("__name__"), "through Rexx")
+
+::routine boolean_test
+  call "boolean-test.rex"
+  return result
