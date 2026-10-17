@@ -93,7 +93,8 @@ by `scripts/samples-deck.rex` (edit those, not the deck), and the skin
 - An attribute that is a function or method is called when used without
   arguments; a class is not: `io~StringIO~new` makes an instance (11, 18).
 - `.py~list(x)`, `.py~tuple(x)`, `.py~dict(...)`... are Python's builtins.
-  A Rexx Array goes to Python as a list (nested Arrays as nested lists), so
+  A Rexx Array goes to Python as a list (nested Arrays, and the dimensions of
+  a multi-dimensional Array, as nested lists), so
   `.py~list((1, 2))` is `[1, 2]` (05, 13). `.py~str`, `~int`,
   `~float` are Python's too, but keep the result as a Python object instead
   of a Rexx string (02).

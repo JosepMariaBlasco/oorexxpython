@@ -82,7 +82,12 @@ an item, go to Python as follows:</para>
 <literal>bool</literal> (<xref linkend="valuesBoolean"/>).</para></listitem>
 <listitem><para>A Rexx Array goes as a Python <literal>list</literal>, a
 copy, its items converted by the same rules (nested Arrays as nested
-lists).</para></listitem>
+lists). An empty slot goes as &None;, so the list has the Array's size. A
+multi-dimensional Array goes as lists nested by dimension, the first
+outermost: a 2&times;3 Array <literal>m</literal> is a list of 2 lists of 3,
+where <computeroutput>m[i, j]</computeroutput> is Python's
+<computeroutput>m[i-1][j-1]</computeroutput>, which numpy takes as a 2-D
+array.</para></listitem>
 <listitem><para>A <classname>PyObject</classname> goes as its Python
 object.</para></listitem>
 <listitem><para>Any other Rexx object goes by reference, as an

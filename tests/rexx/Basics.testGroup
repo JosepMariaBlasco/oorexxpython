@@ -127,6 +127,14 @@ syntax:
   self~assertSame("['a', 'b', 'c']", b~list("abc")~string, "list(iterable)")
   self~assertSame("(1, 'x')", b~tuple(.array~of(1, "x"))~string, "tuple(Array)")
   self~assertSame("[[1, 2], [3]]", b~list(.array~of(.array~of(1, 2), .array~of(3)))~string, "nested Arrays")
+  -- sparse: the size is kept; multi-dimensional: nested lists, by dimension
+  s = .array~new(4); s[1] = 1; s[3] = "x"
+  self~assertSame("[1, None, 'x', None]", b~repr(s), "sparse Array")
+  m = .array~new(2, 3); do i = 1 to 2; do j = 1 to 3; m[i, j] = i * 10 + j; end; end
+  self~assertSame("[[11, 12, 13], [21, 22, 23]]", b~repr(m), "2-D Array")
+  self~assertSame("(2, 3)", .py~import("numpy")~array(m)~shape~string, "2-D Array to numpy")
+  m = .array~new(2, 2, 2); m[1, 2, 1] = "a"; m[2, 1, 2] = "b"
+  self~assertSame("[[[None, None], ['a', None]], [[None, 'b'], [None, None]]]", b~repr(m), "3-D Array")
 
 ::method test_python_error
   co = self~syntaxOf(.py, "int", "abc")

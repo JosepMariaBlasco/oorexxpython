@@ -449,6 +449,31 @@ static bool pairCross(unsigned long long id, RexxObjectPtr *r, Inst **inst);
 
 /* phase 1: Rexx -> Val (no GIL) ------------------------------------------ */
 
+// the items of a multi-dimensional Array (flat, as ArrayAt numbers them: the
+// first index varies fastest) as lists nested by dimension, the first
+// outermost: out[i1][i2]... is flat[i1 + d1 * (i2 + d2 * ...)]
+static void nestLevel(std::vector<Val> &flat, const std::vector<size_t> &dims,
+                      const std::vector<size_t> &stride, size_t level, size_t base, Val &out)
+{
+    out.kind = Val::LIST;
+    out.items.resize(dims[level]);
+    for (size_t k = 0; k < dims[level]; k++)
+    {
+        size_t at = base + k * stride[level];
+        if (level + 1 == dims.size()) std::swap(out.items[k], flat[at]);
+        else nestLevel(flat, dims, stride, level + 1, at, out.items[k]);
+    }
+}
+
+static void nest(Val &v, const std::vector<size_t> &dims)
+{
+    std::vector<size_t> stride(dims.size(), 1);
+    for (size_t k = 1; k < dims.size(); k++) stride[k] = stride[k - 1] * dims[k - 1];
+    std::vector<Val> flat;
+    flat.swap(v.items);
+    nestLevel(flat, dims, stride, 0, 0, v);
+}
+
 static void rexxToVal(RexxSide &side, RexxObjectPtr o, Val &v)
 {
     RexxThreadContext *c = side.tc;
@@ -492,6 +517,26 @@ static void rexxToVal(RexxSide &side, RexxObjectPtr o, Val &v)
         size_t n = c->ArraySize(a);
         v.items.resize(n);
         for (size_t i = 1; i <= n; i++) rexxToVal(side, c->ArrayAt(a, i), v.items[i - 1]);
+        // a multi-dimensional Array: nested lists, by dimension, the first
+        // outermost (docs/design.md, *Values*)
+        if (c->ArrayDimension(a) > 1)
+        {
+            RexxObjectPtr d = c->SendMessage0(a, "DIMENSIONS");
+            std::vector<size_t> dims;
+            if (d != NULLOBJECT && c->IsArray(d))
+            {
+                size_t k = c->ArrayItems((RexxArrayObject)d);
+                for (size_t i = 1; i <= k; i++)
+                {
+                    wholenumber_t w = 0;
+                    c->ObjectToWholeNumber(c->ArrayAt((RexxArrayObject)d, i), &w);
+                    dims.push_back((size_t)w);
+                }
+            }
+            size_t total = 1;
+            for (size_t x : dims) total *= x;
+            if (dims.size() > 1 && total == n) nest(v, dims);
+        }
     }
     else
     {

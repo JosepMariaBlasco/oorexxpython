@@ -69,7 +69,8 @@ items, and to loop over them.</para>
 <computeroutput>o[k]</computeroutput> and <computeroutput>o[k] = v</computeroutput>
 are Python's indexing, and <computeroutput>do x over o</computeroutput> is
 Python's <computeroutput>for x in o</computeroutput>: over a dict, its keys.
-A Rexx Array goes to Python as a list, nested Arrays as nested lists. A list's
+A Rexx Array goes to Python as a list, nested Arrays as nested lists (and a
+multi-dimensional Array as lists nested by dimension). A list's
 positions count from 0, as in Python: it is Python's object, and Python's
 indexing (negative positions, slices, numpy's tuples) needs it.</para>
 <para>The average is Rexx's arithmetic, on the Rexx strings that

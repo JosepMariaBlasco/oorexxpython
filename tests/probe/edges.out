@@ -37,7 +37,9 @@
 .array~of(.Boolean~true, 1)      list:[True, 1]
 .nil                             NoneType:None
 sparse Array [1,,x,]             list:[1, None, 'x', None]
-2-D Array 2x2                    list:[1, None, None, 4]
+2-D Array 2x2                    list:[[1, None], [None, 4]]
+2-D Array 2x3, m[i,j] = ij       list:[[11, 12, 13], [21, 22, 23]]
+3-D Array 2x2x2 [1,2,1] [2,1,2]  list:[[[None, None], ['a', None]], [[None, 'b'], [None, None]]]
 nested ((1,2),(3,'a'))           list:[[1, 2], [3, 'a']]
 stem s.                          RexxObject:<Rexx S.>
 .directory~new                   RexxObject:<Rexx a Directory>

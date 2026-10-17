@@ -24,6 +24,10 @@ a = .array~new(4); a[1] = 1; a[3] = "x"
 say left("sparse Array [1,,x,]", 32) k~new(a)
 m = .array~new(2,2); m[1,1] = 1; m[2,2] = 4
 say left("2-D Array 2x2", 32) k~new(m)
+m = .array~new(2,3); do i = 1 to 2; do j = 1 to 3; m[i,j] = i * 10 + j; end; end
+say left("2-D Array 2x3, m[i,j] = ij", 32) k~new(m)
+m = .array~new(2,2,2); m[1,2,1] = "a"; m[2,1,2] = "b"
+say left("3-D Array 2x2x2 [1,2,1] [2,1,2]", 32) k~new(m)
 say left("nested ((1,2),(3,'a'))", 32) k~new(((1,2),(3,"a")))
 s.1 = "a"; s.0 = 1
 say left("stem s.", 32) k~new(s.)

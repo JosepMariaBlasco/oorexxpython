@@ -255,7 +255,14 @@ From Rexx to Python, a Rexx string becomes:
   `-0.5`, `1E3`) → `float`;
 - anything else (`"007"`, `" 5"`, `"+5"`, text) → `str`.
 
-Rexx Arrays go as `list`s (copies), each item under the same rule. A
+Rexx Arrays go as `list`s (copies), each item under the same rule; an empty
+slot as `None`, so the list keeps the Array's size. A multi-dimensional Array
+goes as lists nested by dimension, the first outermost (`m[i, j]` is
+`m[i-1][j-1]`; numpy makes a 2-D array of it), not flattened: its shape is
+information (until 0.1.0-preview.13 it was flattened silently). The ooRexx
+bridges for JavaScript and Lua do the same, and .NET's makes an array of the
+same rank. The way back is not symmetric: a list of lists comes to Rexx as a
+`.PyObject`, as any list. A
 `.Boolean` goes as a `bool` (see *Booleans*).
 
 ### Booleans
