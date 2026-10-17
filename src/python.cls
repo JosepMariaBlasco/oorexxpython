@@ -63,7 +63,6 @@
  */
 
 .local~py = .Python~new
-.local~boolean = .Boolean     -- for Rexx code Python runs, which has no ::requires
 
 ::requires "rexxpython" LIBRARY
 ::requires "boolean.cls"           -- .Boolean: Python's bool in Rexx

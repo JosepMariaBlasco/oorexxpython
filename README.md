@@ -265,7 +265,7 @@ is a failure). `PYTHONS="3.9 3.13"` and `TESTS=Threads.testGroup` choose;
     loads a Python when Rexx starts, then hands over to the bridge.
   - `python.cls` — the Rexx side: `.py`, `.PyObject`, `py.import` & co.
   - `boolean.cls` — `.Boolean`, Python's `bool` in Rexx: the class the
-    ooRexx bridges share, proposed for ooRexx itself (version 1 of the
+    ooRexx bridges share, proposed for ooRexx itself (version 2 of the
     family's copy, unchanged; CPL 1.0).
 - `samples/` — short "nutshell" programs, one feature each, both ways;
   each shows the Python it replaces and its exact output (see its README).

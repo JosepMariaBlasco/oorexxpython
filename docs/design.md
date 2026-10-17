@@ -269,9 +269,14 @@ context (`IF`, operators, `DATATYPE`, string methods, stem and collection
 indexes) and answer `isA(.Boolean)`. The class is proposed for the ooRexx
 core (RFE #880, the name still open: `.Boolean` or `.Logical`); until it is
 there, each bridge carries the same verbatim copy (`src/boolean.cls`, the
-family's **version 1**; its tests `tests/rexx/boolean-test.rex`), CPL 1.0 as
-ooRexx. A program that requires two bridges gets one `.Boolean`: ooRexx loads
-one `boolean.cls` per interpreter instance, the first it finds.
+family's **version 2**, its `Version:` line; its tests
+`tests/rexx/boolean-test.rex`), CPL 1.0 as ooRexx. Like a core class, it is
+visible everywhere: its prolog puts it in `.environment` as `BOOLEAN`, unless
+an entry is there already (a core `.Boolean`, or the copy another package
+loaded first). A program that requires two bridges gets one `.Boolean`, and
+so do several interpreter instances in one process: ooRexx shares a package
+loaded from the same file (measured; only a copy loaded explicitly from
+another path is another class).
 
 - Python's `True` and `False` come to Rexx as `.Boolean~true` and
   `.Boolean~false` (until 0.1.0-preview.13: the strings `1` and `0`). Rexx
@@ -281,9 +286,15 @@ one `boolean.cls` per interpreter instance, the first it finds.
   a `bool`, also to a module imported as `"string"`. `.true` and `.false`
   are still the strings `1` and `0`: the number rule, and the `bool`
   annotation below.
-- `python.cls` requires `boolean.cls`, and puts `.Boolean` in `.local` for
-  the Rexx code that Python runs (`oorexx.Interpreter`), which has no
-  `::requires`, as it does `.py`.
+- `python.cls` requires `boolean.cls`; the Rexx code that Python runs
+  (`oorexx.Interpreter`), which has no `::requires`, finds `.Boolean` in
+  `.environment`.
+- Installing (`install.rex`): `boolean.cls` goes next to `python.cls`, and
+  every ooRexx bridge that installs into ooRexx's `bin/` uses the one there.
+  A `bin/boolean.cls` already there is kept unless ours has a higher
+  `Version:` line (version 1 has none: 1); uninstalling removes it only when
+  no other bridge's package (`net.cls`, `lua.cls`, `js.cls`) is left in
+  `bin/`, and otherwise leaves a plain copy where our link was.
 
 One exception, by reflection: a `1` or `0` passed to a parameter annotated
 `bool` (also `bool | None`, `Optional[bool]`, or a name the function's

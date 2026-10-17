@@ -14,10 +14,12 @@
  *                   linked into lib/ (where ooRexx looks for libraries),
  *                   python.cls and boolean.cls into bin/ (on the PATH, where
  *                   ::requires looks).
- *   boolean.cls:    .Boolean, which the ooRexx bridges share: one already in
- *                   bin/ that another bridge installed is left as it is
- *                   (ooRexx loads one boolean.cls per program, whichever
- *                   comes first), and uninstall removes only ours.
+ *   boolean.cls:    .Boolean, which the ooRexx bridges share, all using the
+ *                   one in bin/: one already there that another bridge
+ *                   installed is kept unless ours has a higher "Version:"
+ *                   line (none: 1). Uninstall removes it only when no other
+ *                   bridge (net.cls, lua.cls, js.cls) is left in bin/;
+ *                   otherwise a link to ours becomes a plain copy.
  *   Python:         a one-line oorexxpython.pth in the site-packages of each
  *                   Python given with --python (default: ORX_PYTHON, else
  *                   python3 on the PATH; Windows: python), or in its user
@@ -125,9 +127,12 @@ install:
   -- the bridge
   if \.File~new(home)~isDirectory then
     if \.File~new(home)~makeDirs then call denied home
-  shared = join(bin, "boolean.cls")      -- another bridge's, if not in our list
-  theirs = (.File~new(shared)~exists | SysIsFileLink(shared) = 1) & -
-           \(done~hasItem(shared, "link") | done~hasItem(shared, "file"))
+  -- bin/boolean.cls: another bridge's (not in our list, or a link of ours
+  -- that it replaced) is kept, unless ours is a later version
+  shared = join(bin, "boolean.cls")
+  ours = done~hasItem(shared, "file") | (done~hasItem(shared, "link") & linksInto(shared, home))
+  theirs = (.File~new(shared)~exists | SysIsFileLink(shared) = 1) & \ours & -
+           booleanVersion(shared) >= booleanVersion(join(from, "boolean.cls"))
   do f over loader, bridge, "python.cls", "boolean.cls"
     target = join(home, f)
     if windows & f == "boolean.cls" & theirs then iterate
@@ -141,7 +146,7 @@ install:
     say "  linked" loader "into" lib "and python.cls into" bin
     if \theirs then call link join(home, "boolean.cls"), shared
   end
-  if theirs then say "  kept the boolean.cls another ooRexx bridge installed in" bin
+  if theirs then say "  kept the boolean.cls (version" booleanVersion(shared)") another ooRexx bridge installed in" bin
   -- the uninstaller, next to rexx
   target = join(bin, uninstaller)
   if SysFileCopy(me, target) \= 0 then call denied target
@@ -233,6 +238,32 @@ uninstall:
   end
   failed = .false
   self = join(bin, uninstaller)
+  -- bin/boolean.cls: the other bridges use it too
+  shared = join(bin, "boolean.cls")
+  if .File~new(shared)~exists | SysIsFileLink(shared) = 1 then do
+    others = .false
+    do f over "net.cls", "lua.cls", "js.cls"
+      if .File~new(join(bin, f))~exists | SysIsFileLink(join(bin, f)) = 1 then others = .true
+    end
+    if others then do
+      if SysIsFileLink(shared) = 1, linksInto(shared, home) then do
+        -- our folder goes: leave them a plain copy
+        call SysFileDelete shared
+        if SysFileCopy(join(home, "boolean.cls"), shared) \= 0 then do
+          say "  could not copy boolean.cls to" shared
+          failed = .true
+        end
+        else say "  left a copy of boolean.cls in" bin "(another ooRexx bridge uses it)"
+      end
+      else say "  kept" shared "(another ooRexx bridge uses it)"
+      done~removeItem(shared, "link")
+      done~removeItem(shared, "file")
+    end
+    else do                                  -- no bridge is left to use it
+      done~removeItem(shared, "link")
+      if \done~hasItem(shared, "file") then done~put(shared, "file")
+    end
+  end
   do kind over "pth", "link", "file"
     do path over done~allAt(kind)
       if same(path, self) then iterate   -- last: it may be the one running
@@ -458,6 +489,21 @@ copyTree: procedure expose done windows
     end
   end
   return
+
+-- the "Version:" line of a boolean.cls (1 if it has none, 0 if no file)
+booleanVersion: procedure
+  use arg path
+  if \.File~new(path)~exists then return 0
+  s = .Stream~new(path)
+  lines = s~~open("read")~arrayIn
+  s~close
+  do line over lines
+    if pos("Version:", line) > 0 then do
+      parse var line "Version:" v .
+      if datatype(v, "W") then return v
+    end
+  end
+  return 1
 
 -- whether the link path still points into folder (another installer may have
 -- replaced it since)
