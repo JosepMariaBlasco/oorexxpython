@@ -686,6 +686,57 @@ static NumberKind numberKind(const std::string &s)
     return isDigits(x, end) ? FLOAT_NUMBER : NOT_NUMBER;
 }
 
+/*
+ * A float's text in Rexx (docs/design.md, *Values*), from Python's repr (the
+ * shortest digits that read back as the same double): what ooRexx writes for
+ * x + 0 under NUMERIC DIGITS 17, that is, plain digits unless the integer
+ * part needs more than 17 places or the decimals more than 34, otherwise
+ * scientific (1E+17, 1.5E-35); a ".0" on a whole number written plain, so
+ * that it goes back to Python as a float (the number rule reads the point);
+ * -0.0 kept; NaN and the infinities as ooRexx writes them: nan, +infinity,
+ * -infinity.
+ */
+static std::string rexxFloatText(const std::string &r)
+{
+    // ooRexx's own spelling (what DoubleToObject writes, ObjectToDouble reads)
+    if (r == "nan" || r == "-nan") return "nan";
+    if (r == "inf") return "+infinity";
+    if (r == "-inf") return "-infinity";
+    std::string sign, digits;
+    long exp = 0;                         // the value is digits * 10**exp
+    size_t i = 0;
+    if (i < r.size() && r[i] == '-') { sign = "-"; i++; }
+    bool point = false;
+    for (; i < r.size() && r[i] != 'e' && r[i] != 'E'; i++)
+    {
+        if (r[i] == '.') point = true;
+        else
+        {
+            digits += r[i];
+            if (point) exp--;
+        }
+    }
+    if (i < r.size()) exp += strtol(r.c_str() + i + 1, NULL, 10);
+    size_t lead = digits.find_first_not_of('0');
+    if (lead == std::string::npos) return sign + "0.0";       // 0.0, -0.0
+    digits.erase(0, lead);
+    size_t last = digits.find_last_not_of('0');
+    exp += (long)(digits.size() - 1 - last);
+    digits.erase(last + 1);
+    long n = (long)digits.size();
+    const long rexxDigits = 17;
+    if (n + exp > rexxDigits || -exp > 2 * rexxDigits)
+    {
+        long e = n + exp - 1;
+        std::string out = sign + digits.substr(0, 1);
+        if (n > 1) out += "." + digits.substr(1);
+        return out + "E" + (e < 0 ? "-" : "+") + std::to_string(e < 0 ? -e : e);
+    }
+    if (exp >= 0) return sign + digits + std::string((size_t)exp, '0') + ".0";
+    if (n + exp > 0) return sign + digits.substr(0, (size_t)(n + exp)) + "." + digits.substr((size_t)(n + exp));
+    return sign + "0." + std::string((size_t)(-(n + exp)), '0') + digits;
+}
+
 // is d, the double of the Rexx number s, a value of another kind: not
 // finite, or zero while s is not?
 static bool floatChangesKind(double d, const std::string &s)
@@ -924,6 +975,7 @@ static void pyToVal(PyObject *o, Val &v, bool keep = false)
                 PyBytes_AsStringAndSize(bytes, &data, &n);
                 v.kind = Val::STR;
                 v.s.assign(data, (size_t)n);
+                if (PyFloat_Check(o)) v.s = rexxFloatText(v.s);
                 Py_DECREF(bytes);
                 Py_DECREF(o);
                 return;

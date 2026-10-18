@@ -75,7 +75,7 @@ do while f \= ""
 end
 rule = .py~eval("lambda x: type(x).__name__ + ':' + repr(x)")
 asfloat = .py~eval("lambda x: repr(float(x)) if isinstance(x, str) else '(not a str)'")
-do s over "1E+16", "1e16", "1E16", " 1.5 ", "-0", "NaN", "nan", "Infinity", "inf", "1E+999"
+do s over "1E+16", "1e16", "1E16", " 1.5 ", "-0", "-0.0", "NaN", "nan", "Infinity", "inf", "+infinity", "-infinity", "1E+999"
   say left("'"s"'", 12) left("rule:" rule~new(s), 36) "float(str):" asFloat(s)
 end
 exit

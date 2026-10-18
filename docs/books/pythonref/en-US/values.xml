@@ -29,6 +29,25 @@ strings, with their value. A <literal>bool</literal> comes back as
 <computeroutput>.Boolean~false</computeroutput>, which Rexx takes as
 <literal>1</literal> and <literal>0</literal>, its &true; and &false;
 (<xref linkend="valuesBoolean"/>).</para></listitem>
+<listitem><para>A <literal>float</literal> is written as a Rexx number:
+its shortest digits (those of Python's <literal>repr</literal>), placed as
+ooRexx writes <computeroutput>x + 0</computeroutput> under
+<computeroutput>numeric digits 17</computeroutput>. So it is written
+plainly unless its integer part needs more than 17 places or its decimals
+more than 34 (<literal>0.0000001</literal>,
+<literal>0.30000000000000004</literal>), and otherwise with an uppercase
+<literal>E</literal> and a signed exponent (<literal>1E+17</literal>,
+<literal>5E-324</literal>). A whole number written plainly keeps a
+<literal>.0</literal> (<literal>1.0</literal>,
+<literal>10000000000000000.0</literal>): it is what makes it a
+<literal>float</literal> again when it goes back to Python (the number
+rule, below). <literal>-0.0</literal> is kept. Each of these texts goes
+back to Python as the same <literal>float</literal>. NaN and the infinities
+come as <literal>nan</literal>, <literal>+infinity</literal> and
+<literal>-infinity</literal>, as ooRexx itself writes them; they are not
+Rexx numbers, so the number rule sends them back as <literal>str</literal>,
+and <computeroutput>.py~float(x)</computeroutput> reads them as
+floats.</para></listitem>
 <listitem><para>numpy's scalars (<literal>numpy.float64</literal>,
 <literal>numpy.int64</literal> and the like) come back as their values,
 as Rexx strings.</para></listitem>

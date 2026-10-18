@@ -242,8 +242,23 @@ From Python to Rexx: `str`, `int`, `float`, `bytes` and `None` (`.nil`)
 come back as Rexx strings, `bool` as `.Boolean~true` / `.Boolean~false` (see
 *Booleans*); everything else as a `.PyObject`,
 by reference. numpy scalars (`np.float64`, `np.int64`...) are converted with
-`item()`, subclasses of `int` give their int value, floats use the plain
-`repr`. The Python objects of Rexx classes that extend Python classes are
+`item()`, subclasses of `int` give their int value. A float is written as
+a Rexx number, as the ooRexx bridges for .NET, Lua and JavaScript write
+theirs: its shortest digits (those of `repr`) placed as ooRexx writes `x +
+0` under `NUMERIC DIGITS 17`, that is, plainly unless the integer part needs
+more than 17 places or the decimals more than 34 (`10000000000000000.0`,
+`0.0000001`, `0.30000000000000004`), otherwise in scientific form with an
+uppercase `E` and a signed exponent (`1E+17`, `1E-35`, `5E-324`); a whole
+number written plainly keeps a `.0` (`1.0`, `100.0`), so that it goes back
+to Python as a float, since the number rule tells a float by its point (the
+bridges whose host does not tell integers from floats by the text write
+`1`); `-0.0` is kept; NaN and the infinities are ooRexx's own spellings,
+`nan`, `+infinity`, `-infinity` (what ooRexx writes for a double, and reads;
+not Rexx numbers). Every such text reads back as the same float through
+`.py~float(x)` or `.py~box("float", x)` (which also read Python's `NaN`,
+`Infinity`, `inf`); by the number rule, the three non-numbers go as `str`.
+Until 0.1.0-preview.13 a float was its `repr` (`1e+16`, `1e-07`, `inf`).
+The Python objects of Rexx classes that extend Python classes are
 the exception: they come as their Rexx objects, whatever their base (see
 *Subclassing*).
 
