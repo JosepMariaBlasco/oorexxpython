@@ -45,8 +45,9 @@ rule, below). <literal>-0.0</literal> is kept. Each of these texts goes
 back to Python as the same <literal>float</literal>. NaN and the infinities
 come as <literal>nan</literal>, <literal>+infinity</literal> and
 <literal>-infinity</literal>, as ooRexx itself writes them; they are not
-Rexx numbers, so the number rule sends them back as <literal>str</literal>,
-and <computeroutput>.py~float(x)</computeroutput> reads them as
+Rexx numbers, so the number rule sends them back as <literal>str</literal>;
+the way back for them is <computeroutput>.py~float(x)</computeroutput> or
+<computeroutput>.py~box("float", x)</computeroutput>, which read them as
 floats.</para></listitem>
 <listitem><para>numpy's scalars (<literal>numpy.float64</literal>,
 <literal>numpy.int64</literal> and the like) come back as their values,

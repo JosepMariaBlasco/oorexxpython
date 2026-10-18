@@ -256,7 +256,8 @@ bridges whose host does not tell integers from floats by the text write
 `nan`, `+infinity`, `-infinity` (what ooRexx writes for a double, and reads;
 not Rexx numbers). Every such text reads back as the same float through
 `.py~float(x)` or `.py~box("float", x)` (which also read Python's `NaN`,
-`Infinity`, `inf`); by the number rule, the three non-numbers go as `str`.
+`Infinity`, `inf`); the number rule takes Rexx numbers only, so the three
+non-numbers go as `str`, and the explicit form is their way back.
 Until 0.1.0-preview.13 a float was its `repr` (`1e+16`, `1e-07`, `inf`).
 The Python objects of Rexx classes that extend Python classes are
 the exception: they come as their Rexx objects, whatever their base (see
