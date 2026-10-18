@@ -78,7 +78,19 @@ asfloat = .py~eval("lambda x: repr(float(x)) if isinstance(x, str) else '(not a 
 do s over "1E+16", "1e16", "1E16", " 1.5 ", "-0", "-0.0", "NaN", "nan", "Infinity", "inf", "+infinity", "-infinity", "1E+999"
   say left("'"s"'", 12) left("rule:" rule~new(s), 36) "float(str):" asFloat(s)
 end
+say "--- explicit float range (oorexx-bridges topics/explicit-float-range.md)"
+do s over "1E+999", "-1E+999", "1E-999", "-1E-999", "5E-324", "1.7976931348623157E+308", "1.8E+308", "+infinity", "nan"
+  say left("'"s"'", 27) left(".py~float:" explicit(".py~float(s)", s), 66) ".py~box('float'):" explicit(".py~box('float', s)", s)
+end
 exit
+
+explicit: procedure                 -- an explicit float, or the error
+  parse arg expr, s
+  signal on syntax
+  interpret "r = .py~repr("expr")"
+  return r
+syntax:
+  return "SYNTAX" condition("o")~code condition("o")~message
 
 asFloat: procedure expose asfloat   -- what float() makes of the Rexx string
   signal on syntax

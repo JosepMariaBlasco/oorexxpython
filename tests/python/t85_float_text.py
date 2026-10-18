@@ -91,5 +91,26 @@ for text, want in [("nan", "nan"), ("+infinity", "inf"), ("-infinity", "-inf"), 
     check(f".py~box('float', '{text}')",
           r.routine(f"return '<' || .py~repr(.py~box('float', '{text}')) || '>'")(), f"<{want}>")
 
+# explicit floats out of range: errors in Python's own types (overflow,
+# underflow to zero); by name still works; a Python object keeps Python's
+# semantics
+def error(src):
+    try:
+        return repr(r.routine(src)())
+    except (OverflowError, ValueError) as e:
+        return f"{type(e).__name__}: {e}"
+for form in (".py~float('{}')", ".py~box('float', '{}')"):
+    for text, want in [("1E+999", "OverflowError: ooRexx/Python: 1E+999 is out of range for a float"),
+                       ("-1.8E+308", "OverflowError: ooRexx/Python: -1.8E+308 is out of range for a float"),
+                       ("1E-999", "ValueError: ooRexx/Python: 1E-999 is out of range for a float (it would be 0)"),
+                       ("-1E-999", "ValueError: ooRexx/Python: -1E-999 is out of range for a float (it would be 0)"),
+                       ("5E-324", "5e-324"), ("0E-999", "0.0"), ("+infinity", "inf"), ("nan", "nan")]:
+        src = "return " + form.format(text)
+        check(src, error(src), want)
+check("box('complex', '1+1E-999j')", error("return .py~box('complex', '1+1E-999j')"),
+      "ValueError: ooRexx/Python: 1+1E-999j is out of range for a complex (it would be 0)")
+check(".py~float(a Decimal made in Python): Python's own float()",
+      error("return .py~float(.py~eval(\"__import__('decimal').Decimal('1E999')\"))"), "inf")
+
 print(f"{checks} checks, {failures} failed")
 sys.exit(1 if failures else 0)

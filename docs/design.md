@@ -351,7 +351,17 @@ fails, `"2" * 3` is `"222"`), so strings-always would need a wrapper on every
 numpy or matplotlib argument. The cost: a number-looking string may arrive as
 a number (`d["1"]` is not `d[1]`). `.py~str(x)` forces a string;
 `.py~int(x)`, `.py~float(x)`, `.py~decimal(x)` force a type (`decimal` keeps
-Rexx's precision); for any type, see *Boxing*.
+Rexx's precision); for any type, see *Boxing*. A Rexx number asked for
+explicitly as a float (`.py~float(x)` with a Rexx string,
+`.py~box("float", x)`, `.py~box("complex", x)`) must fit a double: one that
+would become infinite is an `OverflowError` (`1E+999`, `1.8E+308`), one that
+is not zero but would become zero a `ValueError` (`1E-999`), both SYNTAX
+98.900 in Rexx, with the number in the message. By name, `+infinity`,
+`-infinity`, `nan` (and Python's `inf`, `Infinity`, `NaN`) still work;
+excess digits still round; a subnormal result (`5E-324`) is a float; a
+Python object passed in (a `Decimal` made in Python) keeps Python's own
+`float()` (until 0.1.0-preview.13 all of these gave `inf` or `0.0`
+silently).
 
 Two alternatives were measured on every sample, and rejected. Strings
 always, with a type declared per module at import as the way to get numbers:

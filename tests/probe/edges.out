@@ -111,3 +111,13 @@ float('inf')                 '+infinity'                len  9  datatype N: 0
 '+infinity'  rule: str:'+infinity'                float(str): inf
 '-infinity'  rule: str:'-infinity'                float(str): -inf
 '1E+999'     rule: Decimal:Decimal('1E+999')      float(str): inf
+--- explicit float range (oorexx-bridges topics/explicit-float-range.md)
+'1E+999'                    .py~float: SYNTAX 98.900 Python error: OverflowError: ooRexx/Pytho .py~box('float'): SYNTAX 98.900 Python error: OverflowError: ooRexx/Python: 1E+999 is out of range for a float.
+'-1E+999'                   .py~float: SYNTAX 98.900 Python error: OverflowError: ooRexx/Pytho .py~box('float'): SYNTAX 98.900 Python error: OverflowError: ooRexx/Python: -1E+999 is out of range for a float.
+'1E-999'                    .py~float: SYNTAX 98.900 Python error: ValueError: ooRexx/Python:  .py~box('float'): SYNTAX 98.900 Python error: ValueError: ooRexx/Python: 1E-999 is out of range for a float (it would be 0).
+'-1E-999'                   .py~float: SYNTAX 98.900 Python error: ValueError: ooRexx/Python:  .py~box('float'): SYNTAX 98.900 Python error: ValueError: ooRexx/Python: -1E-999 is out of range for a float (it would be 0).
+'5E-324'                    .py~float: 5e-324                                                  .py~box('float'): 5e-324
+'1.7976931348623157E+308'   .py~float: 1.7976931348623157e+308                                 .py~box('float'): 1.7976931348623157e+308
+'1.8E+308'                  .py~float: SYNTAX 98.900 Python error: OverflowError: ooRexx/Pytho .py~box('float'): SYNTAX 98.900 Python error: OverflowError: ooRexx/Python: 1.8E+308 is out of range for a float.
+'+infinity'                 .py~float: inf                                                     .py~box('float'): inf
+'nan'                       .py~float: nan                                                     .py~box('float'): nan

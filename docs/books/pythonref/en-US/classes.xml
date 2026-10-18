@@ -215,6 +215,16 @@ see <xref linkend="extend"/>.</para>
 </imageobject></mediaobject>
 <para>Returns Python's <computeroutput>float(value)</computeroutput>, kept as a
 <classname>PyObject</classname>.</para>
+<para>When <emphasis role="italic">value</emphasis> is a Rexx number that a
+double cannot hold, the result is an error, not an infinity or a zero: an
+<literal>OverflowError</literal> when it is too big
+(<literal>1E+999</literal>), a <literal>ValueError</literal> when it is not
+zero but would become zero (<literal>1E-999</literal>); in Rexx, SYNTAX
+98.900. Infinity and NaN asked for by name, <literal>+infinity</literal>,
+<literal>-infinity</literal>, <literal>nan</literal>, still work, and excess
+digits are still rounded. The same holds for
+<computeroutput>.py~box("float", value)</computeroutput> and
+<computeroutput>.py~box("complex", value)</computeroutput>.</para>
 </section>
 
 <section id="mthPythonImport"><title>import</title>

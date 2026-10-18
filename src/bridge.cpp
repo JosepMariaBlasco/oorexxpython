@@ -1171,6 +1171,78 @@ static PyObject *boolParams(PyObject *f)
     return r;
 }
 
+/*
+ * A Rexx number asked for explicitly as a float (.py~float(x) with a Rexx
+ * string, .py~box("float"/"complex", x)) that does not fit a double is an
+ * error, not an infinity or a zero (docs/design.md, *Values*): OverflowError
+ * when it would be infinite, ValueError when it is not zero and would be
+ * zero. By name (+infinity, -infinity, nan, and Python's inf, Infinity, NaN)
+ * still works; excess digits still round. A small Python function, compiled
+ * once, compares each part of the result with the exact decimal value of its
+ * text.
+ */
+static const char *floatRangeSource =
+    "import decimal\n"
+    "def _part(x, t, text, what):\n"
+    "    if x != x or (x != 0.0 and x not in (float('inf'), float('-inf'))):\n"
+    "        return\n"
+    "    try:\n"
+    "        d = decimal.Decimal(t.strip())\n"
+    "    except Exception:\n"
+    "        return\n"
+    "    if x == 0.0:\n"
+    "        if not (d.is_zero() or d.is_nan()):\n"
+    "            raise ValueError('ooRexx/Python: ' + text + ' is out of range for a ' + what + ' (it would be 0)')\n"
+    "    elif not d.is_infinite():\n"
+    "        raise OverflowError('ooRexx/Python: ' + text + ' is out of range for a ' + what)\n"
+    "def float_range(r, text):\n"
+    "    if type(r) is float:\n"
+    "        _part(r, text, text, 'float')\n"
+    "    elif type(r) is complex:\n"
+    "        t = text.strip()\n"
+    "        if t[:1] == '(' and t[-1:] == ')':\n"
+    "            t = t[1:-1].strip()\n"
+    "        if t[-1:] in ('j', 'J'):\n"
+    "            body = t[:-1]\n"
+    "            k = max([i for i, c in enumerate(body) if c in '+-' and i > 0 and body[i - 1] not in 'eE'] or [-1])\n"
+    "            re_t, im_t = ('0', body) if k < 0 else (body[:k], body[k:])\n"
+    "            if im_t in ('', '+', '-'):\n"
+    "                im_t += '1'\n"
+    "        else:\n"
+    "            re_t, im_t = t, '0'\n"
+    "        _part(r.real, re_t, text, 'complex')\n"
+    "        _part(r.imag, im_t, text, 'complex')\n";
+
+// false, with the Python error set, if r (a float or complex made from the
+// Rexx text) lost the range of the number
+static bool floatInRange(PyObject *r, const std::string &text)
+{
+    static PyObject *helper = NULL;        // with the GIL: no race
+    if (helper == NULL)
+    {
+        PyObject *b = builtinsModule();
+        PyObject *globals = PyDict_New();
+        PyObject *x = NULL;
+        if (b != NULL && globals != NULL && PyDict_SetItemString(globals, "__builtins__", b) == 0)
+            x = PyObject_CallMethod(b, "exec", "sO", floatRangeSource, globals);
+        if (x != NULL) helper = PyDict_GetItemString(globals, "float_range");
+        Py_XINCREF(helper);
+        Py_XDECREF(x);
+        Py_XDECREF(globals);
+        Py_XDECREF(b);
+        PyErr_Clear();
+        if (helper == NULL) { helper = Py_None; Py_INCREF(helper); }
+    }
+    if (helper == Py_None || r == NULL || !(PyFloat_CheckExact(r) || PyComplex_CheckExact(r))) return true;
+    PyObject *t = pyText(text.data(), text.size());
+    if (t == NULL) { PyErr_Clear(); return true; }
+    PyObject *x = PyObject_CallFunctionObjArgs(helper, r, t, NULL);
+    Py_DECREF(t);
+    if (x == NULL) return false;
+    Py_DECREF(x);
+    return true;
+}
+
 static bool isRexxBool(const Val &v)
 {
     return v.kind == Val::STR && (v.s == "1" || v.s == "0");
@@ -3863,6 +3935,15 @@ RexxMethod2(RexxObjectPtr, Py_Make, NAME, message, ARGLIST, all)
             else
             {
                 callInto(type, args, result, err, true);
+                // .py~float of a Rexx string: in range, or an error
+                if (kind == "float" && !err.set && args.positional.size() == 1 && args.keywords.empty() &&
+                    args.positional[0].kind == Val::STR && result.kind == Val::REF &&
+                    !floatInRange(result.ref, args.positional[0].s))
+                {
+                    captureError(err);
+                    dropVal(result);
+                    result.kind = Val::NIL;
+                }
             }
             Py_DECREF(type);
         }
@@ -3932,6 +4013,8 @@ RexxMethod2(RexxObjectPtr, Py_Box, RexxObjectPtr, type, RexxObjectPtr, value)   
                              " (str, int, float, bool, bytes, complex, decimal, fraction, or a Python callable)");
             if (f != NULL) r = PyObject_CallFunctionObjArgs(f, str, NULL);
             Py_XDECREF(f);
+            if (r != NULL && (kind == "float" || kind == "complex") && !floatInRange(r, text))
+                Py_CLEAR(r);
         }
         Py_XDECREF(str);
         if (r != NULL) pyToVal(r, result, true);
