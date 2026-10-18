@@ -1,2 +1,6 @@
 # shell scripts keep LF line endings on every checkout (bash on Windows)
 *.sh text eol=lf
+
+# Rexx code is Rexx for GitHub's language detection (oorexx-bridges CONVENTIONS.md)
+*.cls       linguist-language=REXX
+*.testGroup linguist-language=REXX
