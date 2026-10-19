@@ -680,7 +680,8 @@ Environments are registered from either side, and removed from either side:
 `Interpreter.add_command_environment(name, handler)` and
 `remove_command_environment(name)` in Python, `.py~addCommandEnvironment(name,
 handler)` and `.py~removeCommandEnvironment(name)` in Rexx (the handler a
-Python callable in both; `.nil` or anything not callable is a TypeError).
+Python callable in both; one that is not callable, `.nil` included, is a
+`TypeError` in Python and an incorrect argument, SYNTAX 93.900, in Rexx).
 Registering a name again replaces its handler. ooRexx has no API to remove
 an environment, so removing keeps the bridge's native handler registered and
 forgets the name: an `ADDRESS` to it is then FAILURE with RC 30, which is

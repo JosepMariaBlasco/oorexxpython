@@ -182,10 +182,11 @@ check("... a Python function from Python, registered by Rexx", r.routine(
     "use arg f; .py~addCommandEnvironment('TWICE', f); address twice 'abc'; return rc")(
     lambda c, ctx: 2 * len(c)), 6)
 for what, handler in ((".nil", ".nil"), ("a string", "'abc'")):
-    check(f"... {what} as the handler: SYNTAX 98.900", r.routine(
+    check(f"... {what} as the handler: SYNTAX 93.900", r.routine(
         f"signal on syntax; .py~addCommandEnvironment('BAD', {handler}); return 'no'\n"
-        "syntax: c = condition('O'); return c~code .py~type(c~additional[2])~getattr('__name__')")(),
-        "98.900 TypeError")
+        "syntax: return 'SYNTAX' condition('O')~code")(),
+        "SYNTAX 93.900")
+check("... not callable from Python: TypeError", raises(lambda: r.add_command_environment("BAD", None)).startswith("TypeError"), True)
 check("remove_command_environment(non-str)", raises(lambda: r.remove_command_environment(1)).startswith("TypeError"), True)
 
 # options

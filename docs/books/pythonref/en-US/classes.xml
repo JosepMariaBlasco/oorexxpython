@@ -111,7 +111,7 @@ of this interpreter instance, from Rexx: the same as the Python side's
 and the handler works the same way (<xref linkend="pymoduleAddress"/>).
 Registering a name again replaces its handler. A
 <emphasis role="italic">handler</emphasis> that is not callable, &nil;
-included, is an error (SYNTAX 98.900, a <literal>TypeError</literal>). See also
+included, is an incorrect argument (SYNTAX 93.900). See also
 <xref linkend="mthPythonRemoveCommandEnvironment" xrefstyle="select:title"/>.</para>
 
 <example id="ex.python-addcommandenvironment">

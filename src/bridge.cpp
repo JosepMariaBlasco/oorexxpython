@@ -3317,9 +3317,10 @@ static PyObject *interpreterRemoveEnvironment(PyObject *self, PyObject *args)
 }
 
 // .py~addCommandEnvironment(name, handler), from Rexx: handler is a Python
-// callable, as for add_command_environment (.nil, or anything else that is
-// not callable, is a TypeError: SYNTAX 98.900).  The calling thread holds the
-// kernel lock, so registering here never races with other Rexx threads.
+// callable, as for add_command_environment.  .nil, or anything else that is
+// not callable, is an incorrect argument: SYNTAX 93.900 (from Python, the
+// same is a TypeError).  The calling thread holds the kernel lock, so
+// registering here never races with other Rexx threads.
 RexxMethod2(RexxObjectPtr, Py_AddEnvironment, CSTRING, name, RexxObjectPtr, handler)
 {
     RexxSide side;
@@ -3327,22 +3328,21 @@ RexxMethod2(RexxObjectPtr, Py_AddEnvironment, CSTRING, name, RexxObjectPtr, hand
     Val hv, result;
     rexxToVal(side, handler, hv);
     PyError err;
+    const char *notCallable = NULL;
     {
         Gil gil;
         PyObject *h = valToPy(hv);
         if (h == NULL) captureError(err);
-        else if (!PyCallable_Check(h))
-        {
-            // a real TypeError, so that the condition carries it (additional[2])
-            PyErr_Format(PyExc_TypeError, "addCommandEnvironment: the handler must be a Python callable, "
-                         "handler(command, context), not %s", h == Py_None ? "None (.nil)" : "a non-callable object");
-            captureError(err);
-        }
+        else if (!PyCallable_Check(h)) notCallable = h == Py_None ? ".nil" : "not callable";
         else addCommandEnvironment(context->threadContext->instance, context->threadContext, name, h);
         Py_XDECREF(h);
         dropVal(hv);
     }
     if (err.set) return finish(side, result, err);
+    if (notCallable != NULL)
+        context->RaiseException1(Rexx_Error_Incorrect_method_user_defined,
+            context->String((std::string("addCommandEnvironment: the handler must be a Python callable, "
+                                         "handler(command, context), not ") + notCallable).c_str()));
     return NULLOBJECT;
 }
 

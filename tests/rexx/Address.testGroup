@@ -71,8 +71,7 @@ failure:
 ::method test_not_callable
   do handler over .nil, "abc", 42
     co = self~syntaxOf(.py, "addCommandEnvironment", "bad", handler)
-    self~assertSame("98.900", co~code, "not callable:" handler)
-    self~assertSame("TypeError", .py~type(co~additional[2])~getattr("__name__"), "TypeError:" handler)
+    self~assertSame("93.900", co~code, "not callable:" handler)
   end
 
 ::method test_python_error_is_syntax
