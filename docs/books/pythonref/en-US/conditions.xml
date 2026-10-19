@@ -78,6 +78,16 @@ original exception, with its traceback. Python's protocols depend on it: a
 sequence ends with <literal>IndexError</literal>, an iterator with
 <literal>StopIteration</literal>, a mapping says "missing" with
 <literal>KeyError</literal>.</para>
+<para>The other way round, a Rexx condition that goes through Python back to
+Rexx is raised again as itself. Rexx calls Python (a function, an
+ADDRESS environment written in Python), Python calls Rexx code that fails,
+and if Python does not catch the <xref linkend="clsRexxError" xrefstyle="select:title"/>,
+the Rexx caller gets the original condition, not SYNTAX 98.900: a SYNTAX
+error with its code and message, any other condition with its description,
+<literal>ADDITIONAL</literal> and result. Only SYNTAX errors leave Rexx code
+that Python calls: a HALT is SYNTAX 4.1 by then, and a USER, NOTREADY,
+ERROR or FAILURE condition that the Rexx code does not trap takes its default
+action there, as ooRexx does for any native caller.</para>
 </section>
 
 <section id="condRexxInPython"><title>Rexx Conditions in Python</title>

@@ -432,6 +432,24 @@ sequence ends with `IndexError`, an iterator with `StopIteration`, a mapping
 says "missing" with `KeyError`. Any other Rexx condition is still a
 `RexxError`.
 
+**A Rexx condition that goes back to Rexx is raised again as itself**, the
+other way round: Rexx calls Python (a function, an ADDRESS environment
+written in Python), which calls Rexx code that fails; if Python does not
+catch the `RexxError`, the Rexx caller gets the original condition, not
+98.900: SYNTAX with its code and `ADDITIONAL` (so its message), any other
+condition with its `DESCRIPTION`, `ADDITIONAL` and `RESULT`. The
+`RexxError` keeps the condition object for this (`_rexx_condition`, set by
+`raiseRexxError`; `raiseAgain` in `bridge.cpp`), within the same
+interpreter instance. What reaches Python is only what ooRexx's API gives a
+native caller: a Rexx call from native code (`CallRoutine`, `SendMessage`)
+traps SYNTAX alone. A HALT the Rexx code does not trap is already SYNTAX 4.1
+when it leaves it (ooRexx's default action), and so it comes back; a USER,
+NOTREADY, ERROR or FAILURE it does not trap takes its default action there
+(it goes on) and never reaches Python, where in plain Rexx it would reach a
+caller that traps it. No bridge can do better from the outside: the Rexx
+code cannot know whether some Rexx code above the Python call traps the
+condition.
+
 A `RexxError` carries the condition's parts as attributes (`condition`,
 `code`, `rc`, `message`, `errortext`, `position`, `program`, `description`,
 `traceback`),

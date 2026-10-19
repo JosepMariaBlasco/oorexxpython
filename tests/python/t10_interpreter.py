@@ -2,7 +2,7 @@
 
 Python threads calling one interpreter at once: t15_concurrent_calls.py.
 """
-import contextlib, io, os, sys, tempfile, threading
+import contextlib, gc, io, os, sys, tempfile, threading, weakref
 import oorexx
 
 checks = failures = 0
@@ -188,6 +188,52 @@ for what, handler in ((".nil", ".nil"), ("a string", "'abc'")):
         "SYNTAX 93.900")
 check("... not callable from Python: TypeError", raises(lambda: r.add_command_environment("BAD", None)).startswith("TypeError"), True)
 check("remove_command_environment(non-str)", raises(lambda: r.remove_command_environment(1)).startswith("TypeError"), True)
+
+# a Rexx condition that goes through Python and back to Rexx is itself
+raising = {
+    "syntax": r.routine("raise syntax 40.1 array ('x')"),
+    "halt":   r.routine("raise halt description 'h'"),
+}
+def raiser(command, ctx):
+    raising[command]()
+r.add_command_environment("RAISER", raiser)
+trapper = """
+use arg what
+signal on syntax name trapped; signal on halt name trapped; signal on user x name trapped
+address raiser what
+return 'no condition'
+trapped:
+c = condition('O'); a = c~additional
+if a~isA(.array) then a = a~makeString('l', ',')
+return c~condition '|' c~code '|' a '|' c~description '|' c~result
+"""
+check("through a handler: SYNTAX itself", r.routine(trapper)("syntax"), "SYNTAX | 40.1 | x |  | The NIL object")
+check("... HALT: SYNTAX 4.1, as ooRexx makes it inside the routine", r.routine(trapper)("halt"),
+      "SYNTAX | 4.1 | HALT |  | The NIL object")
+check("through a Python function: SYNTAX itself", r.routine(
+    "use arg o; signal on syntax; o~go; return 'no'\n"
+    "syntax: return 'SYNTAX' condition('O')~code condition('O')~additional[1]")(
+    __import__("types").SimpleNamespace(go=lambda: raising["syntax"]())), "SYNTAX 40.1 x")
+# any other condition keeps its description, ADDITIONAL and RESULT (one that
+# reaches Python; ooRexx's API gives the host only SYNTAX from a Rexx call)
+user_x = r.routine("d = .directory~new; d~condition = 'USER X'; d~description = 'the description'\n"
+                   "d~additional = .array~of('extra'); d~result = 'the result'; return d")()
+def user_raiser(command, ctx):
+    e = oorexx.RexxError("Rexx condition USER X")
+    e._rexx_condition = user_x
+    raise e
+r.add_command_environment("USERX", user_raiser)
+check("... USER X with description, ADDITIONAL and RESULT", r.routine(trapper.replace("raiser", "userx"))("x"),
+      "USER X | The NIL object | extra | the description | the result")
+
+# closing an interpreter releases its environments
+def closing_handler(command, ctx): return 0
+probe = weakref.ref(closing_handler)
+with oorexx.Interpreter(command_environments={"GONE": closing_handler}) as rc_:
+    rc_.add_command_environment("GONE2", closing_handler)
+del closing_handler
+gc.collect()
+check("close releases the environments' handlers", probe() is None, True)
 
 # options
 r2 = oorexx.Interpreter(initial_address="CALC2", command_environments={"CALC2": lambda c, ctx: len(c)})

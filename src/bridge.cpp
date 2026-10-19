@@ -1473,9 +1473,64 @@ Args::~Args()
     }
 }
 
+static PyObject *rexxErrorType = NULL;   // oorexx.RexxError
+
+// an oorexx.RexxError made from a Rexx condition of this instance (it keeps
+// the condition object, raiseRexxError): raise that condition again, as
+// itself, with its code and ADDITIONAL (SYNTAX), or its DESCRIPTION,
+// ADDITIONAL and RESULT (any other), as Rexx would see it with no Python in
+// between.  Whether it did.
+static bool raiseAgain(RexxSide &side, PyError &err)
+{
+    RexxObjectPtr cond = NULLOBJECT;
+    {
+        Gil gil;
+        if (err.exc != NULL && PyObject_IsInstance(err.exc, rexxErrorType) == 1)
+        {
+            PyObject *p = PyObject_GetAttrString(err.exc, "_rexx_condition");
+            Inst *inst;
+            RexxObjectPtr target;
+            if (p != NULL && rexxProxyTarget(p, &inst, &target) && inst != NULL && inst->rexx == side.inst)
+                cond = target;            // alive while err.exc holds the proxy
+            Py_XDECREF(p);
+        }
+        PyErr_Clear();
+    }
+    RexxThreadContext *c = side.tc;
+    if (cond == NULLOBJECT || !c->IsDirectory(cond)) return false;
+    RexxDirectoryObject d = (RexxDirectoryObject)cond;
+    RexxObjectPtr nameObj = c->DirectoryAt(d, "CONDITION");
+    if (nameObj == NULLOBJECT) return false;
+    std::string name = upper(c->ObjectToStringValue(nameObj));
+    RexxObjectPtr additional = c->DirectoryAt(d, "ADDITIONAL");
+    if (name == "SYNTAX")
+    {
+        RexxObjectPtr codeObj = c->DirectoryAt(d, "CODE");
+        if (codeObj == NULLOBJECT) return false;
+        std::string code = c->ObjectToStringValue(codeObj);
+        size_t dot = code.find('.');
+        if (dot == std::string::npos) return false;
+        wholenumber_t major = atol(code.substr(0, dot).c_str()), minor = atol(code.substr(dot + 1).c_str());
+        RexxArrayObject args = additional != NULLOBJECT && c->IsArray(additional) ? (RexxArrayObject)additional
+                                                                                  : c->NewArray(0);
+        c->RaiseException((size_t)(major * 1000 + minor), args);
+        return true;
+    }
+    RexxObjectPtr description = c->DirectoryAt(d, "DESCRIPTION");
+    RexxObjectPtr result = c->DirectoryAt(d, "RESULT");
+    c->RaiseCondition(name.c_str(), description != NULLOBJECT ? c->ObjectToString(description) : NULLOBJECT,
+                      additional, result);
+    return true;
+}
+
 static RexxObjectPtr finish(RexxSide &side, Val &result, PyError &err)
 {
     RexxThreadContext *c = side.tc;
+    if (err.set && raiseAgain(side, err))
+    {
+        if (result.kind != Val::NIL) { Gil gil; dropVal(result); }
+        return NULLOBJECT;
+    }
     if (err.set)
     {
         if (result.kind != Val::NIL) { Gil gil; dropVal(result); }
@@ -1540,7 +1595,6 @@ struct RexxBound                          // r.name, waiting to be called
 
 static PyObject *rexxProxyType = NULL;
 static PyObject *rexxBoundType = NULL;
-static PyObject *rexxErrorType = NULL;
 
 static bool rexxProxyTarget(PyObject *o, Inst **inst, RexxObjectPtr *target)
 {
@@ -1588,6 +1642,8 @@ struct ConditionInfo
     std::string condition, code, message, errortext, program, description, traceback;
     long rc = 0;
     size_t position = 0;
+    Val object;                           // the condition object itself (REXX), so
+                                          // that it can be raised again as itself
 };
 
 // a pending Rexx condition as the text of an oorexx.RexxError (and cleared),
@@ -1618,6 +1674,7 @@ static std::string takeCondition(RexxThreadContext *tc, RexxSide *side = NULL, V
     if (ci != NULL)
     {
         ci->set = true;
+        if (side != NULL) rexxToVal(*side, cond, ci->object);   // a Directory: by reference
         ci->condition = name;
         if (name == "SYNTAX") ci->code = code;
         ci->rc = (long)info.rc;
@@ -1652,10 +1709,19 @@ static std::string takeCondition(RexxThreadContext *tc, RexxSide *side = NULL, V
 
 // raise an oorexx.RexxError with text, and ci's attributes when it has them
 // (with the GIL)
-static void raiseRexxError(const std::string &text, const ConditionInfo &ci)
+static void raiseRexxError(const std::string &text, ConditionInfo &ci)
 {
     PyObject *e = PyObject_CallFunction(rexxErrorType, "s", text.c_str());
-    if (e == NULL) return;
+    if (e == NULL) { dropVal(ci.object); return; }
+    if (ci.object.kind == Val::REXX)
+    {
+        // the condition object, for raising it again as itself if the error
+        // goes back to Rexx (raiseAgain)
+        PyObject *o = valToPy(ci.object);
+        if (o != NULL) { PyObject_SetAttrString(e, "_rexx_condition", o); Py_DECREF(o); }
+        PyErr_Clear();
+    }
+    dropVal(ci.object);
     if (ci.set)
     {
         auto str = [&](const char *attr, const std::string &v, bool none)
@@ -1778,6 +1844,7 @@ static PyObject *intoRexx(Inst *inst, PyObject *args, Py_ssize_t skip, PyObject 
             PyErr_SetObject(type, exc.ref);
             Py_XDECREF(type);
             dropVal(exc);
+            dropVal(ci.object);
             return NULL;
         }
         dropVal(exc);
@@ -2821,6 +2888,8 @@ static void eraseInstance(Inst *h)
 }
 
 // r.close(): terminate the instance (its Rexx objects in Python become unusable)
+static void forgetEnvironments(RexxInstance *inst);
+
 static PyObject *interpreterClose(PyObject *self, PyObject *)
 {
     Interpreter *r = (Interpreter *)self;
@@ -2848,6 +2917,9 @@ static PyObject *interpreterClose(PyObject *self, PyObject *)
         }
         h->rexx->Terminate();
         Py_END_ALLOW_THREADS
+        // its ADDRESS environments go with it: their handlers are released,
+        // and a later instance at the same address inherits none of them
+        forgetEnvironments(h->rexx);
         eraseInstance(h);
     }
     Py_RETURN_NONE;
@@ -2943,6 +3015,22 @@ struct CommandContext
 
 static std::mutex environmentsLock;
 static std::map<std::pair<RexxInstance *, std::string>, PyObject *> environmentsByName;
+
+// drop every environment of inst (called with the GIL, when it is closed)
+static void forgetEnvironments(RexxInstance *inst)
+{
+    std::vector<PyObject *> handlers;
+    {
+        std::lock_guard<std::mutex> guard(environmentsLock);
+        for (auto it = environmentsByName.begin(); it != environmentsByName.end(); )
+        {
+            if (it->first.first == inst) { handlers.push_back(it->second); it = environmentsByName.erase(it); }
+            else ++it;
+        }
+    }
+    for (PyObject *h : handlers) Py_DECREF(h);   // outside the lock: a handler's
+                                                 // __del__ may run Python code
+}
 
 static CommandContext *liveContext(PyObject *self)
 {
@@ -3319,8 +3407,9 @@ static PyObject *interpreterRemoveEnvironment(PyObject *self, PyObject *args)
 // .py~addCommandEnvironment(name, handler), from Rexx: handler is a Python
 // callable, as for add_command_environment.  .nil, or anything else that is
 // not callable, is an incorrect argument: SYNTAX 93.900 (from Python, the
-// same is a TypeError).  The calling thread holds the kernel lock, so
-// registering here never races with other Rexx threads.
+// same is a TypeError).  The bridge's own table is guarded by
+// environmentsLock; ooRexx's (AddCommandEnvironment) by its own lock from
+// r13274 on (#2111).
 RexxMethod2(RexxObjectPtr, Py_AddEnvironment, CSTRING, name, RexxObjectPtr, handler)
 {
     RexxSide side;

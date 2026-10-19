@@ -59,10 +59,11 @@ return testResult
   self~assertSame("42", b~eval("lambda f: f(20, 22)")~new(self~routine("add")), "callback args")
   self~assertSame("Directory", b~eval("lambda f: f()")~new(self~routine("makeDir"))~class~id, "callback returns obj")
 
--- errors in Rexx code reach Python as RexxError, and Rexx again as a Python error
+-- errors in Rexx code reach Python as RexxError, and Rexx again as themselves
 ::method test_rexx_error_round_trip
   co = self~syntaxOf(.py~eval("lambda f: f()"), "new", self~routine("fails"))
-  self~assertTrue(pos("RexxError: Rexx error 93.924: Invalid position", co~message) > 0, "RexxError reaches Rexx")
+  self~assertSame("93.924", co~code, "the Rexx error itself, not 98.900")
+  self~assertTrue(pos("Invalid position", co~message) > 0, "its message")
 
 ::method test_python_catches_rexx_error
   b = .py
