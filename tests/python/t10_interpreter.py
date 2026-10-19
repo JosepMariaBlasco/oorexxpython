@@ -226,6 +226,32 @@ r.add_command_environment("USERX", user_raiser)
 check("... USER X with description, ADDITIONAL and RESULT", r.routine(trapper.replace("raiser", "userx"))("x"),
       "USER X | The NIL object | extra | the description | the result")
 
+# a SIGNAL ON past Python: Rexx calls Python directly (a native method, an
+# ADDRESS handler), Python calls Rexx code that does RAISE USER X ... RETURN.
+# Every call from Python into Rexx takes its own thread context (intoRexx,
+# AttachThread), so the condition never unwinds the Rexx caller through
+# Python's frames: today (r13275) it is lost there and the RETURN value comes
+# back; if ooRexx comes to deliver it, it must reach the caller as itself.
+past_routine = r.routine('raise user x description "d" return 7')
+past_object = r.routine("return .PastRaiser~new\n::class PastRaiser\n::method go\n"
+                        "  raise user x description 'd' return 7")()
+r.add_command_environment("PAST", lambda c, ctx: past_routine() if c == "routine" else past_object.go())
+past = r.routine("""
+use arg how, f
+signal on user x name trapped
+if how == 'function' then return 'result' f~go
+address past f
+return 'rc' rc
+trapped:
+return 'trapped' condition('C') condition('D')
+""")
+ns = __import__("types").SimpleNamespace
+for label, how, f, value in (("function, routine", "function", ns(go=lambda: past_routine()), "result 7"),
+                             ("function, method", "function", ns(go=lambda: past_object.go()), "result 7"),
+                             ("handler, routine", "handler", "routine", "rc 7"),
+                             ("handler, method", "handler", "method", "rc 7")):
+    check(f"SIGNAL ON past Python ({label})", past(how, f) in (value, "trapped USER X d"), True)
+
 # closing an interpreter releases its environments
 def closing_handler(command, ctx): return 0
 probe = weakref.ref(closing_handler)
