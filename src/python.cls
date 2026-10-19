@@ -238,6 +238,12 @@ final: return
 ::method float unguarded   external "LIBRARY rexxpython Py_Make"
 ::method decimal unguarded external "LIBRARY rexxpython Py_Make"
 ::method box unguarded     external "LIBRARY rexxpython Py_Box"
+-- ADDRESS environments written in Python, registered from Rexx: handler is
+-- a Python callable, handler(command, context), as for the Python side's
+-- Interpreter.add_command_environment; removeCommandEnvironment makes the
+-- name unknown again (FAILURE, RC 30) and answers whether it was registered
+::method addCommandEnvironment unguarded    external "LIBRARY rexxpython Py_AddEnvironment"
+::method removeCommandEnvironment unguarded external "LIBRARY rexxpython Py_RemoveEnvironment"
 ::method kw unguarded
   return .PyKwArgs~new(arg(1, "A"))
 ::method main unguarded

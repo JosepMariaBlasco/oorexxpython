@@ -2865,6 +2865,7 @@ static PyObject *interpreterExit(PyObject *self, PyObject *)
 }
 
 static PyObject *interpreterAddEnvironment(PyObject *self, PyObject *args);
+static PyObject *interpreterRemoveEnvironment(PyObject *self, PyObject *args);
 
 static void interpreterDealloc(PyObject *self)
 {
@@ -2884,6 +2885,8 @@ static PyMethodDef interpreterMethods[] =
     {"eval", (PyCFunction)interpreterEval, METH_VARARGS, "eval(expression): the value of a Rexx expression"},
     {"add_command_environment", (PyCFunction)interpreterAddEnvironment, METH_VARARGS,
      "add_command_environment(name, handler): ADDRESS name runs handler(command, context)"},
+    {"remove_command_environment", (PyCFunction)interpreterRemoveEnvironment, METH_VARARGS,
+     "remove_command_environment(name): ADDRESS name is unknown again (FAILURE, RC 30); whether it was registered"},
     {"close", (PyCFunction)interpreterClose, METH_NOARGS, "close(): terminate the interpreter instance"},
     {"__enter__", (PyCFunction)interpreterEnter, METH_NOARGS, NULL},
     {"__exit__", (PyCFunction)interpreterExit, METH_VARARGS, NULL},
@@ -3278,6 +3281,74 @@ static PyObject *interpreterAddEnvironment(PyObject *self, PyObject *args)
     }
     addCommandEnvironment(r->inst->rexx, NULL, pyString(nameObj), handler);
     Py_RETURN_NONE;
+}
+
+// forget name as an environment of inst (called with the GIL): ooRexx has no
+// API to remove one, so its native handler stays registered and answers
+// FAILURE RC 30, as ooRexx does for an unknown environment.  Whether it was
+// an environment written in Python.
+static bool removeCommandEnvironment(RexxInstance *inst, const std::string &rawName)
+{
+    PyObject *old = NULL;
+    {
+        std::lock_guard<std::mutex> guard(environmentsLock);
+        auto it = environmentsByName.find(std::make_pair(inst, upper(rawName)));
+        if (it != environmentsByName.end()) { old = it->second; environmentsByName.erase(it); }
+    }
+    Py_XDECREF(old);
+    return old != NULL;
+}
+
+// r.remove_command_environment(name)
+static PyObject *interpreterRemoveEnvironment(PyObject *self, PyObject *args)
+{
+    Interpreter *r = (Interpreter *)self;
+    if (!liveInterpreter(r)) return NULL;
+    PyObject *nameObj;
+    if (!PyArg_ParseTuple(args, "U:remove_command_environment", &nameObj)) return NULL;
+    return PyBool_FromLong(removeCommandEnvironment(r->inst->rexx, pyString(nameObj)));
+}
+
+// .py~addCommandEnvironment(name, handler), from Rexx: handler is a Python
+// callable, as for add_command_environment (.nil, or anything else that is
+// not callable, is a TypeError: SYNTAX 98.900).  The calling thread holds the
+// kernel lock, so registering here never races with other Rexx threads.
+RexxMethod2(RexxObjectPtr, Py_AddEnvironment, CSTRING, name, RexxObjectPtr, handler)
+{
+    RexxSide side;
+    if (!findClasses(context, side)) return NULLOBJECT;
+    Val hv, result;
+    rexxToVal(side, handler, hv);
+    PyError err;
+    {
+        Gil gil;
+        PyObject *h = valToPy(hv);
+        if (h == NULL) captureError(err);
+        else if (!PyCallable_Check(h))
+        {
+            // a real TypeError, so that the condition carries it (additional[2])
+            PyErr_Format(PyExc_TypeError, "addCommandEnvironment: the handler must be a Python callable, "
+                         "handler(command, context), not %s", h == Py_None ? "None (.nil)" : "a non-callable object");
+            captureError(err);
+        }
+        else addCommandEnvironment(context->threadContext->instance, context->threadContext, name, h);
+        Py_XDECREF(h);
+        dropVal(hv);
+    }
+    if (err.set) return finish(side, result, err);
+    return NULLOBJECT;
+}
+
+// .py~removeCommandEnvironment(name), from Rexx: .true if name was an
+// environment written in Python
+RexxMethod1(RexxObjectPtr, Py_RemoveEnvironment, CSTRING, name)
+{
+    bool removed;
+    {
+        Gil gil;
+        removed = removeCommandEnvironment(context->threadContext->instance, name);
+    }
+    return removed ? context->True() : context->False();
 }
 
 /* ------------------------------------------------------------------------ */
@@ -4075,6 +4146,8 @@ static RexxMethodEntry bridgeMethods[] =
     REXX_METHOD(Py_Graveyard,    Py_Graveyard),
     REXX_METHOD(Py_Make,         Py_Make),
     REXX_METHOD(Py_Box,          Py_Box),
+    REXX_METHOD(Py_AddEnvironment,    Py_AddEnvironment),
+    REXX_METHOD(Py_RemoveEnvironment, Py_RemoveEnvironment),
     REXX_METHOD(PyPair_New,      PyPair_New),
     REXX_METHOD(PyPair_Init,     PyPair_Init),
     REXX_LAST_METHOD()

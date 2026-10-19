@@ -149,6 +149,40 @@ check("Python exception -> SYNTAX", r.routine(
     "syntax: c = condition('O'); return c~code .py~type(c~additional[2])~getattr('__name__')")(),
     "98.900 ValueError")
 check("... and back as itself", raises(lambda: r.routine("address calc 'boom'")()).startswith("ValueError:"), True)
+check("RC whatever its sign, no condition", r.routine(
+    "signal on error; signal on failure; address calc '-3'; return rc\n"
+    "error: failure: return condition('C')")(), -3)
+
+# removing an environment: unknown again, as ooRexx's own (FAILURE, RC 30)
+unknown_env = ("signal on failure; address calc '1'; return 'no'\n"
+               "failure: return condition('C') rc")
+check("remove_command_environment", r.remove_command_environment("calc"), True)
+check("... then FAILURE RC 30",     r.routine(unknown_env)(), "FAILURE 30")
+check("... removing again",         r.remove_command_environment("CALC"), False)
+check("... a name never registered", r.remove_command_environment("NOSUCHENV"), False)
+r.add_command_environment("CALC", calc)
+check("... registered again",       r.routine("address calc '2+3'; return rc")(), 5)
+
+# registering and removing from Rexx (.py~addCommandEnvironment)
+check("from Rexx: registered", r.routine(
+    ".py~addCommandEnvironment('LEN', .py~eval('lambda c, ctx: len(c)'))\n"
+    "address len 'abcd'; return rc")(), 4)
+check("... seen from Python's routines", r.routine("address len 'ab'; return rc")(), 2)
+check("... removed from Python", r.remove_command_environment("len"), True)
+check("... removed from Rexx",   r.routine(
+    ".py~addCommandEnvironment('LEN', .py~eval('lambda c, ctx: len(c)'))\n"
+    "a = .py~removeCommandEnvironment('len'); b = .py~removeCommandEnvironment('len')\n"
+    "signal on failure; address len 'x'; return 'no'\n"
+    "failure: return a b condition('C') rc")(), "1 0 FAILURE 30")
+check("... a Python function from Python, registered by Rexx", r.routine(
+    "use arg f; .py~addCommandEnvironment('TWICE', f); address twice 'abc'; return rc")(
+    lambda c, ctx: 2 * len(c)), 6)
+for what, handler in ((".nil", ".nil"), ("a string", "'abc'")):
+    check(f"... {what} as the handler: SYNTAX 98.900", r.routine(
+        f"signal on syntax; .py~addCommandEnvironment('BAD', {handler}); return 'no'\n"
+        "syntax: c = condition('O'); return c~code .py~type(c~additional[2])~getattr('__name__')")(),
+        "98.900 TypeError")
+check("remove_command_environment(non-str)", raises(lambda: r.remove_command_environment(1)).startswith("TypeError"), True)
 
 # options
 r2 = oorexx.Interpreter(initial_address="CALC2", command_environments={"CALC2": lambda c, ctx: len(c)})

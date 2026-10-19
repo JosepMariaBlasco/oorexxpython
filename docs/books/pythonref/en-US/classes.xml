@@ -47,6 +47,7 @@ unchanged. <computeroutput>.py~len(x)</computeroutput> is
  <row><entry>
   <simplelist columns="3">
    <member><xref linkend="mthPythonBuiltin" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPythonAddCommandEnvironment" xrefstyle="select:title"/></member>
    <member><xref linkend="mthPythonBox" xrefstyle="select:title"/></member>
    <member><xref linkend="mthPythonDecimal" xrefstyle="select:title"/></member>
    <member><xref linkend="mthPythonEval" xrefstyle="select:title"/></member>
@@ -59,6 +60,7 @@ unchanged. <computeroutput>.py~len(x)</computeroutput> is
    <member><xref linkend="mthPythonMain" xrefstyle="select:title"/></member>
    <member><xref linkend="mthPythonRaise" xrefstyle="select:title"/></member>
    <member><xref linkend="mthPythonRedirectTo" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPythonRemoveCommandEnvironment" xrefstyle="select:title"/></member>
    <member><xref linkend="mthPythonStr" xrefstyle="select:title"/></member>
   </simplelist>
  </entry></row>
@@ -93,6 +95,42 @@ say .py~isinstance(.py~list~new, .py~list) .py~hex(255)
 <screen>3 7 [1, 2, 3]
 [0, 1, 2, 3] ('a', 1) 2.57
 1 0xff</screen>
+</example>
+</section>
+
+<section id="mthPythonAddCommandEnvironment"><title>addCommandEnvironment</title>
+<indexterm><primary>addCommandEnvironment method</primary>
+<secondary>of Python class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/python_addcommandenvironment.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Makes the Python callable <emphasis role="italic">handler</emphasis> the
+<literal>ADDRESS</literal> environment <emphasis role="italic">name</emphasis>
+of this interpreter instance, from Rexx: the same as the Python side's
+<xref linkend="mthInterpreterAddCommandEnvironment" xrefstyle="select:title"/>,
+and the handler works the same way (<xref linkend="pymoduleAddress"/>).
+Registering a name again replaces its handler. A
+<emphasis role="italic">handler</emphasis> that is not callable, &nil;
+included, is an error (SYNTAX 98.900, a <literal>TypeError</literal>). See also
+<xref linkend="mthPythonRemoveCommandEnvironment" xrefstyle="select:title"/>.</para>
+
+<example id="ex.python-addcommandenvironment">
+<title>Python class &mdash; addCommandEnvironment method</title>
+<programlisting language="rexx">.py~addCommandEnvironment("len", .py~eval("lambda command, ctx: len(command)"))
+address len "abcd"
+say rc
+say .py~removeCommandEnvironment("len") .py~removeCommandEnvironment("len")
+trace off                      -- no trace line for the failing command
+signal on failure
+address len "abcd"
+exit
+failure:
+  say condition("C") rc
+
+::requires "python.cls"</programlisting>
+<screen>4
+1 0
+FAILURE 30</screen>
 </example>
 </section>
 
@@ -321,6 +359,23 @@ gets the exception itself. See <xref linkend="conditions"/>.</para>
 <para>Sends Rexx's standard streams to Python's. The same as the routine
 <xref linkend="rtnPyRedirectTo" xrefstyle="select:title"/>, with the same
 arguments; see <xref linkend="streams"/>.</para>
+</section>
+
+<section id="mthPythonRemoveCommandEnvironment"><title>removeCommandEnvironment</title>
+<indexterm><primary>removeCommandEnvironment method</primary>
+<secondary>of Python class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/python_removecommandenvironment.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Makes the <literal>ADDRESS</literal> environment <emphasis role="italic">name</emphasis>,
+written in Python, unknown again: a command sent to it is then
+<literal>FAILURE</literal> with <literal>RC</literal> 30, as for an
+environment ooRexx does not know. Returns 1 if
+<emphasis role="italic">name</emphasis> was an environment written in Python,
+0 otherwise. The same as the Python side's
+<xref linkend="mthInterpreterRemoveCommandEnvironment" xrefstyle="select:title"/>;
+see the example of
+<xref linkend="mthPythonAddCommandEnvironment" xrefstyle="select:title"/>.</para>
 </section>
 
 <section id="mthPythonStr"><title>str</title>

@@ -1,0 +1,94 @@
+#!/usr/bin/env rexx
+/*----------------------------------------------------------------------------*/
+/* Address.testGroup: ADDRESS environments written in Python, registered and  */
+/* removed from Rexx (.py~addCommandEnvironment, .py~removeCommandEnvironment).*/
+/*                                                                            */
+/* Licensed under the Apache License, Version 2.0.                            */
+/*----------------------------------------------------------------------------*/
+  parse source . . fileSpec
+
+  group = .TestGroup~new(fileSpec)
+  group~add(.Address.testGroup)
+
+  if group~isAutomatedTest then return group
+
+  testResult = group~suite~execute~~print
+
+return testResult
+-- End of entry point.
+
+::requires 'PyTestCase.cls'
+
+::class "Address.testGroup" subclass PyTestCase public
+
+::method setUp
+  .py~exec(self~py("def calc(command, ctx):", -
+                   "    if command == 'boom': raise ValueError('bad command')", -
+                   "    if command == 'say': ctx.output('said'); ctx.error('warned'); return 0", -
+                   "    return eval(command)"))
+  .py~addCommandEnvironment("calc", .py~main~getattr("calc"))
+
+::method tearDown
+  .py~removeCommandEnvironment("calc")
+
+::method test_register_and_rc
+  address calc '2 + 3'
+  self~assertSame(5, rc, "the handler's value is RC")
+  address calc '-3'                       -- no condition, whatever its sign
+  self~assertSame(-3, rc, "a negative RC")
+  address calc '"abc"'
+  self~assertSame("abc", rc, "any value")
+
+::method test_lambda_and_replace
+  .py~addCommandEnvironment("len", .py~eval("lambda c, ctx: len(c)"))
+  address len 'abcd'
+  self~assertSame(4, rc, "a lambda")
+  .py~addCommandEnvironment("LEN", .py~eval("lambda c, ctx: 10 * len(c)"))
+  address len 'abcd'
+  self~assertSame(40, rc, "registering a name again replaces the handler")
+  .py~removeCommandEnvironment("len")
+
+::method test_remove
+  self~assertSame(1, .py~removeCommandEnvironment("CALC"), "removed")
+  self~assertSame("FAILURE 30", self~failureOf, "a removed name is unknown: FAILURE, RC 30")
+  self~assertSame(0, .py~removeCommandEnvironment("calc"), "removing again")
+  self~assertSame(0, .py~removeCommandEnvironment("nosuchenv"), "a name never registered")
+  .py~addCommandEnvironment("calc", .py~main~getattr("calc"))
+  address calc '1 + 1'
+  self~assertSame(2, rc, "registered again")
+
+::method failureOf private
+  signal on failure
+  address calc '1'
+  return "no failure"
+failure:
+  return condition("C") rc
+
+::method test_not_callable
+  do handler over .nil, "abc", 42
+    co = self~syntaxOf(.py, "addCommandEnvironment", "bad", handler)
+    self~assertSame("98.900", co~code, "not callable:" handler)
+    self~assertSame("TypeError", .py~type(co~additional[2])~getattr("__name__"), "TypeError:" handler)
+  end
+
+::method test_python_error_is_syntax
+  signal on syntax
+  address calc 'boom'
+  self~fail("a Python exception in the handler must raise SYNTAX")
+syntax:
+  co = condition("O")
+  self~assertSame("98.900", co~code, "SYNTAX 98.900")
+  self~assertSame("ValueError", .py~type(co~additional[2])~getattr("__name__"), "the exception")
+
+-- without WITH, the handler's output and error go to Python's sys.stdout and
+-- sys.stderr: the console, never dropped
+::method test_output_without_with
+  .py~exec(self~py("import io, sys", -
+                   "saved = sys.stdout, sys.stderr", -
+                   "sys.stdout, sys.stderr = io.StringIO(), io.StringIO()"))
+  address calc 'say'
+  .py~exec(self~py("out, err = sys.stdout.getvalue(), sys.stderr.getvalue()", -
+                   "sys.stdout, sys.stderr = saved"))
+  self~assertSame(0, rc, "rc")
+  self~assertSame("said" || "0a"x, .py~main~out, "output")
+  self~assertSame("warned" || "0a"x, .py~main~err, "error")

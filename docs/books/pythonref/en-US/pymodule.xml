@@ -113,6 +113,18 @@ before other threads run Rexx in the instance
 (<xref linkend="threadsAddress"/>).</para>
 </section>
 
+<section id="mthInterpreterRemoveCommandEnvironment"><title>remove_command_environment</title>
+<indexterm><primary>remove_command_environment method</primary><secondary>of Interpreter class</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/interpreter_removecommandenvironment.svg" scale="55" /></imageobject></mediaobject>
+<para>Makes the <literal>ADDRESS</literal> environment <emphasis role="italic">name</emphasis>,
+written in Python, unknown again: a command sent to it is then
+<literal>FAILURE</literal> with <literal>RC</literal> 30, as ooRexx answers
+for an environment it does not know (ooRexx has no way to remove an
+environment: the bridge forgets the name). Returns <literal>True</literal> if
+<emphasis role="italic">name</emphasis> was an environment written in Python,
+<literal>False</literal> otherwise; other environments are not touched.</para>
+</section>
+
 <section id="mthInterpreterClose"><title>close</title>
 <indexterm><primary>close method</primary><secondary>of Interpreter class</secondary></indexterm>
 <mediaobject><imageobject><imagedata fileref="images/interpreter_close.svg" scale="55" /></imageobject></mediaobject>
@@ -284,16 +296,24 @@ Arithmetic overflow/underflow.
 <indexterm><primary>ADDRESS</primary><secondary>environments in Python</secondary></indexterm>
 <para>A Python callable can be a Rexx command environment: given with
 <literal>command_environments=</literal> when the interpreter is created, or
-with <xref linkend="mthInterpreterAddCommandEnvironment" xrefstyle="select:title"/>.
+with <xref linkend="mthInterpreterAddCommandEnvironment" xrefstyle="select:title"/>,
+or from Rexx with <xref linkend="mthPythonAddCommandEnvironment" xrefstyle="select:title"/>.
 Rexx's <literal>ADDRESS name</literal> commands call it with two arguments,
 the command, a <literal>str</literal>, and a
 <xref linkend="clsCommandContext" xrefstyle="select:title"/>. What it returns
-is <literal>RC</literal>: a positive number raises <literal>ERROR</literal>, a
-negative one <literal>FAILURE</literal>, in the Rexx code that issued the
-command; &None; is 0. A Python exception in the handler is a SYNTAX error
+is <literal>RC</literal>, whatever its sign; &None; is 0. It raises
+<literal>ERROR</literal> or <literal>FAILURE</literal> only through the
+context's <xref linkend="mthCommandContextRaiseError" xrefstyle="select:title"/>
+and <xref linkend="mthCommandContextRaiseFailure" xrefstyle="select:title"/>.
+A Python exception in the handler is a SYNTAX error
 (98.900) there, as any other (<xref linkend="condPythonInRexx"/>), and, if
-the Rexx code does not trap it, Python gets it back as itself. An environment belongs to its interpreter instance; adding a
-name again replaces it.</para>
+the Rexx code does not trap it, Python gets it back as itself. Without
+<literal>WITH</literal>, what the handler writes goes to Python's
+<literal>sys.stdout</literal> and <literal>sys.stderr</literal>. An
+environment belongs to its interpreter instance; adding a name again
+replaces it, and <xref linkend="mthInterpreterRemoveCommandEnvironment" xrefstyle="select:title"/>
+(or <xref linkend="mthPythonRemoveCommandEnvironment" xrefstyle="select:title"/>)
+makes it unknown again.</para>
 <example id="ex.pymodule-address">
 <title>ADDRESS environments written in Python</title>
 <programlisting language="python">import oorexx

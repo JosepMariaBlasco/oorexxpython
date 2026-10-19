@@ -669,9 +669,23 @@ A Python callable registered as a command environment receives the command
 and an `oorexx.CommandContext`: `line_in()` and `lines()` (the redirected
 input), `output(line)` and `error(line)`, `is_redirected(...)`, the caller's
 variables (`get_var`, `set_var`, `drop_var`), and `raise_error(rc)` /
-`raise_failure(rc)`. The return value is RC. The conventions are those of
-the command handlers written in Rexx in ooRexx/WASM: a numeric RC, ERROR for
-a positive one, FAILURE for a negative one.
+`raise_failure(rc)`. The return value is RC, whatever its sign (`None`: 0):
+ERROR and FAILURE are raised only by `raise_error` / `raise_failure`, as in
+the family's other bridges and in ooRexx itself, which never turns a
+handler's RC into a condition. A Python exception in the handler is SYNTAX
+98.900, as any other. Without `WITH`, `output` and `error` write to Python's
+`sys.stdout` and `sys.stderr`: the console, never dropped.
+
+Environments are registered from either side, and removed from either side:
+`Interpreter.add_command_environment(name, handler)` and
+`remove_command_environment(name)` in Python, `.py~addCommandEnvironment(name,
+handler)` and `.py~removeCommandEnvironment(name)` in Rexx (the handler a
+Python callable in both; `.nil` or anything not callable is a TypeError).
+Registering a name again replaces its handler. ooRexx has no API to remove
+an environment, so removing keeps the bridge's native handler registered and
+forgets the name: an `ADDRESS` to it is then FAILURE with RC 30, which is
+what ooRexx answers for an unknown environment. Removing answers whether the
+name was registered.
 
 ## Who starts whom
 

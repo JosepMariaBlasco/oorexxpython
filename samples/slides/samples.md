@@ -455,6 +455,59 @@ reports/2026
 :::
 :::
 
+# An ADDRESS environment written in Python, registered and removed from Rexx: `.py~addCommandEnvironment`, `.py~removeCommandEnvironment` {#ex28-address kicker="28-address.rex"}
+
+```rexx
+.py~exec("def calc(command, ctx):"                     || "0a"x || -
+         "    ctx.output(f'{command} = {eval(command)}')" || "0a"x || -
+         "    return eval(command)")
+.py~addCommandEnvironment("calc", .py~main~getattr("calc"))
+
+address calc
+'6 * 7';   say "RC" rc
+'2 - 5';   say "RC" rc                    -- negative: still just RC
+
+say "removed:" .py~removeCommandEnvironment("calc")
+trace off                                 -- no trace line for the failure
+signal on failure
+'1 + 1'
+exit
+failure:
+  say condition("C") "RC" rc
+
+::requires "python.cls"
+```
+
+# An ADDRESS environment written in Python, registered and removed from Rexx: `.py~addCommandEnvironment`, `.py~removeCommandEnvironment` {#ex28-address-2 kicker="28-address.rex"}
+
+An ADDRESS environment written in Python, from Rexx. .py~addCommandEnvironment(name, handler) makes a Python callable an ADDRESS environment: it gets the command and a context, and what it returns is RC, whatever its sign (ERROR or FAILURE only if it raises them). Without WITH, what it writes goes to the console. .py~removeCommandEnvironment(name) makes the name unknown again: FAILURE, RC 30, as for any unknown environment. (32-address.py does the same from Python.)
+
+::: row
+::: col-6
+[Python]{.label}
+
+```python
+def calc(command, ctx):
+    ctx.output(f"{command} = {eval(command)}")
+    return eval(command)
+```
+
+:::
+::: col-6
+[Output]{.label}
+
+```output
+6 * 7 = 42
+RC 42
+2 - 5 = -3
+RC -3
+removed: 1
+FAILURE RC 30
+```
+
+:::
+:::
+
 # The Python standard library, from ooRexx {.section .logo-oorexx}
 
 # `json`: dumps, loads {#ex10-json kicker="10-json.rex"}

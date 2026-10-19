@@ -3,6 +3,8 @@
    with DIAGRAMS=1 makes one SVG per production, named as the production.
    Licensed under the Apache License, Version 2.0. */
 
+python_addcommandenvironment ::= 'addCommandEnvironment(' name ',' handler ')'
+
 python_box ::= 'box(' type ',' value ')'
 
 python_builtin ::= name ( '(' ( argument ( ',' argument )* )? ')' )?
@@ -28,6 +30,8 @@ python_main ::= 'main'
 python_raise ::= 'raise(' exception ( ',' argument )* ')'
 
 python_redirectto ::= 'redirectTo' ( '(' arguments ')' )?
+
+python_removecommandenvironment ::= 'removeCommandEnvironment(' name ')'
 
 python_str ::= 'str(' value ')'
 
@@ -190,6 +194,8 @@ interpreter_eval ::= 'eval(' expression ')'
 interpreter_routine ::= 'routine(' source ( ',' 'name=' name )? ')'
 
 interpreter_addcommandenvironment ::= 'add_command_environment(' name ',' handler ')'
+
+interpreter_removecommandenvironment ::= 'remove_command_environment(' name ')'
 
 interpreter_close ::= 'close()'
 
