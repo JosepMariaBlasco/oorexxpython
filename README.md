@@ -270,13 +270,15 @@ is a failure). `PYTHONS="3.9 3.13"` and `TESTS=Threads.testGroup` choose;
 - `samples/` — short "nutshell" programs, one feature each, both ways;
   each shows the Python it replaces and its exact output (see its README).
 - `tests/` — `run.sh`; `rexx/` (ooRexxUnit test groups: basics, booleans,
-  callbacks, numpy, lifetime, threads, subclassing, and all the samples;
+  callbacks, ADDRESS, numpy, lifetime, threads, subclassing, and all the samples;
   `boolean-test.rex`, `boolean.cls`'s own tests), `python/` (the Python
   side), `probe/` (the conversion probe and its expected output, run by
   `python/t80_conversion_probe.py`).
-- `scripts/` — `build.sh`, `setup-pythons.sh`, `setup-oorexxunit.sh`, and
-  `setup-oorexx.sh` (builds ooRexx from SVN, when no build with headers is
-  at hand).
+- `scripts/` — `build.sh`, `setup-pythons.sh`, `setup-oorexxunit.sh`,
+  `setup-oorexx-deb.sh` (installs SourceForge's ooRexx package for Ubuntu
+  24.04 at the CI's revision, `OOREXX_REV` in the workflow), and
+  `setup-oorexx.sh` (builds ooRexx from SVN, for a revision with no
+  package).
 - `docs/design.md` — how the bridge works and why: names, values, keyword
   arguments, threads and locks, lifetime.
 - `docs/books/` — two books in the format of ooRexx's own, built with its
