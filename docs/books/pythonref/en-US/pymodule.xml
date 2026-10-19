@@ -108,8 +108,9 @@ with oorexx.Interpreter(rexx_path=".") as rexx:
 <mediaobject><imageobject><imagedata fileref="images/interpreter_addcommandenvironment.svg" scale="55" /></imageobject></mediaobject>
 <para>Makes the Python callable <emphasis role="italic">handler</emphasis> the
 <literal>ADDRESS</literal> environment <emphasis role="italic">name</emphasis>
-(<xref linkend="pymoduleAddress"/>). Do it before other threads run Rexx in
-the instance (<xref linkend="threadsAddress"/>).</para>
+(<xref linkend="pymoduleAddress"/>). With an ooRexx older than r13275, do it
+before other threads run Rexx in the instance
+(<xref linkend="threadsAddress"/>).</para>
 </section>
 
 <section id="mthInterpreterClose"><title>close</title>

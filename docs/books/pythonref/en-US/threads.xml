@@ -41,10 +41,13 @@ with oorexx.Interpreter() as rexx:
 </example>
 
 <section id="threadsAddress"><title>ADDRESS Environments and Threads</title>
-<para>Register ADDRESS environments when the interpreter is created
-(<literal>command_environments=</literal>), or before other threads run Rexx
-in it: ooRexx changes its table of environments without its lock
-(ooRexx bug #2111).</para>
+<para>With an ooRexx older than 5.3.0 r13275, register ADDRESS environments
+when the interpreter is created (<literal>command_environments=</literal>),
+or before other threads run Rexx in it: ooRexx changed its table of
+environments without its lock (ooRexx bug #2111, fixed in r13274), and
+addressing an environment not registered yet, while other threads run Rexx,
+could crash it (bug #2112, fixed in r13275). From r13275 on, environments
+can be registered at any time.</para>
 </section>
 
 </chapter>

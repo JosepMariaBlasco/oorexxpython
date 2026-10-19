@@ -45,17 +45,22 @@ Tickets filed for other reasons that also touch the bridge:
   `SELECT CASE` whose expression allocates can corrupt the heap if a garbage
   collection runs meanwhile. It touches any Rexx program; the bridge's own
   Rexx code has no `SELECT CASE`.
-- [#2111](https://sourceforge.net/p/oorexx/bugs/2111/) (open):
-  `AddCommandEnvironment` changes the instance's table of environments
+- [#2111](https://sourceforge.net/p/oorexx/bugs/2111/) (fixed in r13274):
+  `AddCommandEnvironment` changed the instance's table of environments
   without the kernel lock. Registering an ADDRESS environment with
   `Interpreter.add_command_environment` while Rexx runs on another thread of
-  the same instance can corrupt the heap: register environments when the
-  interpreter is created (`command_environments=`) or before other threads run Rexx.
-- [#2112](https://sourceforge.net/p/oorexx/bugs/2112/) (open): resolving an
-  ADDRESS environment missing from the instance's table, while other threads
-  run Rexx, can register a freed handler. Environments registered through
-  the bridge are in the table; addressing one before it is registered is the
-  risky case.
+  the same instance could corrupt the heap. Before r13274, register
+  environments when the interpreter is created (`command_environments=`) or
+  before other threads run Rexx.
+- [#2112](https://sourceforge.net/p/oorexx/bugs/2112/) (fixed in r13275):
+  resolving an ADDRESS environment missing from the instance's table, while
+  other threads ran Rexx, could register a freed handler. Environments
+  registered through the bridge are in the table; addressing one before it
+  is registered was the risky case.
+- `tests/python/t35_address_threads.py` does both at once (environments
+  registered while eight threads address them). On r13271 it fails 24 times
+  in 30 (crashes, a hang, lost registrations); on r13275, 0 in 200. It is
+  skipped before r13275.
 - [#2116](https://sourceforge.net/p/oorexx/bugs/2116/) (open; filed by Tom
   Dyer): an argument error raised by a native method (wrong number of
   arguments, an argument its signature cannot convert) is invisible to the
