@@ -84,10 +84,10 @@ ADDRESS environment written in Python), Python calls Rexx code that fails,
 and if Python does not catch the <xref linkend="clsRexxError" xrefstyle="select:title"/>,
 the Rexx caller gets the original condition, not SYNTAX 98.900: a SYNTAX
 error with its code and message, any other condition with its description,
-<literal>ADDITIONAL</literal> and result. Only SYNTAX errors leave Rexx code
-that Python calls: a HALT is SYNTAX 4.1 by then, and a USER, NOTREADY,
-ERROR or FAILURE condition that the Rexx code does not trap takes its default
-action there, as ooRexx does for any native caller.</para>
+<literal>ADDITIONAL</literal> and result. With ooRexx 5.3.0 r13275, only
+SYNTAX errors leave Rexx code that Python calls: a HALT is SYNTAX 4.1 by
+then, and ooRexx does not give a native caller a USER, NOTREADY, ERROR or
+FAILURE condition that the Rexx code does not trap.</para>
 </section>
 
 <section id="condRexxInPython"><title>Rexx Conditions in Python</title>

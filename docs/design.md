@@ -443,12 +443,13 @@ condition with its `DESCRIPTION`, `ADDITIONAL` and `RESULT`. The
 interpreter instance. What reaches Python is only what ooRexx's API gives a
 native caller: a Rexx call from native code (`CallRoutine`, `SendMessage`)
 traps SYNTAX alone. A HALT the Rexx code does not trap is already SYNTAX 4.1
-when it leaves it (ooRexx's default action), and so it comes back; a USER,
-NOTREADY, ERROR or FAILURE it does not trap takes its default action there
-(it goes on) and never reaches Python, where in plain Rexx it would reach a
-caller that traps it. No bridge can do better from the outside: the Rexx
-code cannot know whether some Rexx code above the Python call traps the
-condition.
+when it leaves it, and so it comes back; a USER, NOTREADY, ERROR or FAILURE
+condition never reaches the native caller (`CheckCondition` is false, and a
+plain `RAISE` even cuts the Rexx code short with no result), where in plain
+Rexx it would reach a caller that traps it. That is ooRexx's (measured on
+r13275, `NativeActivation::trap`; being looked at upstream), the same for
+every bridge; the bridge does not work around it, and once such a condition
+reaches it, it goes back as itself like any other.
 
 A `RexxError` carries the condition's parts as attributes (`condition`,
 `code`, `rc`, `message`, `errortext`, `position`, `program`, `description`,
