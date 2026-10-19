@@ -684,8 +684,9 @@ Python callable in both; `.nil` or anything not callable is a TypeError).
 Registering a name again replaces its handler. ooRexx has no API to remove
 an environment, so removing keeps the bridge's native handler registered and
 forgets the name: an `ADDRESS` to it is then FAILURE with RC 30, which is
-what ooRexx answers for an unknown environment. Removing answers whether the
-name was registered.
+what ooRexx answers for an unknown environment. Removing a name that is not
+registered is an error (`ValueError` in Python, SYNTAX 93.900 in Rexx), not a
+silent no-op; removing returns nothing.
 
 ## Who starts whom
 

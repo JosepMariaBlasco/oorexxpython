@@ -120,9 +120,9 @@ before other threads run Rexx in the instance
 written in Python, unknown again: a command sent to it is then
 <literal>FAILURE</literal> with <literal>RC</literal> 30, as ooRexx answers
 for an environment it does not know (ooRexx has no way to remove an
-environment: the bridge forgets the name). Returns <literal>True</literal> if
-<emphasis role="italic">name</emphasis> was an environment written in Python,
-<literal>False</literal> otherwise; other environments are not touched.</para>
+environment: the bridge forgets the name). A <emphasis role="italic">name</emphasis>
+that is not an environment written in Python is a <literal>ValueError</literal>;
+other environments are not touched. Returns &None;.</para>
 </section>
 
 <section id="mthInterpreterClose"><title>close</title>

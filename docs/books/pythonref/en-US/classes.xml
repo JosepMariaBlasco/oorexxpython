@@ -119,7 +119,7 @@ included, is an error (SYNTAX 98.900, a <literal>TypeError</literal>). See also
 <programlisting language="rexx">.py~addCommandEnvironment("len", .py~eval("lambda command, ctx: len(command)"))
 address len "abcd"
 say rc
-say .py~removeCommandEnvironment("len") .py~removeCommandEnvironment("len")
+.py~removeCommandEnvironment("len")
 trace off                      -- no trace line for the failing command
 signal on failure
 address len "abcd"
@@ -129,7 +129,6 @@ failure:
 
 ::requires "python.cls"</programlisting>
 <screen>4
-1 0
 FAILURE 30</screen>
 </example>
 </section>
@@ -370,9 +369,9 @@ arguments; see <xref linkend="streams"/>.</para>
 <para>Makes the <literal>ADDRESS</literal> environment <emphasis role="italic">name</emphasis>,
 written in Python, unknown again: a command sent to it is then
 <literal>FAILURE</literal> with <literal>RC</literal> 30, as for an
-environment ooRexx does not know. Returns 1 if
-<emphasis role="italic">name</emphasis> was an environment written in Python,
-0 otherwise. The same as the Python side's
+environment ooRexx does not know. A <emphasis role="italic">name</emphasis>
+that is not an environment written in Python is an error (SYNTAX 93.900).
+Returns nothing. The same as the Python side's
 <xref linkend="mthInterpreterRemoveCommandEnvironment" xrefstyle="select:title"/>;
 see the example of
 <xref linkend="mthPythonAddCommandEnvironment" xrefstyle="select:title"/>.</para>

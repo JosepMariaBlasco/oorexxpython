@@ -5,7 +5,8 @@
  * whatever its sign (ERROR or FAILURE only if it raises them).  Without WITH,
  * what it writes goes to the console.  .py~removeCommandEnvironment(name)
  * makes the name unknown again: FAILURE, RC 30, as for any unknown
- * environment.  (32-address.py does the same from Python.)
+ * environment (removing a name that is not registered is an error).
+ * (32-address.py does the same from Python.)
  *
  * Python:
  *   def calc(command, ctx):
@@ -21,7 +22,7 @@ address calc
 '6 * 7';   say "RC" rc
 '2 - 5';   say "RC" rc                    -- negative: still just RC
 
-say "removed:" .py~removeCommandEnvironment("calc")
+.py~removeCommandEnvironment("calc")
 trace off                                 -- no trace line for the failure
 signal on failure
 '1 + 1'
@@ -35,6 +36,5 @@ failure:
 RC 42
 2 - 5 = -3
 RC -3
-removed: 1
 FAILURE RC 30
 */

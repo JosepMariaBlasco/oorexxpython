@@ -241,7 +241,7 @@ final: return
 -- ADDRESS environments written in Python, registered from Rexx: handler is
 -- a Python callable, handler(command, context), as for the Python side's
 -- Interpreter.add_command_environment; removeCommandEnvironment makes the
--- name unknown again (FAILURE, RC 30) and answers whether it was registered
+-- name unknown again (FAILURE, RC 30); a name not registered is an error
 ::method addCommandEnvironment unguarded    external "LIBRARY rexxpython Py_AddEnvironment"
 ::method removeCommandEnvironment unguarded external "LIBRARY rexxpython Py_RemoveEnvironment"
 ::method kw unguarded

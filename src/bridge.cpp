@@ -2886,7 +2886,7 @@ static PyMethodDef interpreterMethods[] =
     {"add_command_environment", (PyCFunction)interpreterAddEnvironment, METH_VARARGS,
      "add_command_environment(name, handler): ADDRESS name runs handler(command, context)"},
     {"remove_command_environment", (PyCFunction)interpreterRemoveEnvironment, METH_VARARGS,
-     "remove_command_environment(name): ADDRESS name is unknown again (FAILURE, RC 30); whether it was registered"},
+     "remove_command_environment(name): ADDRESS name is unknown again (FAILURE, RC 30); ValueError if it was not registered"},
     {"close", (PyCFunction)interpreterClose, METH_NOARGS, "close(): terminate the interpreter instance"},
     {"__enter__", (PyCFunction)interpreterEnter, METH_NOARGS, NULL},
     {"__exit__", (PyCFunction)interpreterExit, METH_VARARGS, NULL},
@@ -3286,7 +3286,7 @@ static PyObject *interpreterAddEnvironment(PyObject *self, PyObject *args)
 // forget name as an environment of inst (called with the GIL): ooRexx has no
 // API to remove one, so its native handler stays registered and answers
 // FAILURE RC 30, as ooRexx does for an unknown environment.  Whether it was
-// an environment written in Python.
+// an environment written in Python (if not, the callers raise an error).
 static bool removeCommandEnvironment(RexxInstance *inst, const std::string &rawName)
 {
     PyObject *old = NULL;
@@ -3306,7 +3306,14 @@ static PyObject *interpreterRemoveEnvironment(PyObject *self, PyObject *args)
     if (!liveInterpreter(r)) return NULL;
     PyObject *nameObj;
     if (!PyArg_ParseTuple(args, "U:remove_command_environment", &nameObj)) return NULL;
-    return PyBool_FromLong(removeCommandEnvironment(r->inst->rexx, pyString(nameObj)));
+    std::string name = pyString(nameObj);
+    if (!removeCommandEnvironment(r->inst->rexx, name))
+    {
+        PyErr_Format(PyExc_ValueError, "remove_command_environment: no ADDRESS environment written in Python named %s",
+                     upper(name).c_str());
+        return NULL;
+    }
+    Py_RETURN_NONE;
 }
 
 // .py~addCommandEnvironment(name, handler), from Rexx: handler is a Python
@@ -3339,8 +3346,8 @@ RexxMethod2(RexxObjectPtr, Py_AddEnvironment, CSTRING, name, RexxObjectPtr, hand
     return NULLOBJECT;
 }
 
-// .py~removeCommandEnvironment(name), from Rexx: .true if name was an
-// environment written in Python
+// .py~removeCommandEnvironment(name), from Rexx; a name that is not an
+// environment written in Python is an error (SYNTAX 93.900)
 RexxMethod1(RexxObjectPtr, Py_RemoveEnvironment, CSTRING, name)
 {
     bool removed;
@@ -3348,7 +3355,11 @@ RexxMethod1(RexxObjectPtr, Py_RemoveEnvironment, CSTRING, name)
         Gil gil;
         removed = removeCommandEnvironment(context->threadContext->instance, name);
     }
-    return removed ? context->True() : context->False();
+    if (!removed)
+        context->RaiseException1(Rexx_Error_Incorrect_method_user_defined,
+            context->String(("removeCommandEnvironment: no ADDRESS environment written in Python named " +
+                             upper(name)).c_str()));
+    return NULLOBJECT;
 }
 
 /* ------------------------------------------------------------------------ */

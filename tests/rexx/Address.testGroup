@@ -29,7 +29,9 @@ return testResult
   .py~addCommandEnvironment("calc", .py~main~getattr("calc"))
 
 ::method tearDown
+  signal on syntax                        -- a test may have removed it
   .py~removeCommandEnvironment("calc")
+syntax:
 
 ::method test_register_and_rc
   address calc '2 + 3'
@@ -49,10 +51,12 @@ return testResult
   .py~removeCommandEnvironment("len")
 
 ::method test_remove
-  self~assertSame(1, .py~removeCommandEnvironment("CALC"), "removed")
+  .py~removeCommandEnvironment("CALC")
   self~assertSame("FAILURE 30", self~failureOf, "a removed name is unknown: FAILURE, RC 30")
-  self~assertSame(0, .py~removeCommandEnvironment("calc"), "removing again")
-  self~assertSame(0, .py~removeCommandEnvironment("nosuchenv"), "a name never registered")
+  do name over "calc", "nosuchenv"        -- removing again, a name never registered
+    co = self~syntaxOf(.py, "removeCommandEnvironment", name)
+    self~assertSame("93.900", co~code, "removing" name "is an error")
+  end
   .py~addCommandEnvironment("calc", .py~main~getattr("calc"))
   address calc '1 + 1'
   self~assertSame(2, rc, "registered again")

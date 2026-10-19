@@ -156,10 +156,11 @@ check("RC whatever its sign, no condition", r.routine(
 # removing an environment: unknown again, as ooRexx's own (FAILURE, RC 30)
 unknown_env = ("signal on failure; address calc '1'; return 'no'\n"
                "failure: return condition('C') rc")
-check("remove_command_environment", r.remove_command_environment("calc"), True)
+check("remove_command_environment", r.remove_command_environment("calc"), None)
 check("... then FAILURE RC 30",     r.routine(unknown_env)(), "FAILURE 30")
-check("... removing again",         r.remove_command_environment("CALC"), False)
-check("... a name never registered", r.remove_command_environment("NOSUCHENV"), False)
+check("... removing again: ValueError", raises(lambda: r.remove_command_environment("CALC")),
+      "ValueError: remove_command_environment: no ADDRESS environment written in Python named CALC")
+check("... a name never registered", raises(lambda: r.remove_command_environment("nosuchenv")).startswith("ValueError"), True)
 r.add_command_environment("CALC", calc)
 check("... registered again",       r.routine("address calc '2+3'; return rc")(), 5)
 
@@ -168,12 +169,15 @@ check("from Rexx: registered", r.routine(
     ".py~addCommandEnvironment('LEN', .py~eval('lambda c, ctx: len(c)'))\n"
     "address len 'abcd'; return rc")(), 4)
 check("... seen from Python's routines", r.routine("address len 'ab'; return rc")(), 2)
-check("... removed from Python", r.remove_command_environment("len"), True)
+check("... removed from Python", r.remove_command_environment("len"), None)
 check("... removed from Rexx",   r.routine(
     ".py~addCommandEnvironment('LEN', .py~eval('lambda c, ctx: len(c)'))\n"
-    "a = .py~removeCommandEnvironment('len'); b = .py~removeCommandEnvironment('len')\n"
+    ".py~removeCommandEnvironment('len')\n"
     "signal on failure; address len 'x'; return 'no'\n"
-    "failure: return a b condition('C') rc")(), "1 0 FAILURE 30")
+    "failure: return condition('C') rc")(), "FAILURE 30")
+check("... removing a missing name from Rexx: SYNTAX 93.900", r.routine(
+    "signal on syntax; .py~removeCommandEnvironment('len'); return 'no'\n"
+    "syntax: return 'SYNTAX' condition('O')~code")(), "SYNTAX 93.900")
 check("... a Python function from Python, registered by Rexx", r.routine(
     "use arg f; .py~addCommandEnvironment('TWICE', f); address twice 'abc'; return rc")(
     lambda c, ctx: 2 * len(c)), 6)

@@ -467,7 +467,7 @@ address calc
 '6 * 7';   say "RC" rc
 '2 - 5';   say "RC" rc                    -- negative: still just RC
 
-say "removed:" .py~removeCommandEnvironment("calc")
+.py~removeCommandEnvironment("calc")
 trace off                                 -- no trace line for the failure
 signal on failure
 '1 + 1'
@@ -480,7 +480,7 @@ failure:
 
 # An ADDRESS environment written in Python, registered and removed from Rexx: `.py~addCommandEnvironment`, `.py~removeCommandEnvironment` {#ex28-address-2 kicker="28-address.rex"}
 
-An ADDRESS environment written in Python, from Rexx. .py~addCommandEnvironment(name, handler) makes a Python callable an ADDRESS environment: it gets the command and a context, and what it returns is RC, whatever its sign (ERROR or FAILURE only if it raises them). Without WITH, what it writes goes to the console. .py~removeCommandEnvironment(name) makes the name unknown again: FAILURE, RC 30, as for any unknown environment. (32-address.py does the same from Python.)
+An ADDRESS environment written in Python, from Rexx. .py~addCommandEnvironment(name, handler) makes a Python callable an ADDRESS environment: it gets the command and a context, and what it returns is RC, whatever its sign (ERROR or FAILURE only if it raises them). Without WITH, what it writes goes to the console. .py~removeCommandEnvironment(name) makes the name unknown again: FAILURE, RC 30, as for any unknown environment (removing a name that is not registered is an error). (32-address.py does the same from Python.)
 
 ::: row
 ::: col-6
@@ -501,7 +501,6 @@ def calc(command, ctx):
 RC 42
 2 - 5 = -3
 RC -3
-removed: 1
 FAILURE RC 30
 ```
 
