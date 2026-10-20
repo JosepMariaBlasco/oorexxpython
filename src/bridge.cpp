@@ -496,6 +496,25 @@ struct ArrayMemo
 
 static void rexxToVal(RexxSide &side, RexxObjectPtr o, Val &v, ArrayMemo &memo);
 
+/*
+ * Whether o is an instance of one of the bridge's classes (.PyObject,
+ * .PyKwArgs, .LogicalWrapper), none of which is a String.  Never through
+ * IsInstanceOf alone: it is a non-blocking API call, but an integer or a
+ * NumberString (the result of arithmetic, before anything asked for its text)
+ * answers isInstanceOf by making its string first (stringValue: an allocation
+ * and a field set) without the kernel lock, while other threads run Rexx and
+ * collect, which corrupts ooRexx's heap (ooRexx bug, unreported; seen as
+ * crashes, hangs in the collector and a value that came to Python as an
+ * oorexx.RexxObject).  So the String family is told apart first: IsString does
+ * not allocate, IsOfType takes the lock.
+ */
+static bool instanceOf(RexxThreadContext *c, RexxObjectPtr o, RexxClassObject cls)
+{
+    if (o == NULLOBJECT || cls == NULLOBJECT) return false;
+    if (c->IsString(o) || c->IsOfType(o, "STRING")) return false;
+    return c->IsInstanceOf(o, cls) != 0;
+}
+
 static void rexxToVal(RexxSide &side, RexxObjectPtr o, Val &v)
 {
     ArrayMemo memo;
@@ -508,14 +527,6 @@ static void rexxToVal(RexxSide &side, RexxObjectPtr o, Val &v, ArrayMemo &memo)
     if (o == NULLOBJECT || o == c->Nil())
     {
         v.kind = Val::NIL;
-    }
-    else if (side.booleanClass != NULLOBJECT && c->IsInstanceOf(o, side.booleanClass))
-    {
-        // a .LogicalWrapper (or a subclass's: JSON's, YAML's): Python's bool
-        // (docs/design.md, *Values*)
-        v.kind = Val::STR;
-        v.s = c->ObjectToStringValue(o);
-        v.boolean = true;
     }
     else if (c->IsString(o))
     {
@@ -531,6 +542,15 @@ static void rexxToVal(RexxSide &side, RexxObjectPtr o, Val &v, ArrayMemo &memo)
         v.kind = Val::STR;
         v.s.assign(c->StringData(str), c->StringLength(str));
         if ((RexxObjectPtr)str != o) c->ReleaseLocalReference(str);
+    }
+    // not a String from here on, so IsInstanceOf is safe (see instanceOf)
+    else if (side.booleanClass != NULLOBJECT && c->IsInstanceOf(o, side.booleanClass))
+    {
+        // a .LogicalWrapper (or a subclass's: JSON's, YAML's): Python's bool
+        // (docs/design.md, *Values*)
+        v.kind = Val::STR;
+        v.s = c->ObjectToStringValue(o);
+        v.boolean = true;
     }
     else if (c->IsInstanceOf(o, side.pyObjectClass))
     {
@@ -624,7 +644,7 @@ static void rexxArgs(RexxSide &side, RexxArrayObject args, size_t first, Args &o
     if (n >= first)
     {
         RexxObjectPtr tail = c->ArrayAt(args, n);
-        if (tail != NULLOBJECT && c->IsInstanceOf(tail, side.kwClass))
+        if (instanceOf(c, tail, side.kwClass))
         {
             last = n - 1;
             RexxArrayObject names = (RexxArrayObject)c->SendMessage0(tail, "NAMES");
@@ -1664,7 +1684,7 @@ static std::string takeCondition(RexxThreadContext *tc, RexxSide *side = NULL, V
         if (add != NULLOBJECT && tc->IsArray(add) && tc->ArrayItems((RexxArrayObject)add) >= 2)
         {
             RexxObjectPtr e = tc->ArrayAt((RexxArrayObject)add, 2);
-            if (e != NULLOBJECT && tc->IsInstanceOf(e, side->pyObjectClass)) rexxToVal(*side, e, *exc);
+            if (instanceOf(tc, e, side->pyObjectClass)) rexxToVal(*side, e, *exc);
         }
     }
     std::string name = info.conditionName != NULLOBJECT ? tc->CString(info.conditionName) : "SYNTAX";
@@ -3486,7 +3506,7 @@ RexxMethod3(RexxObjectPtr, PyPair_New, OSELF, self, RexxObjectPtr, pyclass, Rexx
     RexxSide side;
     if (!findClasses(context, side)) return NULLOBJECT;
     StringsScope scope(side.strings);
-    if (!context->IsInstanceOf(pyclass, side.pyObjectClass)) return noPython(context);
+    if (!instanceOf(context->threadContext, pyclass, side.pyObjectClass)) return noPython(context);
     RexxObjectPtr cp = context->SendMessage0(pyclass, "PY.POINTER");
     PyObject *cls = cp != NULLOBJECT ? (PyObject *)context->PointerValue((RexxPointerObject)cp) : NULL;
     if (cls == NULL) return noPython(context);
@@ -4143,7 +4163,7 @@ RexxMethod2(RexxObjectPtr, Py_Box, RexxObjectPtr, type, RexxObjectPtr, value)   
     Args holder;                          // a Python callable given as the type
     if (type != NULLOBJECT)
     {
-        if (context->IsInstanceOf(type, side.pyObjectClass))
+        if (instanceOf(context->threadContext, type, side.pyObjectClass))
         {
             kind = "";
             holder.positional.emplace_back();
