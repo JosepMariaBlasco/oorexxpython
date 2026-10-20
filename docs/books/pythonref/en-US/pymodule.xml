@@ -41,7 +41,9 @@ instance options, and the bridge's:</para>
 <varlistentry><term><literal>rexx_path</literal></term>
 <listitem><para>a directory, or a list of them, where <literal>CALL</literal>,
 <literal>::requires</literal> and <methodname>run</methodname> look for
-programs.</para></listitem></varlistentry>
+programs. The bridge's own folder and ooRexx's folder of
+<filename>.cls</filename> files are always searched too, so ooRexx's folder
+need not be on the <envar>PATH</envar>.</para></listitem></varlistentry>
 <varlistentry><term><literal>extensions</literal></term>
 <listitem><para>a file extension, or a list of them, tried for external
 calls.</para></listitem></varlistentry>

@@ -35,6 +35,7 @@ static void setEnv(const char *name, const char *value) { _putenv_s(name, value)
 static void unsetEnv(const char *name) { _putenv_s(name, ""); }
 #else
 #include <dlfcn.h>
+#include <unistd.h>
 #define ORXPY_EXPORT __attribute__((visibility("default")))
 static void setEnv(const char *name, const char *value) { setenv(name, value, 1); }
 static void unsetEnv(const char *name) { unsetenv(name); }
@@ -2636,6 +2637,55 @@ static std::string bridgeDirectory()
     return slash == std::string::npos ? std::string(".") : path.substr(0, slash);
 }
 
+/*
+ * ooRexx's own .cls folder (logicalwrapper.cls, json.cls...), which every
+ * interpreter we create searches: python.cls requires logicalwrapper.cls,
+ * and ::requires looks in the current folder, REXX_PATH and the PATH, where
+ * ooRexx's folder may not be when Python starts it.  The folder of rexx.dll
+ * (Windows); the bin/ beside the lib/ of librexx (Linux, macOS: the packages
+ * and the portable builds), or librexx's own folder.  "" if none of them has
+ * logicalwrapper.cls.
+ */
+static std::string rexxClassDirectory()
+{
+    std::string dir;
+#ifdef _WIN32
+    HMODULE rexx = GetModuleHandleA("rexx.dll");
+    char buf[MAX_PATH];
+    if (rexx == NULL || GetModuleFileNameA(rexx, buf, sizeof buf) == 0) return "";
+    dir = buf;
+    size_t slash = dir.find_last_of("\\/");
+    if (slash == std::string::npos) return "";
+    dir.resize(slash);
+    std::vector<std::string> candidates = {dir};
+    const char *sep = "\\";
+#else
+    Dl_info info;
+    if (dladdr((void *)&RexxCreateInterpreter, &info) == 0 || info.dli_fname == NULL) return "";
+    char *real = realpath(info.dli_fname, NULL);
+    dir = real != NULL ? real : info.dli_fname;
+    free(real);
+    size_t slash = dir.rfind('/');
+    if (slash == std::string::npos) return "";
+    dir.resize(slash);
+    slash = dir.rfind('/');
+    std::vector<std::string> candidates;
+    if (slash != std::string::npos) candidates.push_back(dir.substr(0, slash) + "/bin");
+    candidates.push_back(dir);
+    const char *sep = "/";
+#endif
+    for (const std::string &c : candidates)
+    {
+        std::string f = c + sep + "logicalwrapper.cls";
+#ifdef _WIN32
+        if (GetFileAttributesA(f.c_str()) != INVALID_FILE_ATTRIBUTES) return c;
+#else
+        if (access(f.c_str(), R_OK) == 0) return c;
+#endif
+    }
+    return "";
+}
+
 extern "C" ORXPY_EXPORT RexxPackageEntry *orxpy_package(void);
 
 // the strings of a str or a list of str (for the options)
@@ -2720,6 +2770,8 @@ static PyObject *interpreterNew(PyTypeObject *type, PyObject *args, PyObject *kw
     }
     std::string dir = bridgeDirectory();
     path.push_back(dir);
+    std::string classes = rexxClassDirectory();      // ooRexx's own .cls files
+    if (!classes.empty() && classes != dir) path.push_back(classes);
 #ifdef _WIN32
     std::string pathText = join(path, ";");
 #else
@@ -4317,9 +4369,11 @@ static struct PyModuleDef moduleDef =
  * ourselves (the bridge's directory, OOREXX_HOME, the PATH): once loaded, the
  * delay-load helper finds it by name.
  */
+static void rexxFolderOnPath();
+
 static bool preloadRexx()
 {
-    if (GetModuleHandleA("rexx.dll") != NULL) return true;
+    if (GetModuleHandleA("rexx.dll") != NULL) { rexxFolderOnPath(); return true; }
     // first the bridge's own directory: installed (install.rex), it sits in
     // ooRexx's own, next to the rexx.dll it belongs with
     const char *home = getenv("OOREXX_HOME");
@@ -4337,11 +4391,54 @@ static bool preloadRexx()
         if (dir.empty()) continue;
         std::string dll = dir + "\\rexx.dll";
         if (GetFileAttributesA(dll.c_str()) == INVALID_FILE_ATTRIBUTES) continue;
-        if (LoadLibraryExA(dll.c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH) != NULL) return true;
+        if (LoadLibraryExA(dll.c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH) != NULL)
+        {
+            rexxFolderOnPath();
+            return true;
+        }
     }
     PyErr_SetString(PyExc_ImportError,
         "oorexx: rexx.dll not found: put ooRexx's bin directory on the PATH (or set OOREXX_HOME)");
     return false;
+}
+
+/*
+ * ooRexx ends the process (0x80000003, no message) in RexxCreateInterpreter
+ * when rexx.dll was loaded by its full path and its folder is not on the
+ * PATH (an ooRexx bug; found by the ooRexx bridge for .NET).  So, once
+ * loaded, rexx.dll's folder goes at the end of this process's PATH if it is
+ * not there.
+ */
+static void rexxFolderOnPath()
+{
+    HMODULE rexx = GetModuleHandleA("rexx.dll");
+    char buf[MAX_PATH];
+    if (rexx == NULL || GetModuleFileNameA(rexx, buf, sizeof buf) == 0) return;
+    std::string dir = buf;
+    size_t slash = dir.find_last_of("\\/");
+    if (slash == std::string::npos) return;
+    dir.resize(slash);
+    std::string path;
+    DWORD n = GetEnvironmentVariableA("PATH", NULL, 0);
+    if (n > 0)
+    {
+        std::vector<char> v(n);
+        GetEnvironmentVariableA("PATH", v.data(), n);
+        path = v.data();
+    }
+    size_t start = 0;
+    while (start <= path.size())
+    {
+        size_t end = path.find(';', start);
+        if (end == std::string::npos) end = path.size();
+        std::string entry = path.substr(start, end - start);
+        while (!entry.empty() && (entry.back() == '\\' || entry.back() == '/')) entry.pop_back();
+        if (_stricmp(entry.c_str(), dir.c_str()) == 0) return;   // there already
+        start = end + 1;
+    }
+    path = path.empty() ? dir : path + ";" + dir;
+    SetEnvironmentVariableA("PATH", path.c_str());   // what ooRexx reads (the process's)
+    _putenv_s("PATH", path.c_str());                 // and the C runtime's copy
 }
 #endif
 

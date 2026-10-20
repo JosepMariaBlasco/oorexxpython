@@ -87,6 +87,10 @@ paths) are kept apart, in the loader and `scripts/platform.sh`.
   module's DLLs without searching the `PATH`, so the bridge delay-loads
   `rexx.dll` and finds it, when it is imported, in its own folder (where
   `install.rex` puts it), in `OOREXX_HOME\bin` or on the `PATH`. `rexx_path` is separated by `;`.
+  ooRexx ends the process in `RexxCreateInterpreter` when `rexx.dll` was
+  loaded by its full path and its folder is not on the `PATH` (found by the
+  ooRexx bridge for .NET), so the bridge then adds that folder to the end of
+  the process's `PATH`.
 
 ## Installation
 
@@ -585,7 +589,11 @@ with oorexx.Interpreter(rexx_path=["/my/classes"]) as rexx:
 
 ### Interpreter options
 
-`oorexx.Interpreter(...)` exposes `rexx_path` (EXTERNAL_CALL_PATH),
+`oorexx.Interpreter(...)` exposes `rexx_path` (EXTERNAL_CALL_PATH; the
+bridge adds its own folder, for `python.cls`, and ooRexx's folder of `.cls`
+files, for the `logicalwrapper.cls` that `python.cls` requires: the `bin/`
+beside the `lib/` that has `librexx`, or the folder of `rexx.dll`; so a Python
+program needs no ooRexx on the `PATH`, `tests/python/t32_off_path.py`),
 `extensions` (EXTERNAL_CALL_EXTENSIONS), `initial_address`
 (INITIAL_ADDRESS_ENVIRONMENT), `load_libraries` (LOAD_REQUIRED_LIBRARY),
 `command_environments={"NAME": callable}` (see *ADDRESS in Python*;
