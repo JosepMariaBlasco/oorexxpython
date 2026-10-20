@@ -1,7 +1,7 @@
 """t80: the conversion probe prints what it is expected to print.
 
 tests/probe/edges.rex shows how values cross the bridge both ways (Rexx
-strings that look like numbers, .true/.false and .Boolean, .nil, Arrays,
+strings that look like numbers, .true/.false and .LogicalWrapper, .nil, Arrays,
 other Rexx objects, bytes; Python's bool, None, numbers, bytes, str,
 containers, numpy scalars).  Its expected output is tests/probe/edges.out:
 a conversion that changes makes this test fail, so a change in the rules

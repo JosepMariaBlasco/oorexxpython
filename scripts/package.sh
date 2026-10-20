@@ -31,7 +31,7 @@ NAME=oorexxpython-$VERSION-$PLAT
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
 STAGE=$TMP/oorexxpython
 mkdir -p "$STAGE/samples/slides" "$TMP/elsewhere"
-for f in "$BRIDGE" "$LOADER" python.cls boolean.cls; do
+for f in "$BRIDGE" "$LOADER" python.cls; do
   [ -f "$BUILD/$f" ] || { echo "package.sh: no $BUILD/$f (run build.sh)" >&2; exit 2; }
   cp "$BUILD/$f" "$STAGE/"
 done

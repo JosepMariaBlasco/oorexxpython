@@ -8,13 +8,11 @@ Source, documentation and design: https://github.com/JosepMariaBlasco/oorexxpyth
 
 ## What you need
 
-- **ooRexx 5.2.0 or later** (from
-  [SourceForge](https://sourceforge.net/projects/oorexx/files/oorexx/)),
-  installed so that `rexx` runs. Using the bridge from several threads at
-  once (Python threads calling Rexx, Rexx threads using Python) needs
-  **ooRexx 5.3.0, r13265 or later** (beta): 5.2.0 crashes there. 5.2.0 is
-  also slower with many objects (bug #2102). See `notes/oorexx-bugs.md` in
-  the repository.
+- **ooRexx 5.3.0, r13278 or later** (beta, from
+  [SourceForge](https://sourceforge.net/projects/oorexx/files/oorexx/5.3.0beta/)),
+  installed so that `rexx` runs. The bridge needs its `logicalwrapper.cls`
+  (Python's `bool` in Rexx), new in r13278; 5.2.0, the current release, does
+  not have it.
 - **Python 3.9 or later**, any version: the bridge is one binary for all of
   them (Python's Stable ABI). It must have its shared library, as the
   installers from python.org (Windows, macOS), Homebrew, uv and most Linux
@@ -138,5 +136,4 @@ under `python`. `20-numpy.rex`, `21-matplotlib.rex` and `23-pandas.rex` need
 
 ## Licence
 
-Apache License 2.0 (`LICENSE`), except `boolean.cls`, Common Public
-License 1.0, as ooRexx (its header).
+Apache License 2.0 (`LICENSE`).

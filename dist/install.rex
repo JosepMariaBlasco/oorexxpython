@@ -8,18 +8,18 @@
  *   rexx oorexxpython-uninstall [status]    (from anywhere, once installed)
  *
  * Where things go (docs/design.md, *Installation*):
- *   Windows:        the bridge, its package, python.cls and boolean.cls in
- *                   the folder of rexx.exe and rexx.dll (C:\Program Files\ooRexx).
- *   Linux, macOS:   all four in ooRexx's lib/oorexxpython/; the package is
+ *   Windows:        the bridge, its package and python.cls in the folder of
+ *                   rexx.exe and rexx.dll (C:\Program Files\ooRexx).
+ *   Linux, macOS:   all three in ooRexx's lib/oorexxpython/; the package is
  *                   linked into lib/ (where ooRexx looks for libraries),
- *                   python.cls and boolean.cls into bin/ (on the PATH, where
- *                   ::requires looks).
- *   boolean.cls:    .Boolean, which the ooRexx bridges share, all using the
- *                   one in bin/: one already there that another bridge
- *                   installed is kept unless ours has a higher "Version:"
- *                   line (none: 1). Uninstall removes it only when no other
- *                   bridge (net.cls, lua.cls, js.cls) is left in bin/;
- *                   otherwise a link to ours becomes a plain copy.
+ *                   python.cls into bin/ (on the PATH, where ::requires
+ *                   looks).  Python's bool is ooRexx's own .LogicalWrapper
+ *                   (logicalwrapper.cls, in ooRexx's bin/ since r13278).
+ *   boolean.cls:    development builds after 0.1.0-preview.13 installed one
+ *                   (.Boolean, shared by the ooRexx bridges); installing or
+ *                   uninstalling removes it, or, if another bridge (net.cls,
+ *                   lua.cls, js.cls) is left in bin/, turns a link to ours
+ *                   into a plain copy.
  *   Python:         a one-line oorexxpython.pth in the site-packages of each
  *                   Python given with --python (default: ORX_PYTHON, else
  *                   python3 on the PATH; Windows: python), or in its user
@@ -103,11 +103,9 @@ install:
   say "ooRexx/Python installer"
   say "  ooRexx" .RexxInfo~version "r".RexxInfo~revision "("rexxExe")"
   parse value .RexxInfo~version with major "." minor "."
-  if major < 5 | (major = 5 & minor < 2) then
-    call fail "ooRexx 5.2.0 or later is needed"
-  if major = 5 & minor = 2 then
-    say "  note: using the bridge from several threads at once needs ooRexx 5.3.0 r13265 or later"
-  do f over loader, bridge, "python.cls", "boolean.cls"
+  if major < 5 | (major = 5 & minor < 3) | (major = 5 & minor = 3 & .RexxInfo~revision < 13278) then
+    call fail "ooRexx 5.3.0 r13278 or later is needed (its logicalwrapper.cls)"
+  do f over loader, bridge, "python.cls"
     if \.File~new(join(from, f))~exists then
       call fail "no" f "next to install.rex: run it from the unzipped oorexxpython folder"
   end
@@ -127,26 +125,18 @@ install:
   -- the bridge
   if \.File~new(home)~isDirectory then
     if \.File~new(home)~makeDirs then call denied home
-  -- bin/boolean.cls: another bridge's (not in our list, or a link of ours
-  -- that it replaced) is kept, unless ours is a later version
-  shared = join(bin, "boolean.cls")
-  ours = done~hasItem(shared, "file") | (done~hasItem(shared, "link") & linksInto(shared, home))
-  theirs = (.File~new(shared)~exists | SysIsFileLink(shared) = 1) & \ours & -
-           booleanVersion(shared) >= booleanVersion(join(from, "boolean.cls"))
-  do f over loader, bridge, "python.cls", "boolean.cls"
+  if \dropBoolean() then exit 1         -- an earlier version's boolean.cls
+  do f over loader, bridge, "python.cls"
     target = join(home, f)
-    if windows & f == "boolean.cls" & theirs then iterate
     if SysFileCopy(join(from, f), target) \= 0 then call denied target
     done~put(target, "file")
   end
-  say "  installed" loader"," bridge"," "python.cls and boolean.cls in" home
+  say "  installed" loader"," bridge "and python.cls in" home
   if \windows then do
     call link join(home, loader), join(lib, loader)
     call link join(home, "python.cls"), join(bin, "python.cls")
     say "  linked" loader "into" lib "and python.cls into" bin
-    if \theirs then call link join(home, "boolean.cls"), shared
   end
-  if theirs then say "  kept the boolean.cls (version" booleanVersion(shared)") another ooRexx bridge installed in" bin
   -- the uninstaller, next to rexx
   target = join(bin, uninstaller)
   if SysFileCopy(me, target) \= 0 then call denied target
@@ -236,34 +226,8 @@ uninstall:
     say "ooRexx/Python: not installed in this ooRexx ("rexxExe")"
     return
   end
-  failed = .false
   self = join(bin, uninstaller)
-  -- bin/boolean.cls: the other bridges use it too
-  shared = join(bin, "boolean.cls")
-  if .File~new(shared)~exists | SysIsFileLink(shared) = 1 then do
-    others = .false
-    do f over "net.cls", "lua.cls", "js.cls"
-      if .File~new(join(bin, f))~exists | SysIsFileLink(join(bin, f)) = 1 then others = .true
-    end
-    if others then do
-      if SysIsFileLink(shared) = 1, linksInto(shared, home) then do
-        -- our folder goes: leave them a plain copy
-        call SysFileDelete shared
-        if SysFileCopy(join(home, "boolean.cls"), shared) \= 0 then do
-          say "  could not copy boolean.cls to" shared
-          failed = .true
-        end
-        else say "  left a copy of boolean.cls in" bin "(another ooRexx bridge uses it)"
-      end
-      else say "  kept" shared "(another ooRexx bridge uses it)"
-      done~removeItem(shared, "link")
-      done~removeItem(shared, "file")
-    end
-    else do                                  -- no bridge is left to use it
-      done~removeItem(shared, "link")
-      if \done~hasItem(shared, "file") then done~put(shared, "file")
-    end
-  end
+  failed = \dropBoolean()               -- an earlier version's boolean.cls
   do kind over "pth", "link", "file"
     do path over done~allAt(kind)
       if same(path, self) then iterate   -- last: it may be the one running
@@ -490,20 +454,42 @@ copyTree: procedure expose done windows
   end
   return
 
--- the "Version:" line of a boolean.cls (1 if it has none, 0 if no file)
-booleanVersion: procedure
-  use arg path
-  if \.File~new(path)~exists then return 0
-  s = .Stream~new(path)
-  lines = s~~open("read")~arrayIn
-  s~close
-  do line over lines
-    if pos("Version:", line) > 0 then do
-      parse var line "Version:" v .
-      if datatype(v, "W") then return v
-    end
+-- the boolean.cls an earlier version installed (in home; on Linux and macOS
+-- linked into bin/; on Windows home is bin/): the other ooRexx bridges may
+-- use it there.  If one of them (net.cls, lua.cls, js.cls) is left in bin/,
+-- bin/boolean.cls stays (a link to ours becomes a plain copy); otherwise ours
+-- is removed.  A bin/boolean.cls that is not ours is left alone.  Updates
+-- the manifest; .false if something could not be done
+dropBoolean: procedure expose done bin home windows manifest
+  mine = join(home, "boolean.cls")
+  shared = join(bin, "boolean.cls")
+  others = .false
+  do f over "net.cls", "lua.cls", "js.cls"
+    if .File~new(join(bin, f))~exists | SysIsFileLink(join(bin, f)) = 1 then others = .true
   end
-  return 1
+  ok = .true
+  if \windows, SysIsFileLink(shared) = 1, linksInto(shared, home) then do
+    call SysFileDelete shared
+    if others then do
+      if SysFileCopy(mine, shared) \= 0 then do
+        say "  could not copy boolean.cls to" shared
+        ok = .false
+      end
+      else say "  left a copy of boolean.cls in" bin "(another ooRexx bridge uses it)"
+    end
+    else say "  removed" shared "(an earlier version's)"
+  end
+  if done~hasItem(mine, "file"), .File~new(mine)~exists, \(windows & others) then do
+    if SysFileDelete(mine) \= 0 then do
+      say "  could not remove" mine
+      ok = .false
+    end
+    else say "  removed" mine "(an earlier version's)"
+  end
+  done~removeItem(shared, "link")
+  done~removeItem(mine, "file")
+  if done~items > 0 then call writeManifest done
+  return ok
 
 -- whether the link path still points into folder (another installer may have
 -- replaced it since)

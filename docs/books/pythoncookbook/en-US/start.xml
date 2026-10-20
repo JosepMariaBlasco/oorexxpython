@@ -9,8 +9,9 @@
 
 <section id="ckInstall"><title>Installing</title>
 <indexterm><primary>installing</primary></indexterm>
-<para>You need ooRexx 5.2.0 or later (5.3.0 to use the bridge from several
-threads at once), Python 3.9 or later, and the bridge, from the project's
+<para>You need ooRexx 5.3.0 r13278 or later (a beta, from
+<ulink url="https://sourceforge.net/projects/oorexx/files/oorexx/5.3.0beta/">SourceForge</ulink>),
+Python 3.9 or later, and the bridge, from the project's
 releases page,
 <ulink url="https://github.com/JosepMariaBlasco/oorexxpython/releases">https://github.com/JosepMariaBlasco/oorexxpython/releases</ulink>.</para>
 <para><emphasis role="bold">On Windows</emphasis>, download

@@ -56,8 +56,8 @@ string that is a number goes as an <literal>int</literal> or a
 It goes to Python as the <literal>int</literal> 1, except to a parameter
 annotated <literal>bool</literal>, where it goes as <literal>True</literal>
 (pandas' <literal>inplace=</literal>, <xref linkend="ckPandas"/>). For a
-real <literal>bool</literal>, <computeroutput>.Boolean~true</computeroutput>
-and <computeroutput>.Boolean~false</computeroutput>, which are 1 and 0 for
+real <literal>bool</literal>, <computeroutput>.LogicalWrapper~true</computeroutput>
+and <computeroutput>.LogicalWrapper~false</computeroutput>, which are 1 and 0 for
 Rexx; Python's <literal>True</literal> and <literal>False</literal> come back
 as them (<xref linkend="ckJson"/>).</para></listitem>
 <listitem><para><emphasis role="bold">Python counts from 0.</emphasis>

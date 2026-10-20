@@ -58,12 +58,16 @@ lst = [1, 2]
 check("identity Python obj",   r.routine("use arg o; return o")(lst) is lst, True)
 check("Python callback",       r.routine("use arg f; return f~new(20) + 1")(lambda x: x * 2), 41)
 
-# booleans: Python's bool is .Boolean in Rexx (which Rexx code run from Python
-# sees without ::requires), and back
+# booleans: Python's bool is ooRexx's .LogicalWrapper in Rexx, and back; Rexx
+# code names the class after ::requires "logicalwrapper.cls" (it is not in
+# .environment), and JSON's booleans (a subclass) come to Python as bool
+LW = '\n::requires "logicalwrapper.cls"'
 f = r.routine("use arg x; return x")
-check("bool -> .Boolean",      r.routine("use arg t, f; return t~class~id f~isA(.Boolean) (t + 1)")(True, False), "Boolean 1 2")
+check("bool -> .LogicalWrapper", r.routine("use arg t, f; return t~class~id f~isA(.LogicalWrapper) (t + 1)" + LW)(True, False), "LogicalWrapper 1 2")
+check("bool without ::requires", r.routine("use arg t; return t~class~id t~isA(t~class) (.LogicalWrapper~class~id)")(True), "LogicalWrapper 1 String")
 check("bool round trip",       [f(True), f(False)], [True, False])
-check(".Boolean -> bool",      r.routine("return .Boolean~of(2 > 1)")(), True)
+check(".LogicalWrapper -> bool", r.routine("return .LogicalWrapper~of(2 > 1)" + LW)(), True)
+check("JSON's true -> bool",   r.routine('return .json~new~fromJSON("[true, false, 1]")\n::requires "json.cls"')(), [True, False, 1])
 check("Rexx logical stays 1",  r.eval("1 = 1"), 1)
 
 # errors

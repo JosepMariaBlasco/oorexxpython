@@ -46,12 +46,11 @@ with oorexx.Interpreter() as rexx:
 **Status: prototype.** Both directions work and are covered by automated
 tests (ooRexxUnit test groups and Python checks, every nutshell sample
 included), on Linux x86_64, macOS (arm64 and x86_64) and Windows x64, with CPython
-3.9–3.15, against ooRexx 5.3.0 (trunk). Every push runs them all with every
-Python on all four (GitHub Actions: `.github/workflows/build.yml`), and on
-Linux also with ooRexx 5.2.0, the minimum: all but the three tests that use an
-interpreter from several threads at once, which needs 5.3.0
-([`docs/design.md`](docs/design.md), *ooRexx versions*). The design is
-still being discussed, and parts of the API may change.
+3.9–3.15, against ooRexx 5.3.0 (trunk, r13278, also the minimum:
+[`docs/design.md`](docs/design.md), *ooRexx versions*). Every push runs them
+all with every Python on all four (GitHub Actions:
+`.github/workflows/build.yml`). The design is still being discussed, and
+parts of the API may change.
 
 ## Documentation
 
@@ -72,11 +71,11 @@ Windows, its installer program; on Linux and macOS, its zip, whose
 tells your Pythons where it is and records which Python Rexx programs use:
 no environment variables to set.
 
-1. **ooRexx 5.2.0 or later.** Get it from
-   [SourceForge](https://sourceforge.net/projects/oorexx/files/oorexx/) and
-   check that `rexx -v` runs in a terminal. Using the bridge from several
-   threads at once (a Python thread pool calling Rexx, say) needs ooRexx
-   5.3.0 (beta, r13265 or later): 5.2.0 crashes there.
+1. **ooRexx 5.3.0, r13278 or later** (beta). Get it from
+   [SourceForge](https://sourceforge.net/projects/oorexx/files/oorexx/5.3.0beta/)
+   and check that `rexx -v` runs in a terminal. The bridge needs its
+   `logicalwrapper.cls` (Python's `bool` in Rexx), new in r13278; 5.2.0, the
+   current release, does not have it.
 2. **Python 3.9 or later**, any version: the bridge is one binary for all of
    them. If you want the samples that use numpy, matplotlib and pandas,
    install them too: `pip install numpy matplotlib pandas`.
@@ -202,8 +201,7 @@ macOS or Windows, with:
   prompt's environment;
 - `curl`, and [uv](https://docs.astral.sh/uv/) (or `pip`, which
   `setup-pythons.sh` uses to install uv);
-- an ooRexx 5.2.0 or later (5.3.0 for several threads at once) with its API
-  headers: an installed ooRexx (`/usr/local`), or one of ooRexx's portable
+- an ooRexx 5.3.0, r13278 or later, with its API headers: an installed ooRexx (`/usr/local`), or one of ooRexx's portable
   builds from
   [SourceForge](https://sourceforge.net/projects/oorexx/files/oorexx/5.3.0beta/portable/)
   with its `bin/` on the `PATH`.
@@ -219,7 +217,7 @@ Everything goes into the directory that contains your clone
 (`$ORXPY_WORK`, overridable), next to it:
 
 ```
-build/        oorexx.abi3.so, librexxpython.so, python.cls, boolean.cls
+build/        oorexx.abi3.so, librexxpython.so, python.cls
               (macOS: librexxpython.dylib; Windows: oorexx.pyd, rexxpython.dll)
 pythons/      the CPython versions to test against
 oorexxunit/   ooRexx's test framework (for the tests)
@@ -264,14 +262,11 @@ is a failure). `PYTHONS="3.9 3.13"` and `TESTS=Threads.testGroup` choose;
   - `loader.cpp` — `librexxpython.so`, the ooRexx package that finds and
     loads a Python when Rexx starts, then hands over to the bridge.
   - `python.cls` — the Rexx side: `.py`, `.PyObject`, `py.import` & co.
-  - `boolean.cls` — `.Boolean`, Python's `bool` in Rexx: the class the
-    ooRexx bridges share, proposed for ooRexx itself (version 2 of the
-    family's copy, unchanged; CPL 1.0).
 - `samples/` — short "nutshell" programs, one feature each, both ways;
   each shows the Python it replaces and its exact output (see its README).
 - `tests/` — `run.sh`; `rexx/` (ooRexxUnit test groups: basics, booleans,
-  callbacks, ADDRESS, numpy, lifetime, threads, subclassing, and all the samples;
-  `boolean-test.rex`, `boolean.cls`'s own tests), `python/` (the Python
+  callbacks, ADDRESS, numpy, lifetime, threads, subclassing, and all the samples),
+  `python/` (the Python
   side), `probe/` (the conversion probe and its expected output, run by
   `python/t80_conversion_probe.py`).
 - `scripts/` — `build.sh`, `setup-pythons.sh`, `setup-oorexxunit.sh`,
@@ -304,6 +299,4 @@ Written by Josep Maria Blasco, with Claude (Anthropic) as coding assistant.
 
 ## License
 
-Apache License 2.0 (`LICENSE`), except `src/boolean.cls` and
-`tests/rexx/boolean-test.rex`, Common Public License 1.0, as ooRexx (their
-headers).
+Apache License 2.0 (`LICENSE`).

@@ -25,8 +25,8 @@ Rexx as follows:</para>
 <listitem><para>Python's <literal>str</literal>, <literal>int</literal>,
 <literal>float</literal> and <literal>bytes</literal> come back as Rexx
 strings, with their value. A <literal>bool</literal> comes back as
-<computeroutput>.Boolean~true</computeroutput> or
-<computeroutput>.Boolean~false</computeroutput>, which Rexx takes as
+<computeroutput>.LogicalWrapper~true</computeroutput> or
+<computeroutput>.LogicalWrapper~false</computeroutput>, which Rexx takes as
 <literal>1</literal> and <literal>0</literal>, its &true; and &false;
 (<xref linkend="valuesBoolean"/>).</para></listitem>
 <listitem><para>A <literal>float</literal> is written as a Rexx number:
@@ -109,7 +109,7 @@ an item, go to Python as follows:</para>
   <literal>"+5"</literal>, and any text.</para></listitem>
   </itemizedlist></listitem>
 <listitem><para>&nil; goes as &None;.</para></listitem>
-<listitem><para>A <classname>Boolean</classname> goes as a
+<listitem><para>A <classname>LogicalWrapper</classname> goes as a
 <literal>bool</literal> (<xref linkend="valuesBoolean"/>).</para></listitem>
 <listitem><para>A Rexx Array goes as a Python <literal>list</literal>, a
 copy, its items converted by the same rules (nested Arrays as nested
@@ -164,29 +164,33 @@ say (l[0] == d) l[0]~class~id
 </section>
 
 <section id="valuesBoolean"><title>Booleans</title>
-<indexterm><primary>Boolean class</primary></indexterm>
+<indexterm><primary>LogicalWrapper class</primary></indexterm>
 <indexterm><primary>bool</primary></indexterm>
 <para>Rexx's &true; and &false; are the strings <literal>1</literal> and
 <literal>0</literal>: nothing tells &false; from the number
-<literal>0</literal>. For a real boolean, <filename>python.cls</filename>
-brings the <classname>Boolean</classname> class, from
-<filename>boolean.cls</filename>, which the ooRexx bridges share and which
-is proposed for ooRexx itself. It has two instances,
-<computeroutput>.Boolean~true</computeroutput> and
-<computeroutput>.Boolean~false</computeroutput>, that are
+<literal>0</literal>. For a real boolean, the bridge uses ooRexx's
+<classname>LogicalWrapper</classname> class, from
+<filename>logicalwrapper.cls</filename> (in ooRexx since 5.3.0 r13278). It
+has two instances, <computeroutput>.LogicalWrapper~true</computeroutput> and
+<computeroutput>.LogicalWrapper~false</computeroutput>, that are
 <literal>1</literal> and <literal>0</literal> wherever Rexx uses them
 (<literal>IF</literal>, operators, <literal>DATATYPE</literal>, string
-methods) and answer <computeroutput>isA(.Boolean)</computeroutput>;
-<computeroutput>.Boolean~of(value)</computeroutput> gives the one for a
-logical value.</para>
+methods) and answer <computeroutput>isA(.LogicalWrapper)</computeroutput>;
+<computeroutput>.LogicalWrapper~of(value)</computeroutput> gives the one for a
+logical value. <filename>python.cls</filename> requires it, but a program
+that names the class needs its own <computeroutput>::requires
+"logicalwrapper.cls"</computeroutput>.</para>
 <itemizedlist>
 <listitem><para>Python's <literal>True</literal> and
 <literal>False</literal> come to Rexx as
-<computeroutput>.Boolean~true</computeroutput> and
-<computeroutput>.Boolean~false</computeroutput>.</para></listitem>
-<listitem><para>A <classname>Boolean</classname> goes to Python as
+<computeroutput>.LogicalWrapper~true</computeroutput> and
+<computeroutput>.LogicalWrapper~false</computeroutput>.</para></listitem>
+<listitem><para>A <classname>LogicalWrapper</classname> goes to Python as
 <literal>True</literal> or <literal>False</literal>, so a bool that goes
-through Rexx and back is still a bool.</para></listitem>
+through Rexx and back is still a bool. Its subclasses too: JSON's and
+YAML's booleans (<classname>JSONBoolean</classname>,
+<classname>YamlBoolean</classname>), as <filename>json.cls</filename> and
+<filename>yaml.cls</filename> read them.</para></listitem>
 <listitem><para>&true; and &false; go as the <literal>int</literal>s 1 and 0,
 by the number rule, except to a parameter annotated
 <literal>bool</literal> (below).</para></listitem>
@@ -196,10 +200,11 @@ by the number rule, except to a parameter annotated
 <programlisting language="rexx">t = .py~eval("1 &lt; 2")
 say t t~class~id (t + 1)
 json = .py~import("json")
-say json~dumps(.array~of(.Boolean~true, .true))
+say json~dumps(.array~of(.LogicalWrapper~true, .true))
 
-::requires "python.cls"</programlisting>
-<screen>1 Boolean 2
+::requires "python.cls"
+::requires "logicalwrapper.cls"</programlisting>
+<screen>1 LogicalWrapper 2
 [true, 1]</screen>
 </example>
 </section>
@@ -214,7 +219,7 @@ parameter annotated <literal>bool</literal> goes as <literal>True</literal> or
 <literal>False</literal>, so that &true; works for pandas'
 <literal>inplace=</literal>. For a function without annotations that insists
 on a real <literal>bool</literal>, pass
-<computeroutput>.Boolean~true</computeroutput> (or
+<computeroutput>.LogicalWrapper~true</computeroutput> (or
 <computeroutput>.py~box("bool", 1)</computeroutput>).</para>
 
 <example id="ex.values-bool">

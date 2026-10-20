@@ -51,10 +51,11 @@
  *               say o                    str(o)
  *
  * Values: Python str, int, float, bytes and None (.nil) come back as Rexx
- * strings, bool as .Boolean~true / .Boolean~false (boolean.cls); everything
- * else as a .PyObject.  Rexx strings that are numbers go to Python as int or
- * float (but 1/0 as True/False to a parameter annotated bool), a .Boolean as
- * a bool; Rexx Arrays as lists (copies).
+ * strings, bool as .LogicalWrapper~true / ~false (ooRexx's logicalwrapper.cls);
+ * everything else as a .PyObject.  Rexx strings that are numbers go to Python
+ * as int or float (but 1/0 as True/False to a parameter annotated bool), a
+ * .LogicalWrapper (JSON's and YAML's booleans too) as a bool; Rexx Arrays as
+ * lists (copies).
  * The design, and the reasons: docs/design.md.
  * A Python exception is SYNTAX 98.900 "Python error: Type: message", with
  * the exception in condition("O")~additional[2] and the traceback in
@@ -65,7 +66,7 @@
 .local~py = .Python~new
 
 ::requires "rexxpython" LIBRARY
-::requires "boolean.cls"           -- .Boolean: Python's bool in Rexx
+::requires "logicalwrapper.cls"    -- .LogicalWrapper: Python's bool in Rexx
 
 ::class PyObject public
 -- Every method but init is UNGUARDED: a proxy has no Rexx state that changes

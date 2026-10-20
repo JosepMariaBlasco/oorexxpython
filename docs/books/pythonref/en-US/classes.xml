@@ -15,9 +15,9 @@ the class of every Python object in Rexx, <classname>PyArrayProxy</classname>
 and <classname>PyKwArgs</classname>. The stream classes,
 <classname>PyOutputStream</classname> and <classname>PyInputStream</classname>,
 are described in <xref linkend="streams"/>. <filename>python.cls</filename>
-also requires <filename>boolean.cls</filename>, whose
-<classname>Boolean</classname> class is Python's <literal>bool</literal> in
-Rexx (<xref linkend="valuesBoolean"/>).</para>
+also requires ooRexx's <filename>logicalwrapper.cls</filename>, whose
+<classname>LogicalWrapper</classname> class is Python's <literal>bool</literal>
+in Rexx (<xref linkend="valuesBoolean"/>).</para>
 
 <!-- ===================================================================== -->
 <section id="clsPython"><title>Python Class</title>

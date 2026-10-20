@@ -38,8 +38,7 @@ Python's GIL and ooRexx's kernel lock, and the bridge never holds one while
 waiting for the other: while Python works, other Rexx threads run, and while
 Rexx works, other Python threads run. So four Rexx threads
 (<literal>START</literal>) can call Python at once, and four threads of
-Python's pool can call the same Rexx routine at once. This needs ooRexx 5.3.0:
-5.2.0 crashes when an interpreter is used from several threads at once.</para>
+Python's pool can call the same Rexx routine at once.</para>
 <para><computeroutput>cf~ThreadPoolExecutor(4)</computeroutput> calls the
 class with an argument, which makes an instance, as
 <computeroutput>~new(4)</computeroutput> would.</para>

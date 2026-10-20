@@ -79,7 +79,7 @@ say .py~eval("None") == .nil
 
 # What comes back as a Rexx string, what stays a `.PyObject`; `.py~str` {#ex02-values-2 kicker="02-values.rex"}
 
-Which values cross as Rexx strings, which stay Python objects. Python str, int, float and None come back as Rexx strings (.nil for None), bool as .Boolean~true or ~false (1 and 0 for Rexx); everything else is a .PyObject, a reference to the Python object. Rexx numbers go to Python as int or float; other strings as str.
+Which values cross as Rexx strings, which stay Python objects. Python str, int, float and None come back as Rexx strings (.nil for None), bool as .LogicalWrapper~true or ~false (1 and 0 for Rexx); everything else is a .PyObject, a reference to the Python object. Rexx numbers go to Python as int or float; other strings as str.
 
 ::: row
 ::: col-9
@@ -513,7 +513,7 @@ FAILURE RC 30
 
 ```rexx
 json = .py~import("json")
-d = .py~dict(.py~kw("lang", "ooRexx", "since", 2004, "oo", .Boolean~true))
+d = .py~dict(.py~kw("lang", "ooRexx", "since", 2004, "oo", .LogicalWrapper~true))
 text = json~dumps(d, .py~kw("sort_keys", .true))
 say text
 data = json~loads('{"langs": ["Rexx", "Python"], "year": 2026}')
@@ -523,6 +523,7 @@ do lang over data["langs"]
 end
 
 ::requires "python.cls"
+::requires "logicalwrapper.cls"   -- ooRexx's: a real boolean
 ```
 
 # `json`: dumps, loads {#ex10-json-2 kicker="10-json.rex"}
@@ -1465,7 +1466,8 @@ ooRexx 1
 - `.true` and `.false` are the Rexx strings `1` and `0`, so they go to
   Python as ints, except to a parameter annotated `bool`, where they go as
   `True` and `False` (pandas' `inplace=`, 23). For a real `bool`, use
-  `.Boolean~true` and `.Boolean~false`, which are `1` and `0` for Rexx;
+  `.LogicalWrapper~true` and `~false` (ooRexx's `logicalwrapper.cls`, which
+  a program that names them requires), which are `1` and `0` for Rexx;
   Python's `True` and `False` come back as them (10).
 - A Rexx class that extends a Python class is a subclass of `PyObject` that
   calls `.py~extend(self, base)` in its `ACTIVATE` class method. Its INIT

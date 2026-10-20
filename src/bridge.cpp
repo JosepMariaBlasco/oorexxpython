@@ -173,7 +173,7 @@ struct Val
     RexxObjectPtr robj = NULLOBJECT;      // REXX: a Rexx object
     struct Inst *inst = NULL;             // REXX: its interpreter instance
     bool boolean = false;                 // STR: a boolean ("1"/"0"): Python's
-                                          // bool, Rexx's .Boolean (*Values*)
+                                          // bool, Rexx's .LogicalWrapper (*Values*)
     unsigned long keepKey = 0;            // REXX: robj is kept alive under this key
 };
 
@@ -199,7 +199,7 @@ struct RexxSide
     RexxClassObject pyObjectClass;
     RexxClassObject kwClass;
     RexxDirectoryObject keep = NULLOBJECT;
-    RexxClassObject booleanClass = NULLOBJECT;   // boolean.cls's .Boolean, and
+    RexxClassObject booleanClass = NULLOBJECT;   // ooRexx's .LogicalWrapper, and
     RexxObjectPtr trueObj = NULLOBJECT;          // its two instances
     RexxObjectPtr falseObj = NULLOBJECT;
     bool strings = false;                 // the receiver came from a module imported
@@ -240,9 +240,9 @@ struct StringsScope
 struct InstanceData
 {
     RexxClassObject pyObjectClass = NULLOBJECT, kwClass = NULLOBJECT;
-    RexxClassObject booleanClass = NULLOBJECT;    // .Boolean (boolean.cls, which
-    RexxObjectPtr trueObj = NULLOBJECT;           // python.cls requires) and its
-    RexxObjectPtr falseObj = NULLOBJECT;          // two instances
+    RexxClassObject booleanClass = NULLOBJECT;    // .LogicalWrapper (logicalwrapper.cls,
+    RexxObjectPtr trueObj = NULLOBJECT;           // which python.cls requires) and
+    RexxObjectPtr falseObj = NULLOBJECT;          // its two instances
     RexxDirectoryObject keep = NULLOBJECT;
     RexxObjectPtr graveyard;              // .PyObject~graveyard (see drainGraveyard)
 };
@@ -295,8 +295,8 @@ static RexxObjectPtr graveyardOf(RexxThreadContext *tc, RexxClassObject pyObject
     return q == NULLOBJECT ? NULLOBJECT : tc->RequestGlobalReference(q);
 }
 
-// .Boolean and its two instances into d (global references, once per
-// instance); without boolean.cls, booleans cross as "1" and "0"
+// .LogicalWrapper and its two instances into d (global references, once per
+// instance); without logicalwrapper.cls, booleans cross as "1" and "0"
 static void setBooleans(RexxThreadContext *tc, InstanceData &d, RexxClassObject cls)
 {
     if (cls == NULLOBJECT) return;
@@ -332,7 +332,7 @@ static bool findClasses(RexxMethodContext *context, RexxSide &side)
             InstanceData d;
             d.pyObjectClass = (RexxClassObject)side.tc->RequestGlobalReference(side.pyObjectClass);
             d.kwClass = (RexxClassObject)side.tc->RequestGlobalReference(side.kwClass);
-            setBooleans(side.tc, d, context->FindContextClass("BOOLEAN"));
+            setBooleans(side.tc, d, context->FindContextClass("LOGICALWRAPPER"));
             d.keep = (RexxDirectoryObject)side.tc->RequestGlobalReference(side.tc->NewDirectory());
             d.graveyard = graveyardOf(side.tc, side.pyObjectClass);
             instances[side.inst] = d;
@@ -511,7 +511,8 @@ static void rexxToVal(RexxSide &side, RexxObjectPtr o, Val &v, ArrayMemo &memo)
     }
     else if (side.booleanClass != NULLOBJECT && c->IsInstanceOf(o, side.booleanClass))
     {
-        // a .Boolean (or a subclass's): Python's bool (docs/design.md, *Values*)
+        // a .LogicalWrapper (or a subclass's: JSON's, YAML's): Python's bool
+        // (docs/design.md, *Values*)
         v.kind = Val::STR;
         v.s = c->ObjectToStringValue(o);
         v.boolean = true;
@@ -1387,8 +1388,8 @@ static RexxObjectPtr valToRexx(RexxSide &side, Val &v)
     switch (v.kind)
     {
         case Val::STR:
-            // a bool: .Boolean~true or ~false (docs/design.md, *Values*);
-            // "1"/"0" where boolean.cls is not loaded
+            // a bool: .LogicalWrapper~true or ~false (docs/design.md, *Values*);
+            // "1"/"0" where logicalwrapper.cls is not loaded
             if (v.boolean && side.trueObj != NULLOBJECT) return v.s == "1" ? side.trueObj : side.falseObj;
             return c->String(v.s.data(), v.s.size());
         case Val::REF:
@@ -2744,7 +2745,7 @@ static PyObject *interpreterNew(PyTypeObject *type, PyObject *args, PyObject *kw
             d.kwClass = (RexxClassObject)tc->RequestGlobalReference(tc->FindPackageClass(package, "PYKWARGS"));
             d.keep = (RexxDirectoryObject)tc->RequestGlobalReference(tc->NewDirectory());
             d.graveyard = graveyardOf(tc, d.pyObjectClass);
-            setBooleans(tc, d, tc->FindPackageClass(package, "BOOLEAN"));
+            setBooleans(tc, d, tc->FindPackageClass(package, "LOGICALWRAPPER"));
             {
                 std::lock_guard<std::mutex> guard(instancesLock);
                 instances[inst] = d;

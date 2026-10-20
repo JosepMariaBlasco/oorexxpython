@@ -239,7 +239,7 @@ is consistent with `==`, so `.PyObject`s work as keys of Rexx collections.
 ### Values
 
 From Python to Rexx: `str`, `int`, `float`, `bytes` and `None` (`.nil`)
-come back as Rexx strings, `bool` as `.Boolean~true` / `.Boolean~false` (see
+come back as Rexx strings, `bool` as `.LogicalWrapper~true` / `~false` (see
 *Booleans*); everything else as a `.PyObject`,
 by reference. numpy scalars (`np.float64`, `np.int64`...) are converted with
 `item()`, subclasses of `int` give their int value. A float is written as
@@ -293,45 +293,41 @@ x)` gets two lists). Arrays nested more than 1000 deep are an error
 (`ValueError`, SYNTAX 98.900 in Rexx), since the copy recurses (until
 0.1.0-preview.13 a cycle crashed the process). The way back is not symmetric: a list of lists comes to Rexx as a
 `.PyObject`, as any list. A
-`.Boolean` goes as a `bool` (see *Booleans*).
+`.LogicalWrapper` goes as a `bool` (see *Booleans*).
 
 ### Booleans
 
 In Rexx, `.true` and `.false` are the strings `"1"` and `"0"`: nothing tells
 `.false` from `0`, so a Rexx program cannot hand a real boolean to Python as
-a value. The ooRexx bridges (for Python, .NET, Lua and JavaScript) share one
-class for that, `.Boolean`, from `boolean.cls`: two instances,
-`.Boolean~true` and `.Boolean~false`, that are `"1"` and `"0"` in every Rexx
-context (`IF`, operators, `DATATYPE`, string methods, stem and collection
-indexes) and answer `isA(.Boolean)`. The class is proposed for the ooRexx
-core (RFE #880, the name still open: `.Boolean` or `.Logical`); until it is
-there, each bridge carries the same verbatim copy (`src/boolean.cls`, the
-family's **version 2**, its `Version:` line; its tests
-`tests/rexx/boolean-test.rex`), CPL 1.0 as ooRexx. Like a core class, it is
-visible everywhere: its prolog puts it in `.environment` as `BOOLEAN`, unless
-an entry is there already (a core `.Boolean`, or the copy another package
-loaded first). A program that requires two bridges gets one `.Boolean`, and
-so do several interpreter instances in one process: ooRexx shares a package
-loaded from the same file (measured; only a copy loaded explicitly from
-another path is another class).
+a value. ooRexx itself has a class for that since 5.3.0 r13278,
+`.LogicalWrapper`, from `logicalwrapper.cls` (in ooRexx's `bin/`; RFE #880,
+which grew out of the class the ooRexx bridges shared, `.Boolean`): two
+instances, `.LogicalWrapper~true` and `~false`, that are `"1"` and `"0"` in
+every Rexx context (`IF`, operators, `DATATYPE`, string methods, stem and
+collection indexes) and answer `isA(.LogicalWrapper)`. JSON's and YAML's
+booleans (`JSONBoolean` in `json.cls`, `YamlBoolean` in `yaml.cls`) are its
+subclasses, each with two instances of its own. Every ooRexx bridge (for
+Python, .NET, Lua and JavaScript) uses it. Several interpreter instances in
+one process see one class, since ooRexx shares a package loaded from the
+same file (measured: `isA(.LogicalWrapper)` holds in either instance for
+values made in the other, JSON's included).
 
-- Python's `True` and `False` come to Rexx as `.Boolean~true` and
-  `.Boolean~false` (until 0.1.0-preview.13: the strings `1` and `0`). Rexx
-  programs see no difference, and a bool that goes through Rexx and back is
-  a bool.
-- Any Rexx object with `isA(.Boolean)` (a subclass's too) goes to Python as
-  a `bool`, also to a module imported as `"string"`. `.true` and `.false`
-  are still the strings `1` and `0`: the number rule, and the `bool`
-  annotation below.
-- `python.cls` requires `boolean.cls`; the Rexx code that Python runs
-  (`oorexx.Interpreter`), which has no `::requires`, finds `.Boolean` in
-  `.environment`.
-- Installing (`install.rex`): `boolean.cls` goes next to `python.cls`, and
-  every ooRexx bridge that installs into ooRexx's `bin/` uses the one there.
-  A `bin/boolean.cls` already there is kept unless ours has a higher
-  `Version:` line (version 1 has none: 1); uninstalling removes it only when
-  no other bridge's package (`net.cls`, `lua.cls`, `js.cls`) is left in
-  `bin/`, and otherwise leaves a plain copy where our link was.
+- Python's `True` and `False` come to Rexx as `.LogicalWrapper~true` and
+  `~false` (until 0.1.0-preview.13: the strings `1` and `0`). Rexx
+  programs see no difference, and a bool that goes through Rexx and back is a bool.
+- Any Rexx object with `isA(.LogicalWrapper)` goes to Python as a `bool`,
+  also to a module imported as `"string"`; that includes JSON's and YAML's
+  (`.json~new~fromJSON("[true]")` is `[True]`), which come back as
+  `.LogicalWrapper~true`, not as themselves. `.true` and `.false` are still
+  the strings `1` and `0`: the number rule, and the `bool` annotation below.
+- `python.cls` requires `logicalwrapper.cls`. The class is not in
+  `.environment`, so Rexx code that names it, a program or the code Python
+  runs (`oorexx.Interpreter`), needs its own `::requires
+  "logicalwrapper.cls"`; the values themselves need nothing.
+- Development builds after 0.1.0-preview.13 installed a `boolean.cls` (the
+  bridges' `.Boolean`, into ooRexx's `bin/`); `install.rex` now removes it, or, while another
+  bridge's package (`net.cls`, `lua.cls`, `js.cls`) is left in `bin/`, turns
+  our link into a plain copy.
 
 One exception, by reflection: a `1` or `0` passed to a parameter annotated
 `bool` (also `bool | None`, `Optional[bool]`, or a name the function's
@@ -801,17 +797,17 @@ collection on another thread cannot free it before the GIL comes back
 interpreter stays attached until `close()`: detaching it makes `Terminate`
 wait forever (ooRexx bug #2107).
 
-**ooRexx versions.** The bridge uses nothing newer than ooRexx 5.2.0's API
-(5.3.0's `oorexxapi.h` adds only the version constant), so the minimum is
-5.2.0, the current release, and CI runs the tests with it too. One thing
-needs 5.3.0 (r13265 or later): using an interpreter from several threads at
-once. On 5.2.0 that crashes inside ooRexx, in its tables of activities
-(`AttachThread`, `addWaitingActivity`), and the three concurrent tests
-(`Threads.testGroup`, `t15_concurrent_calls.py`,
-`t20_returned_objects.py`) fail, as can the sample `09-threads.rex` (Python's
-thread pool calling a Rexx routine), which `Samples.testGroup` skips there;
-everything else passes. 5.2.0 also has
-bug #2102, which slows down programs that make many proxies.
+**ooRexx versions.** The minimum is ooRexx 5.3.0 r13278, which CI also
+runs: Python's `bool` is ooRexx's own `.LogicalWrapper` (`logicalwrapper.cls`,
+new in r13278; see *Values*). The native API used is still 5.2.0's (5.3.0's
+`oorexxapi.h` adds only the version constant), but 5.2.0 has no
+`logicalwrapper.cls`, and it also crashed when an interpreter was used from
+several threads at once (in its tables of activities, `AttachThread`,
+`addWaitingActivity`; fixed by r13265), and has bug #2102, which slows down
+programs that make many proxies. Some tests and the Reference still describe
+what happens before r13275 (ADDRESS environments registered from several
+threads, bugs #2111 and #2112): that is for ooRexx builds between the two,
+which cannot load the bridge now, and goes with the next change there.
 
 **Objects shared between interpreters.** All interpreter instances in a
 process share one object memory and one garbage collector, and `.environment`

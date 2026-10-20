@@ -26,9 +26,6 @@ Rexx works.</para>
 detaches after. The methods of <classname>PyObject</classname> are
 unguarded, so a proxy is never locked by a thread that is in Python.</para>
 
-<para>Using one interpreter from several threads at once needs ooRexx 5.3.0:
-ooRexx 5.2.0 crashes there, inside the interpreter.</para>
-
 <example id="ex.threads" condition="oorexx53">
 <title>A Python thread pool calling a Rexx routine</title>
 <programlisting language="python">import concurrent.futures, oorexx
@@ -41,13 +38,9 @@ with oorexx.Interpreter() as rexx:
 </example>
 
 <section id="threadsAddress"><title>ADDRESS Environments and Threads</title>
-<para>With an ooRexx older than 5.3.0 r13275, register ADDRESS environments
-when the interpreter is created (<literal>command_environments=</literal>),
-or before other threads run Rexx in it: ooRexx changed its table of
-environments without its lock (ooRexx bug #2111, fixed in r13274), and
-addressing an environment not registered yet, while other threads run Rexx,
-could crash it (bug #2112, fixed in r13275). From r13275 on, environments
-can be registered at any time.</para>
+<para>ADDRESS environments can be registered at any time, from any thread,
+also while other threads run Rexx in the same interpreter. (Before ooRexx
+5.3.0 r13275 that could crash it: ooRexx bugs #2111 and #2112.)</para>
 </section>
 
 </chapter>

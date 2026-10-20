@@ -35,8 +35,9 @@
 12345678901234567890 * 10 (DIGIT float:1.23456789e+20
 2**100 under DIGITS 30           float:1.2676506002282294e+30
 .true / .false                   int:1 int:0
-.Boolean~true / ~false           bool:True bool:False
-.array~of(.Boolean~true, 1)      list:[True, 1]
+.LogicalWrapper~true / ~false    bool:True bool:False
+an Array of ~true and 1          list:[True, 1]
+.json~true (JSONBoolean)         bool:True
 .nil                             NoneType:None
 sparse Array [1,,x,]             list:[1, None, 'x', None]
 2-D Array 2x2                    list:[[1, None], [None, 4]]
@@ -56,8 +57,8 @@ stem s.                          RexxObject:<Rexx S.>
 'é' (UTF-8 bytes)               str:'é'
 'ff'x (not UTF-8)                str:'\udcff'
 --- Python -> Rexx
-True                                          .Boolean~true
-False                                         .Boolean~false
+True                                          .LogicalWrapper~true
+False                                         .LogicalWrapper~false
 None                                          .nil
 0                                             '0' len 1
 -0.0                                          '-0.0' len 4

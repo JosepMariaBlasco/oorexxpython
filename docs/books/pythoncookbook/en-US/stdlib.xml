@@ -20,11 +20,12 @@ worth knowing.</para>
 <computeroutput>.py~dict(.py~kw(...))</computeroutput> makes a dict from
 keyword arguments, as Python's <computeroutput>dict(a=1)</computeroutput>
 does. The value for <literal>"oo"</literal> is
-<computeroutput>.Boolean~true</computeroutput>, which goes to Python as
+<computeroutput>.LogicalWrapper~true</computeroutput> (ooRexx's
+<filename>logicalwrapper.cls</filename>, which the sample requires), which goes to Python as
 <literal>True</literal>: <literal>.true</literal>, the Rexx string
 <literal>1</literal>, would go as the number 1, and JSON would say
 <literal>1</literal>, not <literal>true</literal>. A JSON
-<literal>true</literal> comes back as <computeroutput>.Boolean~true</computeroutput>. What
+<literal>true</literal> comes back as <computeroutput>.LogicalWrapper~true</computeroutput>. What
 <methodname>loads</methodname> returns is Python's: a dict, whose
 <literal>"langs"</literal> is a list, indexed from 0, and iterated with
 <literal>DO OVER</literal>.</para>

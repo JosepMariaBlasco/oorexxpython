@@ -17,8 +17,9 @@ numeric digits 30
 say left("2**100 under DIGITS 30", 32) k~new(2**100)
 numeric digits 9
 say left(".true / .false", 32) k~new(.true) k~new(.false)
-say left(".Boolean~true / ~false", 32) k~new(.Boolean~true) k~new(.Boolean~false)
-say left(".array~of(.Boolean~true, 1)", 32) k~new(.array~of(.Boolean~true, 1))
+say left(".LogicalWrapper~true / ~false", 32) k~new(.LogicalWrapper~true) k~new(.LogicalWrapper~false)
+say left("an Array of ~true and 1", 32) k~new(.array~of(.LogicalWrapper~true, 1))
+say left(".json~true (JSONBoolean)", 32) k~new(.json~true)
 say left(".nil", 32) k~new(.nil)
 a = .array~new(4); a[1] = 1; a[3] = "x"
 say left("sparse Array [1,,x,]", 32) k~new(a)
@@ -58,7 +59,7 @@ do while e \= ""
   r = .py~eval(x)
   if r == .nil then say left(x, 45) ".nil"
   else if r~isA(.PyObject) then say left(x, 45) "PyObject:" r
-  else if r~isA(.Boolean) then say left(x, 45) ".Boolean~"word("false true", r + 1)
+  else if r~isA(.LogicalWrapper) then say left(x, 45) ".LogicalWrapper~"word("false true", r + 1)
   else say left(x, 45) "'"r"'" "len" r~length
 end
 np = .py~import("numpy")
@@ -98,3 +99,5 @@ asFloat: procedure expose asfloat   -- what float() makes of the Rexx string
 syntax:
   return condition("o")~message
 ::requires "python.cls"
+::requires "logicalwrapper.cls"
+::requires "json.cls"

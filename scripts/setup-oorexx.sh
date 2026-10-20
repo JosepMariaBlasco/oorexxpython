@@ -4,7 +4,9 @@
 #   setup-oorexx.sh            (OOREXX_REV, OOREXX_SRC, OOREXX_BUILD, OOREXX_INST)
 set -euo pipefail
 WORK=${ORXPY_WORK:-$(cd "$(dirname "$0")/../.." && pwd)}   # the directory that contains the clone
-REV=${OOREXX_REV:-13254}
+HERE=$(cd "$(dirname "$0")/.." && pwd)
+# default: the CI's revision (OOREXX_REV in the workflow), also the minimum
+REV=${OOREXX_REV:-$(sed -n 's/^ *OOREXX_REV: *"\([0-9]*\)".*/\1/p' "$HERE/.github/workflows/build.yml" | head -1)}
 SRC=${OOREXX_SRC:-$WORK/oorexx}
 BUILD=${OOREXX_BUILD:-$WORK/oorexx-build}
 INST=${OOREXX_INST:-$WORK/oorexx-inst}

@@ -8,7 +8,7 @@
  *   print(data["langs"][1], data["year"])
  */
 json = .py~import("json")
-d = .py~dict(.py~kw("lang", "ooRexx", "since", 2004, "oo", .Boolean~true))
+d = .py~dict(.py~kw("lang", "ooRexx", "since", 2004, "oo", .LogicalWrapper~true))
 text = json~dumps(d, .py~kw("sort_keys", .true))
 say text
 data = json~loads('{"langs": ["Rexx", "Python"], "year": 2026}')
@@ -18,6 +18,7 @@ do lang over data["langs"]
 end
 
 ::requires "python.cls"
+::requires "logicalwrapper.cls"   -- ooRexx's: a real boolean
 /* Output:
 {"lang": "ooRexx", "oo": true, "since": 2004}
 Python 2026

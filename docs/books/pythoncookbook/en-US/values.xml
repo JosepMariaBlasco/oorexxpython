@@ -20,8 +20,8 @@ from Python, and what Python gets from you.</para>
 <para><emphasis role="bold">How it works.</emphasis> Coming back from Python,
 <literal>str</literal>, <literal>int</literal> and <literal>float</literal>
 are Rexx strings, a <literal>bool</literal> is
-<computeroutput>.Boolean~true</computeroutput> or
-<computeroutput>.Boolean~false</computeroutput>, which Rexx takes as
+<computeroutput>.LogicalWrapper~true</computeroutput> or
+<computeroutput>.LogicalWrapper~false</computeroutput>, which Rexx takes as
 <literal>1</literal> and <literal>0</literal>, and <literal>None</literal> is
 <literal>.nil</literal>.
 Everything else, a dict here, stays in Python and comes to Rexx as a
