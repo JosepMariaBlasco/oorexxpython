@@ -100,6 +100,21 @@ for i in range(40):
         break
 check("40 open/close cycles", error, None)
 
+# 6. Booleans: one .LogicalWrapper for every instance, so isA holds for values
+# made in another one (JSON's too) and they come back to Python as bool
+LW = '\n::requires "logicalwrapper.cls"\n::requires "json.cls"'
+p1, p2 = oorexx.Interpreter(), oorexx.Interpreter()
+make = p1.routine("use arg t; d = .directory~new; d~lw = .LogicalWrapper~false; d~py = t; d~json = .json~true; return d" + LW)
+ask = "use arg d; return d~lw~isA(.LogicalWrapper) d~py~isA(.LogicalWrapper) d~json~isA(.LogicalWrapper) (d~py == .LogicalWrapper~true)" + LW
+same = "return .LogicalWrapper~identityHash" + LW
+d = make(True)
+check("one .LogicalWrapper for two instances", p1.routine(same)() == p2.routine(same)(), True)
+check("isA(.LogicalWrapper) in the same instance", p1.routine(ask)(d), "1 1 1 1")
+check("isA(.LogicalWrapper) in the other instance", p2.routine(ask)(d), "1 1 1 1")
+check("back to Python from the other instance", p2.routine("use arg d; return .array~of(d~lw, d~py, d~json)")(d), [False, True, True])
+p1.close()
+p2.close()
+
 b.close()
 other.close()
 print(f"{checks} checks, {failures} failed")
