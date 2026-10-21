@@ -1501,9 +1501,11 @@ static PyObject *rexxErrorType = NULL;   // oorexx.RexxError
 // the condition object, raiseRexxError): raise that condition again, as
 // itself, with its code and ADDITIONAL (SYNTAX), or its DESCRIPTION,
 // ADDITIONAL and RESULT (any other), as Rexx would see it with no Python in
-// between.  Whether it did.
-static bool raiseAgain(RexxSide &side, PyError &err)
+// between.  Whether it did; *halted when it was a HALT (raised by halting the
+// thread, so the call still returns a value: see below).
+static bool raiseAgain(RexxSide &side, PyError &err, bool *halted)
 {
+    *halted = false;
     RexxObjectPtr cond = NULLOBJECT;
     {
         Gil gil;
@@ -1535,6 +1537,21 @@ static bool raiseAgain(RexxSide &side, PyError &err)
         wholenumber_t major = atol(code.substr(0, dot).c_str()), minor = atol(code.substr(dot + 1).c_str());
         RexxArrayObject args = additional != NULLOBJECT && c->IsArray(additional) ? (RexxArrayObject)additional
                                                                                   : c->NewArray(0);
+        // 4.1 "Program interrupted with %1 condition" is what ooRexx makes of
+        // a HALT the Rexx code did not trap, before a native caller sees it:
+        // the Rexx caller gets a HALT again (its DESCRIPTION, ADDITIONAL and
+        // RESULT are already gone).  Not RaiseCondition: ooRexx ignores a
+        // condition other than SYNTAX that native code raises and nobody
+        // traps, and a HALT must not be lost.  HaltThread is a Ctrl-C on this
+        // thread: SIGNAL ON HALT and CALL ON HALT trap it at the end of the
+        // clause, and untrapped it is SYNTAX 4.1, as in plain Rexx.  The call
+        // returns .nil meanwhile (CALL ON HALT resumes the clause).
+        if (major == 4 && minor == 1)
+        {
+            c->HaltThread();
+            *halted = true;
+            return true;
+        }
         c->RaiseException((size_t)(major * 1000 + minor), args);
         return true;
     }
@@ -1548,10 +1565,11 @@ static bool raiseAgain(RexxSide &side, PyError &err)
 static RexxObjectPtr finish(RexxSide &side, Val &result, PyError &err)
 {
     RexxThreadContext *c = side.tc;
-    if (err.set && raiseAgain(side, err))
+    bool halted;
+    if (err.set && raiseAgain(side, err, &halted))
     {
         if (result.kind != Val::NIL) { Gil gil; dropVal(result); }
-        return NULLOBJECT;
+        return halted ? c->Nil() : NULLOBJECT;
     }
     if (err.set)
     {

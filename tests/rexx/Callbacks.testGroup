@@ -73,6 +73,37 @@ return testResult
                  "    except Exception as e: return type(e).__name__"))
   self~assertSame("RexxError", b~main~catch(self~routine("fails")), "Python catches it")
 
+-- a HALT in Rexx code called by Python is a HALT again back in Rexx (ooRexx
+-- gives Python SYNTAX 4.1, with the description gone); untrapped, 4.1 as in
+-- plain Rexx
+::method test_halt_round_trip
+  call = .py~eval("lambda f: f()")
+  halts = self~routine("halts")
+  self~assertSame("HALT", self~signalOnHalt(call, halts), "SIGNAL ON HALT")
+  self~assertSame("HALT .nil", self~callOnHalt(call, halts), "CALL ON HALT: the clause resumes, the call gives .nil")
+  self~assertSame("4.1", self~syntaxOf(call, "new", halts)~code, "SYNTAX 4.1 when only SYNTAX is trapped")
+  self~assertSame("HALT", self~signalOnHalt(call, self~routine("haltsViaPython")), -
+                  "Rexx -> Python -> Rexx -> Python -> Rexx")
+
+::method signalOnHalt private
+  use arg pyCallable, f
+  signal on halt
+  pyCallable~new(f)
+  return "no condition"
+halt:
+  return condition("C")
+
+::method callOnHalt private
+  use arg pyCallable, f
+  call on halt name halted
+  trapped = "no condition"
+  x = pyCallable~new(f)
+  nop    -- as with a Ctrl-C, CALL ON's handler runs after the next clause
+  return trapped (x == .nil)~?(".nil", x)
+halted:
+  trapped = condition("C")
+  return
+
 -- Rexx -> Python -> Rexx -> Python
 ::method test_nested
   self~assertSame("25", .py~eval("lambda f, x: f(x)")~new(self~routine("viaPython"), 5), "nested")
@@ -87,5 +118,9 @@ return testResult
   return .directory~new
 ::routine fails
   return substr("x", 0)
+::routine halts
+  raise halt description "h"
+::routine haltsViaPython
+  return .py~eval("lambda f: f()")~new(.context~package~findRoutine("halts"))
 ::routine viaPython
   return .py~pow(arg(1), 2)

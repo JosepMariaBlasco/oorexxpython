@@ -85,9 +85,17 @@ and if Python does not catch the <xref linkend="clsRexxError" xrefstyle="select:
 the Rexx caller gets the original condition, not SYNTAX 98.900: a SYNTAX
 error with its code and message, any other condition with its description,
 <literal>ADDITIONAL</literal> and result. With ooRexx 5.3.0 r13278, only
-SYNTAX errors leave Rexx code that Python calls: a HALT is SYNTAX 4.1 by
-then, and ooRexx does not give a native caller a USER, NOTREADY, ERROR or
-FAILURE condition that the Rexx code does not trap.</para>
+SYNTAX errors leave Rexx code that Python calls, and ooRexx does not give a
+native caller a USER, NOTREADY, ERROR or FAILURE condition that the Rexx
+code does not trap.</para>
+<para>A HALT is SYNTAX 4.1 by the time it leaves that Rexx code (Python sees
+<literal>Rexx error 4.1</literal>), and back in Rexx it is a HALT again, as
+a Ctrl-C would be: <literal>SIGNAL ON HALT</literal> traps it at the end of
+the clause that called Python, <literal>CALL ON HALT</literal> runs its
+handler after the next clause (the call gives <literal>.nil</literal>
+meanwhile), and a caller that does not trap HALT gets SYNTAX 4.1, as in
+plain Rexx. Its description, <literal>ADDITIONAL</literal> and result are
+lost on the way: ooRexx drops them when it turns the HALT into 4.1.</para>
 </section>
 
 <section id="condRexxInPython"><title>Rexx Conditions in Python</title>

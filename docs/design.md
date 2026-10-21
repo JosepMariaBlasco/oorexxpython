@@ -443,7 +443,13 @@ condition with its `DESCRIPTION`, `ADDITIONAL` and `RESULT`. The
 interpreter instance. What reaches Python is only what ooRexx's API gives a
 native caller: a Rexx call from native code (`CallRoutine`, `SendMessage`)
 traps SYNTAX alone. A HALT the Rexx code does not trap is already SYNTAX 4.1
-when it leaves it, and so it comes back; a USER, NOTREADY, ERROR or FAILURE
+when it leaves it (its description, `ADDITIONAL` and result gone); back in
+Rexx it is a HALT again, raised with `HaltThread`, as a Ctrl-C on that
+thread: `SIGNAL ON HALT` traps it at the end of the clause, `CALL ON HALT`
+after the next one (the call returns `.nil` meanwhile), and untrapped it is
+SYNTAX 4.1 again, as in plain Rexx. Not `RaiseCondition`: ooRexx ignores a
+condition other than SYNTAX that native code raises and nobody traps, and a
+HALT must not be lost. A USER, NOTREADY, ERROR or FAILURE
 condition never reaches the native caller (`CheckCondition` is false, and a
 plain `RAISE` even cuts the Rexx code short with no result), where in plain
 Rexx it would reach a caller that traps it. That is ooRexx's (measured on

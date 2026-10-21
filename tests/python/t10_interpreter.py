@@ -212,8 +212,19 @@ if a~isA(.array) then a = a~makeString('l', ',')
 return c~condition '|' c~code '|' a '|' c~description '|' c~result
 """
 check("through a handler: SYNTAX itself", r.routine(trapper)("syntax"), "SYNTAX | 40.1 | x |  | The NIL object")
-check("... HALT: SYNTAX 4.1, as ooRexx makes it inside the routine", r.routine(trapper)("halt"),
-      "SYNTAX | 4.1 | HALT |  | The NIL object")
+# a HALT is SYNTAX 4.1 when it leaves the Rexx code (ooRexx's, description
+# gone), and a HALT again back in Rexx
+check("... HALT: HALT again", r.routine(trapper)("halt"),
+      "HALT | The NIL object | The NIL object |  | The NIL object")
+check("... HALT, only SYNTAX trapped: SYNTAX 4.1", r.routine(
+    "signal on syntax; address raiser 'halt'; return 'no'\n"
+    "syntax: return 'SYNTAX' condition('O')~code condition('O')~additional[1]")(), "SYNTAX 4.1 HALT")
+check("... HALT, untrapped: RexxError 4.1 in Python", raises(lambda: r.routine("address raiser 'halt'; return 'no'")()),
+      "RexxError: Rexx error 4.1: Program interrupted with HALT condition.")
+# as with a Ctrl-C, CALL ON's handler runs after the next clause (the nop)
+check("... HALT, CALL ON HALT: the clause resumes, rc .nil", r.routine(
+    "call on halt name h; trapped = 'no'; address raiser 'halt'; nop; return trapped '|' rc\n"
+    "h: trapped = condition('C'); return")(), "HALT | The NIL object")
 check("through a Python function: SYNTAX itself", r.routine(
     "use arg o; signal on syntax; o~go; return 'no'\n"
     "syntax: return 'SYNTAX' condition('O')~code condition('O')~additional[1]")(
