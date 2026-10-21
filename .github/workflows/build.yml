@@ -1,8 +1,9 @@
 # Builds the bridge once (Stable ABI) and runs every test with every Python,
 # 3.9 to 3.15, on Linux, macOS (arm64 and x64) and Windows. ooRexx comes from its portable
 # builds on SourceForge, pinned to one revision; a newer one is taken
-# deliberately, after checking it. That revision is also the minimum: the
-# bridge needs ooRexx 5.3.0 r13278 or later (its logicalwrapper.cls).
+# deliberately, after checking it (the ooRexx bridges move together). The
+# minimum is older: the bridge needs ooRexx 5.3.0 r13278 or later (its
+# logicalwrapper.cls).
 #
 # Each platform's build is then packaged as a zip of binaries
 # (scripts/package.sh; artifacts oorexxpython-<platform>), which is checked
@@ -23,7 +24,7 @@ on:
   workflow_dispatch:
 
 env:
-  OOREXX_REV: "13278"
+  OOREXX_REV: "13282"
   OOREXX_URL: https://downloads.sourceforge.net/project/oorexx/oorexx/5.3.0beta/portable
   PYTHONS: "3.9 3.10 3.11 3.12 3.13 3.14 3.15"
 

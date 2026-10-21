@@ -504,7 +504,7 @@ static void rexxToVal(RexxSide &side, RexxObjectPtr o, Val &v, ArrayMemo &memo);
  * NumberString (the result of arithmetic, before anything asked for its text)
  * answers isInstanceOf by making its string first (stringValue: an allocation
  * and a field set) without the kernel lock, while other threads run Rexx and
- * collect, which corrupts ooRexx's heap (ooRexx bug, unreported; seen as
+ * collect, which corrupts ooRexx's heap (ooRexx bug #2122; seen as
  * crashes, hangs in the collector and a value that came to Python as an
  * oorexx.RexxObject).  So the String family is told apart first: IsString does
  * not allocate, IsOfType takes the lock.
