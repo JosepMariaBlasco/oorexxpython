@@ -30,6 +30,7 @@
 #include <string.h>
 #ifdef _WIN32
 #include <windows.h>
+#include <signal.h>
 #define ORXPY_EXPORT __declspec(dllexport)
 static void setEnv(const char *name, const char *value) { _putenv_s(name, value); }
 static void unsetEnv(const char *name) { _putenv_s(name, ""); }
@@ -289,6 +290,37 @@ static void haltableRemove(RexxInstance *r)
         RexxInstance *expected = r;
         if (haltable[i].compare_exchange_strong(expected, NULL)) return;
     }
+}
+#else
+/*
+ * Python host on Windows: loading rexx.dll registers ooRexx's console control
+ * handler, which is called before Python's (the C runtime's).  It halts Rexx
+ * on Ctrl-C, but it also takes the Ctrl-C while Python runs (lost, or a
+ * crash before the first instance: there are no instances to halt yet), and
+ * it ignores Ctrl-Break.  So, once rexx.dll is loaded, the bridge registers
+ * its own handler, which is called first: a Ctrl-C while Rexx code runs for
+ * Python goes on to ooRexx's handler (a HALT); any other Ctrl-C, and every
+ * Ctrl-Break, is given to Python's handler for SIGINT or SIGBREAK, in the C
+ * runtime that Python and the bridge share, as the runtime's own console
+ * handler would; with no handler (SIG_DFL), the process ends, as the
+ * system's default does.  The other events go on as before.
+ */
+static BOOL WINAPI onConsoleCtrl(DWORD type)
+{
+    int sig;
+    if (type == CTRL_C_EVENT)
+    {
+        if (rexxBusy.load() > 0) return FALSE;   // ooRexx's handler: a HALT
+        sig = SIGINT;
+    }
+    else if (type == CTRL_BREAK_EVENT) sig = SIGBREAK;
+    else return FALSE;
+    void (*handler)(int) = signal(sig, SIG_IGN);  // Python's, as it is now
+    signal(sig, handler);
+    if (handler == SIG_IGN) return TRUE;
+    if (handler == SIG_DFL || handler == SIG_ERR) ExitProcess(STATUS_CONTROL_C_EXIT);
+    handler(sig);
+    return TRUE;
 }
 #endif
 
@@ -4620,6 +4652,8 @@ PyMODINIT_FUNC PyInit_oorexx(void)
 {
 #ifdef _WIN32
     if (!preloadRexx()) return NULL;
+    // Python is the host: it keeps Ctrl-C and Ctrl-Break (*Signals*)
+    if (!pythonOwned) SetConsoleCtrlHandler(onConsoleCtrl, TRUE);
 #endif
     PyObject *m = PyModule_Create(&moduleDef);
     if (m == NULL) return NULL;
