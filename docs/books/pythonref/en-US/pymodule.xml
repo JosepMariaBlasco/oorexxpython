@@ -134,6 +134,25 @@ other environments are not touched. Returns &None;.</para>
 </section>
 </section>
 
+<section id="pymoduleSignals"><title>Ctrl-C and Other Signals</title>
+<indexterm><primary>Ctrl-C</primary></indexterm>
+<indexterm><primary>KeyboardInterrupt</primary></indexterm>
+<indexterm><primary>SIGTERM</primary></indexterm>
+<para>A Python program keeps its signals when it creates an
+<classname>Interpreter</classname>. On Unix, a Ctrl-C (SIGINT) while Python
+code runs is a <literal>KeyboardInterrupt</literal>, as always; while Rexx
+code runs for Python, in any thread, it is a HALT in Rexx, as in a Rexx
+program: <literal>SIGNAL ON HALT</literal> and <literal>CALL ON HALT</literal>
+trap it, and if the Rexx code does not, Python gets a
+<classname>RexxError</classname> for SYNTAX 4.1 (<xref linkend="condRexxInPython"/>).
+Python code that Rexx calls meanwhile is Python again: a Ctrl-C there is a
+<literal>KeyboardInterrupt</literal> in that code. SIGTERM and SIGHUP do what
+they would do without the bridge: by default, they end the process.</para>
+<para>When Rexx starts the program instead, ooRexx owns the signals: a
+Ctrl-C is a HALT in Rexx, and Python code that Rexx calls runs to its end
+first.</para>
+</section>
+
 <!-- ===================================================================== -->
 <section id="clsRexxObject"><title>RexxObject Class</title>
 <indexterm><primary>RexxObject class</primary></indexterm>

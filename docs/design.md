@@ -739,6 +739,39 @@ silent no-op; removing returns nothing.
   is what makes the bridge load *that* Python, the one numpy and friends were
   installed for. Python is never finalized: it lives until the process ends.
 
+## Signals
+
+When **Rexx starts**, ooRexx owns the process's signals: Python is
+initialized without its own handlers (`Py_InitializeEx(0)`), and a Ctrl-C
+(SIGINT), SIGTERM or SIGHUP is a HALT in Rexx. Python code that Rexx calls
+runs to its end first, as any native code: the HALT comes when it returns.
+
+When **Python starts**, Python owns them, and keeps them once an
+`Interpreter` exists. On Unix, ooRexx's first `RexxCreateInterpreter` takes
+SIGINT, SIGTERM and SIGHUP from the host: it means to leave alone the
+signals the host has set, but only SIGHUP's answer counts (an ooRexx bug,
+not reported yet), and Python sets SIGINT only. Left alone, a Ctrl-C while Python runs
+would be lost (no `KeyboardInterrupt`), SIGTERM would no longer end the
+process, and `signal.getsignal()` would be wrong. So the bridge creates
+every instance between a save and a restore of the three:
+
+- **SIGTERM and SIGHUP** go back to what the host had. A SIGTERM ends the
+  process also while Rexx code runs, as it would without the bridge.
+- **SIGINT** gets the bridge's handler. While Rexx code runs for Python
+  (between entering Rexx and the result, minus the Python code that Rexx
+  calls meanwhile), it halts Rexx, as ooRexx would: with ooRexx's own handler
+  if ooRexx installed one, else with `Halt()` on the bridge's instances.
+  Otherwise it is Python's handler: a `KeyboardInterrupt`. A counter of the
+  threads running Rexx for Python tells the two apart, so a Ctrl-C while any
+  thread runs Rexx halts Rexx (all its activities, as ooRexx's handler does),
+  and the main thread gets nothing.
+
+The restore does not depend on the bug: if ooRexx leaves SIGINT alone, the
+bridge's handler still halts Rexx while Rexx runs. A handler that Python
+code installs later with `signal.signal` replaces the bridge's, as any
+other. On Windows, ooRexx uses the console's control handler instead.
+`tests/python/t90_signals.py` covers the cases, Unix only.
+
 ## Threads and locks
 
 Two global locks meet: CPython's **GIL** (a thread must hold it to use the C

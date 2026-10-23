@@ -36,6 +36,7 @@ static void unsetEnv(const char *name) { _putenv_s(name, ""); }
 #else
 #include <dlfcn.h>
 #include <unistd.h>
+#include <signal.h>
 #define ORXPY_EXPORT __attribute__((visibility("default")))
 static void setEnv(const char *name, const char *value) { setenv(name, value, 1); }
 static void unsetEnv(const char *name) { unsetenv(name); }
@@ -147,14 +148,149 @@ static void startPython()
 /* The GIL                                                                    */
 /* ------------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------------ */
+/* Who is running: Rexx for Python, or Python (docs/design.md, *Signals*)     */
+/* ------------------------------------------------------------------------ */
+
+// rexxBusy counts the threads running Rexx code on behalf of Python: a
+// thread enters it in intoRexx, leaves it while Python code runs for Rexx
+// (the Gil below), and comes back when that Python code returns.  inRexx
+// says whether this thread is counted now.  A Ctrl-C in a Python host
+// halts Rexx when rexxBusy is not 0, and is Python's otherwise.
+static std::atomic<int> rexxBusy{0};
+static thread_local bool inRexx = false;
+
+class RexxRunning
+{
+  public:
+    RexxRunning() : was(inRexx) { if (!was) { inRexx = true; rexxBusy++; } }
+    ~RexxRunning() { end(); }
+    void end() { if (active) { active = false; if (!was) { inRexx = false; rexxBusy--; } } }
+  private:
+    bool was;
+    bool active = true;
+};
+
 class Gil
 {
   public:
-    Gil() { state = PyGILState_Ensure(); }
-    ~Gil() { PyGILState_Release(state); }
+    Gil() : was(inRexx)
+    {
+        if (was) { inRexx = false; rexxBusy--; }   // Python runs now
+        state = PyGILState_Ensure();
+    }
+    ~Gil()
+    {
+        PyGILState_Release(state);
+        if (was) { inRexx = true; rexxBusy++; }    // back to Rexx
+    }
   private:
+    bool was;
     PyGILState_STATE state;
 };
+
+#ifndef _WIN32
+/*
+ * Python host on Unix: ooRexx's first RexxCreateInterpreter takes SIGINT,
+ * SIGTERM and SIGHUP from the host (it tests whether they were set from
+ * outside, but only SIGHUP's answer counts: ooRexx bug, unreported; its
+ * SystemInterpreter::startInterpreter).  Python would lose its KeyboardInterrupt, and SIGTERM would no
+ * longer end the process.  So every instance is created between a save and
+ * a restore of the three: SIGTERM and SIGHUP go back as they were, and
+ * SIGINT gets onSigint, which halts Rexx while Rexx code runs for Python
+ * (with ooRexx's own handler, as ooRexx would have done, or with Halt() if
+ * ooRexx installed none) and passes the signal to Python's handler
+ * otherwise.  Not used when Rexx is the host: ooRexx owns the signals then.
+ */
+static struct sigaction hostSigint;       // the host's SIGINT action (Python's)
+static struct sigaction rexxSigint;       // ooRexx's, if it installed one
+static volatile sig_atomic_t haveRexxSigint = 0;
+static const int haltSlots = 64;
+static std::atomic<RexxInstance *> haltable[haltSlots];   // our live instances
+static std::mutex signalsLock;            // instance creation, one at a time
+
+static void runAction(const struct sigaction &a, int sig, siginfo_t *info, void *uc)
+{
+    if (a.sa_flags & SA_SIGINFO)
+    {
+        if (a.sa_sigaction != NULL) a.sa_sigaction(sig, info, uc);
+    }
+    else if (a.sa_handler == SIG_DFL)
+    {
+        sigaction(sig, &a, NULL);         // what the host had: end the process
+        raise(sig);
+    }
+    else if (a.sa_handler != SIG_IGN && a.sa_handler != NULL) a.sa_handler(sig);
+}
+
+static void onSigint(int sig, siginfo_t *info, void *uc)
+{
+    if (rexxBusy.load() > 0)
+    {
+        if (haveRexxSigint) runAction(rexxSigint, sig, info, uc);
+        else
+        {
+            for (int i = 0; i < haltSlots; i++)
+            {
+                RexxInstance *r = haltable[i].load();
+                if (r != NULL) r->Halt();
+            }
+        }
+        return;
+    }
+    runAction(hostSigint, sig, info, uc);
+}
+
+static bool isOnSigint(const struct sigaction &a)
+{
+    return (a.sa_flags & SA_SIGINFO) && a.sa_sigaction == onSigint;
+}
+
+// around RexxCreateInterpreter, with signalsLock held
+struct HostSignals
+{
+    struct sigaction saved[3];
+    static int which(int i) { static const int s[3] = {SIGINT, SIGTERM, SIGHUP}; return s[i]; }
+    HostSignals() { for (int i = 0; i < 3; i++) sigaction(which(i), NULL, &saved[i]); }
+    void restore()
+    {
+        struct sigaction now;
+        sigaction(SIGINT, NULL, &now);
+        if (!isOnSigint(now) && !(now.sa_flags & SA_SIGINFO ? now.sa_sigaction == saved[0].sa_sigaction
+                                                             : now.sa_handler == saved[0].sa_handler))
+        {
+            rexxSigint = now;             // ooRexx took SIGINT: its handler, for halting Rexx
+            haveRexxSigint = 1;
+        }
+        if (!isOnSigint(saved[0])) hostSigint = saved[0];   // the host's, as it is now
+        for (int i = 1; i < 3; i++) sigaction(which(i), &saved[i], NULL);
+        struct sigaction ours;
+        memset(&ours, 0, sizeof(ours));
+        ours.sa_sigaction = onSigint;
+        ours.sa_flags = SA_SIGINFO;       // no SA_RESTART, as ooRexx's
+        sigfillset(&ours.sa_mask);
+        sigaction(SIGINT, &ours, NULL);
+    }
+};
+
+static void haltableAdd(RexxInstance *r)
+{
+    for (int i = 0; i < haltSlots; i++)
+    {
+        RexxInstance *empty = NULL;
+        if (haltable[i].compare_exchange_strong(empty, r)) return;
+    }
+}
+
+static void haltableRemove(RexxInstance *r)
+{
+    for (int i = 0; i < haltSlots; i++)
+    {
+        RexxInstance *expected = r;
+        if (haltable[i].compare_exchange_strong(expected, NULL)) return;
+    }
+}
+#endif
 
 /* ------------------------------------------------------------------------ */
 /* Val: a value between the two runtimes, owned by neither lock               */
@@ -1826,6 +1962,7 @@ static PyObject *intoRexx(Inst *inst, PyObject *args, Py_ssize_t skip, PyObject 
     std::string error;
     ConditionInfo ci;
     PyThreadState *saved = PyEval_SaveThread();
+    RexxRunning running;                  // a Ctrl-C now halts Rexx (*Signals*)
     RexxThreadContext *tc;
     if (!inst->rexx->AttachThread(&tc))
     {
@@ -1870,6 +2007,7 @@ static PyObject *intoRexx(Inst *inst, PyObject *args, Py_ssize_t skip, PyObject 
         }
         tc->DetachThread();
     }
+    running.end();
     PyEval_RestoreThread(saved);
 
     // with the GIL: the result
@@ -2815,7 +2953,22 @@ static PyObject *interpreterNew(PyTypeObject *type, PyObject *args, PyObject *kw
     RexxInstance *inst = NULL;
     PyThreadState *saved = PyEval_SaveThread();
     RexxThreadContext *tc;
-    if (!RexxCreateInterpreter(&inst, &tc, options.data()))
+#ifndef _WIN32
+    // Python is the host: it keeps its signals (*Signals*)
+    std::unique_lock<std::mutex> signalsGuard(signalsLock, std::defer_lock);
+    if (!pythonOwned) signalsGuard.lock();
+    HostSignals hostSignals;
+#endif
+    bool created = RexxCreateInterpreter(&inst, &tc, options.data());
+#ifndef _WIN32
+    if (!pythonOwned)
+    {
+        hostSignals.restore();
+        if (created) haltableAdd(inst);
+        signalsGuard.unlock();
+    }
+#endif
+    if (!created)
     {
         error = "cannot create a Rexx interpreter instance";
         inst = NULL;
@@ -3006,6 +3159,9 @@ static PyObject *interpreterClose(PyObject *self, PyObject *)
             tc->SendMessage0(keep, "EMPTY");
             tc->DetachThread();
         }
+#ifndef _WIN32
+        haltableRemove(h->rexx);
+#endif
         h->rexx->Terminate();
         Py_END_ALLOW_THREADS
         // its ADDRESS environments go with it: their handlers are released,
