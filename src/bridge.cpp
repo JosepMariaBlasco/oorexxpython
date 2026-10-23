@@ -665,22 +665,11 @@ struct ArrayMemo
 
 static void rexxToVal(RexxSide &side, RexxObjectPtr o, Val &v, ArrayMemo &memo);
 
-/*
- * Whether o is an instance of one of the bridge's classes (.PyObject,
- * .PyKwArgs, .LogicalWrapper), none of which is a String.  Never through
- * IsInstanceOf alone: it is a non-blocking API call, but an integer or a
- * NumberString (the result of arithmetic, before anything asked for its text)
- * answers isInstanceOf by making its string first (stringValue: an allocation
- * and a field set) without the kernel lock, while other threads run Rexx and
- * collect, which corrupts ooRexx's heap (ooRexx bug #2122; seen as
- * crashes, hangs in the collector and a value that came to Python as an
- * oorexx.RexxObject).  So the String family is told apart first: IsString does
- * not allocate, IsOfType takes the lock.
- */
+// whether o is an instance of one of the bridge's classes (.PyObject,
+// .PyKwArgs, .LogicalWrapper)
 static bool instanceOf(RexxThreadContext *c, RexxObjectPtr o, RexxClassObject cls)
 {
     if (o == NULLOBJECT || cls == NULLOBJECT) return false;
-    if (c->IsString(o) || c->IsOfType(o, "STRING")) return false;
     return c->IsInstanceOf(o, cls) != 0;
 }
 
