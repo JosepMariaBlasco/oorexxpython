@@ -769,8 +769,23 @@ every instance between a save and a restore of the three:
 The restore does not depend on the bug: if ooRexx leaves SIGINT alone, the
 bridge's handler still halts Rexx while Rexx runs. A handler that Python
 code installs later with `signal.signal` replaces the bridge's, as any
-other. On Windows, ooRexx uses the console's control handler instead.
-`tests/python/t90_signals.py` covers the cases, Unix only.
+other. `tests/python/t90_signals.py` covers the cases.
+
+On **Windows**, loading `rexx.dll` registers ooRexx's console control
+handler, which is called before Python's (the C runtime's). Left alone, it
+takes every Ctrl-C (lost while Python runs; a crash before the first
+`Interpreter`, with no instance to halt) and ignores Ctrl-Break. So, in a
+Python host, the module registers its own handler once `rexx.dll` is loaded,
+and it is called first: a Ctrl-C while Rexx code runs for Python (the same
+counter) goes on to ooRexx's handler, a HALT; any other Ctrl-C, and every
+Ctrl-Break, goes to Python's handler for SIGINT or SIGBREAK in the C runtime
+that Python and the bridge share (`-MD`), as the runtime's own console
+handler would do, and with no handler the process ends, as Windows' default
+does. Closing the console, logging off and shutting down go on as before.
+`tests/python/t91_console_events.py` covers the cases, each in a console of
+its own. With Rexx as the host, ooRexx's handler is the only one; a Ctrl-C
+while Python code runs is lost there (on Unix it is a HALT once Python
+returns).
 
 ## Threads and locks
 
