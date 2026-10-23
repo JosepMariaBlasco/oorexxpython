@@ -55,7 +55,7 @@ string that is a number goes as an <literal>int</literal> or a
 <listitem><para><emphasis role="bold"><literal>.true</literal> is 1.</emphasis>
 It goes to Python as the <literal>int</literal> 1, except to a parameter
 annotated <literal>bool</literal>, where it goes as <literal>True</literal>
-(pandas' <literal>inplace=</literal>, <xref linkend="ckPandas"/>). For a
+(pandas' <literal>to_string(index=)</literal>, <xref linkend="ckPandas"/>). For a
 real <literal>bool</literal>, <computeroutput>.LogicalWrapper~true</computeroutput>
 and <computeroutput>.LogicalWrapper~false</computeroutput>, which are 1 and 0 for
 Rexx; Python's <literal>True</literal> and <literal>False</literal> come back

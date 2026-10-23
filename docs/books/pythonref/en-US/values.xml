@@ -216,8 +216,11 @@ say json~dumps(.array~of(.LogicalWrapper~true, .true))
 <literal>int</literal>s. One exception is taken from the called function's own
 annotations: a <literal>1</literal> or <literal>0</literal> passed to a
 parameter annotated <literal>bool</literal> goes as <literal>True</literal> or
-<literal>False</literal>, so that &true; works for pandas'
-<literal>inplace=</literal>. For a function without annotations that insists
+<literal>False</literal>, so that &false; works for pandas'
+<literal>to_string(index=)</literal>. Only <literal>bool</literal>,
+<literal>bool | None</literal> and <literal>Optional[bool]</literal> count:
+a union with anything else (pandas 3.1's
+<literal>bool | lib.NoDefault</literal>) leaves the number rule alone. For a function without annotations that insists
 on a real <literal>bool</literal>, pass
 <computeroutput>.LogicalWrapper~true</computeroutput> (or
 <computeroutput>.py~box("bool", 1)</computeroutput>).</para>

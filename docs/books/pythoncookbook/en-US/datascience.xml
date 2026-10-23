@@ -50,11 +50,13 @@ selections, groups.</para>
 <computeroutput>df["sales"]</computeroutput>, and Rexx's operators on it are
 pandas': <computeroutput>df["sales"] * 0.21</computeroutput> is a new column,
 and <computeroutput>df["sales"] &gt; 100</computeroutput> a boolean mask that
-selects rows. <literal>inplace=</literal> is annotated as a
-<literal>bool</literal> in pandas, so <literal>.true</literal>, the Rexx
-string <literal>1</literal>, goes to it as <literal>True</literal>: the bridge
-reads the annotation of the parameter a <literal>1</literal> or a
-<literal>0</literal> goes to. <computeroutput>DO OVER</computeroutput> the
+selects rows. <computeroutput>drop</computeroutput> gives a new
+DataFrame (pandas 3.1 deprecates <literal>inplace=</literal>).
+<literal>index=</literal> of <computeroutput>to_string</computeroutput> is
+annotated as a <literal>bool</literal> in pandas, so
+<literal>.false</literal>, the Rexx string <literal>0</literal>, goes to it
+as <literal>False</literal>: the bridge reads the annotation of the parameter
+a <literal>1</literal> or a <literal>0</literal> goes to. <computeroutput>DO OVER</computeroutput> the
 index of a grouped Series gives its labels.</para>
 </section>
 

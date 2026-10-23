@@ -66,7 +66,7 @@ by `scripts/samples-deck.rex` (edit those, not the deck), and the skin
 | `20-numpy.rex` | numpy arrays with Rexx operators, boolean masks, matrices |
 | `21-matplotlib.rex` | a chart saved as PNG |
 | `22-slices.rex` | slices: `o[.py~slice(start, stop, step)]` for Python's `o[start:stop:step]`, numpy's `m[0:2, 1]` |
-| `23-pandas.rex` | a pandas DataFrame from CSV text: a new column, `inplace=True`, a boolean mask, groupby |
+| `23-pandas.rex` | a pandas DataFrame from CSV text: a new column, a boolean mask, `index=False`, groupby |
 
 ## Python classes in Rexx
 
@@ -101,7 +101,7 @@ by `scripts/samples-deck.rex` (edit those, not the deck), and the skin
   of a Rexx string (02).
 - `.true` and `.false` are the Rexx strings `1` and `0`, so they go to
   Python as ints, except to a parameter annotated `bool`, where they go as
-  `True` and `False` (pandas' `inplace=`, 23). For a real `bool`, use
+  `True` and `False` (pandas' `to_string(index=)`, 23). For a real `bool`, use
   `.LogicalWrapper~true` and `~false` (ooRexx's `logicalwrapper.cls`, which
   a program that names them requires), which are `1` and `0` for Rexx;
   Python's `True` and `False` come back as them (10).

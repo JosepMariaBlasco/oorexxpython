@@ -337,7 +337,9 @@ One exception, by reflection: a `1` or `0` passed to a parameter annotated
 `bool` (also `bool | None`, `Optional[bool]`, or a name the function's
 module binds to `bool`) goes as `True` or `False`. `.true` and `.false` are
 those strings, and libraries that validate their flags (pandas' `inplace=`)
-reject an `int`. Only functions, methods and classes written in Python are
+reject an `int`. A union with anything else does not count (pandas 3.1's
+`inplace: bool | lib.NoDefault`, a sentinel for a deprecated flag): the rule
+stays the lossless case. Only functions, methods and classes written in Python are
 looked at, through `inspect.signature`, cached per function; C functions
 have no annotations, and any other annotation, or none, leaves the rule
 alone. This is BSF4ooRexx's use of Java signatures, as far as Python

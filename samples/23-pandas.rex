@@ -5,8 +5,8 @@
  *   df = pd.read_csv(io.StringIO("city,month,sales\nGirona,jan,120\n..."))
  *   print(df.shape, list(df.columns))
  *   df["tax"] = df["sales"] * 0.21
- *   df.drop(columns="month", inplace=True)
- *   print(df[df["sales"] > 100])
+ *   df = df.drop(columns="month")
+ *   print(df[df["sales"] > 100].to_string(index=False))
  *   by = df.groupby("city")["sales"].sum().sort_values(ascending=False)
  *   for city in by.index: print(city.ljust(8), by[city])
  *   print("best:", by.idxmax(), "total:", df["sales"].sum())
@@ -21,8 +21,9 @@ text = "city,month,sales" || nl ||,
 df = pd~read_csv(io~StringIO(text))
 say df~shape df~columns~tolist
 df["tax"] = df["sales"] * 0.21          -- a new column; Rexx * is pandas' *
-df~drop(.py~kw("columns", "month", "inplace", .true))   -- inplace: bool, so True
-say df[df["sales"] > 100]               -- a boolean mask selects rows
+df = df~drop(.py~kw("columns", "month"))  -- a new DataFrame, without the column
+mask = df["sales"] > 100                 -- a boolean mask selects rows
+say df[mask]~to_string(.py~kw("index", .false))   -- index: bool, so False
 by = df~groupby("city")["sales"]~sum~sort_values(.py~kw("ascending", .false))
 do city over by~index
   say city~left(8) by[city]
@@ -32,11 +33,11 @@ say "best:" by~idxmax "total:" df["sales"]~sum
 ::requires "python.cls"
 /* Output:
 (6, 3) ['city', 'month', 'sales']
-     city  sales   tax
-0  Girona    120  25.2
-1  Girona    150  31.5
-4    Reus    200  42.0
-5    Reus    180  37.8
+  city  sales  tax
+Girona    120 25.2
+Girona    150 31.5
+  Reus    200 42.0
+  Reus    180 37.8
 Reus     380
 Girona   270
 Lleida   150
