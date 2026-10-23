@@ -24,7 +24,7 @@ on:
   workflow_dispatch:
 
 env:
-  OOREXX_REV: "13284"
+  OOREXX_REV: "13286"
   OOREXX_URL: https://downloads.sourceforge.net/project/oorexx/oorexx/5.3.0beta/portable
   PYTHONS: "3.9 3.10 3.11 3.12 3.13 3.14 3.15"
 
