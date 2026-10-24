@@ -9,7 +9,7 @@
 
 <section id="ckInstall"><title>Installing</title>
 <indexterm><primary>installing</primary></indexterm>
-<para>You need ooRexx 5.3.0 r13278 or later (a beta, from
+<para>You need ooRexx 5.3.0 r13286 or later (a beta, from
 <ulink url="https://sourceforge.net/projects/oorexx/files/oorexx/5.3.0beta/">SourceForge</ulink>),
 Python 3.9 or later, and the bridge, from the project's
 releases page,

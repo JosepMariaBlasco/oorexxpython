@@ -861,9 +861,11 @@ collection on another thread cannot free it before the GIL comes back
 interpreter stays attached until `close()`: detaching it makes `Terminate`
 wait forever (ooRexx bug #2107).
 
-**ooRexx versions.** The minimum is ooRexx 5.3.0 r13278, which CI also
+**ooRexx versions.** The minimum is ooRexx 5.3.0 r13286, which CI also
 runs: Python's `bool` is ooRexx's own `.LogicalWrapper` (`logicalwrapper.cls`,
-new in r13278; see *Values*). The native API used is still 5.2.0's (5.3.0's
+new in r13278; see *Values*), and before r13286 `IsInstanceOf` could corrupt
+ooRexx's heap when other threads ran Rexx (ooRexx bug #2122; the bridge asks
+it of every Rexx value that goes to Python). The native API used is still 5.2.0's (5.3.0's
 `oorexxapi.h` adds only the version constant), but 5.2.0 has no
 `logicalwrapper.cls`, and it also crashed when an interpreter was used from
 several threads at once (in its tables of activities, `AttachThread`,
