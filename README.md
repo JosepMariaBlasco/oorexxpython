@@ -46,7 +46,7 @@ with oorexx.Interpreter() as rexx:
 **Status: prototype.** Both directions work and are covered by automated
 tests (ooRexxUnit test groups and Python checks, every nutshell sample
 included), on Linux x86_64, macOS (arm64 and x86_64) and Windows x64, with CPython
-3.9–3.15, against ooRexx 5.3.0 (trunk, r13289, also the minimum:
+3.9–3.15, against ooRexx 5.3.0 (trunk, r13297; the minimum is r13289:
 [`docs/design.md`](docs/design.md), *ooRexx versions*). Every push runs them
 all with every Python on all four (GitHub Actions:
 `.github/workflows/build.yml`). The design is still being discussed, and
@@ -75,8 +75,8 @@ no environment variables to set.
    [SourceForge](https://sourceforge.net/projects/oorexx/files/oorexx/5.3.0beta/)
    and check that `rexx -v` runs in a terminal. The bridge needs its
    `logicalwrapper.cls` (Python's `bool` in Rexx), new in r13278, and the fix
-   for ooRexx bug #2122 (threads), in r13286; r13289 is the revision the ooRexx
-   bridges are built and tested on. 5.2.0, the current release, has none of them.
+   for ooRexx bug #2122 (threads), in r13286, and ooRexx's `.CommandHandler`
+   (RFE #882); r13297 is the revision the ooRexx bridges are built and tested on. 5.2.0, the current release, has none of them.
 2. **Python 3.9 or later**, any version: the bridge is one binary for all of
    them. If you want the samples that use numpy, matplotlib and pandas,
    install them too: `pip install numpy matplotlib pandas`.

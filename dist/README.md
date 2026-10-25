@@ -12,8 +12,8 @@ Source, documentation and design: https://github.com/JosepMariaBlasco/oorexxpyth
   [SourceForge](https://sourceforge.net/projects/oorexx/files/oorexx/5.3.0beta/)),
   installed so that `rexx` runs. The bridge needs its `logicalwrapper.cls`
   (Python's `bool` in Rexx), new in r13278, and the fix for ooRexx bug
-  #2122 (threads), in r13286; r13289 is the revision the ooRexx bridges
-  are built and tested on. 5.2.0, the current release, has none of them.
+  #2122 (threads), in r13286, and ooRexx's `.CommandHandler` (RFE #882);
+  r13297 is the revision the ooRexx bridges are built and tested on. 5.2.0, the current release, has none of them.
 - **Python 3.9 or later**, any version: the bridge is one binary for all of
   them (Python's Stable ABI). It must have its shared library, as the
   installers from python.org (Windows, macOS), Homebrew, uv and most Linux

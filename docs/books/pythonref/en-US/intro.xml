@@ -71,7 +71,8 @@ bridge uses only ooRexx's public native API: the interpreter needs no change,
 and the bridge is an extension package, like <literal>rxsock</literal> or
 BSF4ooRexx. It needs ooRexx's <filename>logicalwrapper.cls</filename>, new in
 r13278 (<xref linkend="valuesBoolean"/>), a fix for threads, new in
-r13286, and is built and tested on r13289.</para>
+r13286, and ooRexx's <literal>.CommandHandler</literal> (RFE #882); it is
+built and tested on r13297.</para>
 <para>The bridge runs on Linux, macOS and Windows.</para>
 </section>
 
