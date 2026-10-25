@@ -46,7 +46,7 @@ with oorexx.Interpreter() as rexx:
 **Status: prototype.** Both directions work and are covered by automated
 tests (ooRexxUnit test groups and Python checks, every nutshell sample
 included), on Linux x86_64, macOS (arm64 and x86_64) and Windows x64, with CPython
-3.9–3.15, against ooRexx 5.3.0 (trunk, r13286, also the minimum:
+3.9–3.15, against ooRexx 5.3.0 (trunk, r13289; the minimum is r13286:
 [`docs/design.md`](docs/design.md), *ooRexx versions*). Every push runs them
 all with every Python on all four (GitHub Actions:
 `.github/workflows/build.yml`). The design is still being discussed, and
