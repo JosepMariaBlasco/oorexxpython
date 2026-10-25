@@ -46,7 +46,7 @@ with oorexx.Interpreter() as rexx:
 **Status: prototype.** Both directions work and are covered by automated
 tests (ooRexxUnit test groups and Python checks, every nutshell sample
 included), on Linux x86_64, macOS (arm64 and x86_64) and Windows x64, with CPython
-3.9–3.15, against ooRexx 5.3.0 (trunk, r13289; the minimum is r13286:
+3.9–3.15, against ooRexx 5.3.0 (trunk, r13289, also the minimum:
 [`docs/design.md`](docs/design.md), *ooRexx versions*). Every push runs them
 all with every Python on all four (GitHub Actions:
 `.github/workflows/build.yml`). The design is still being discussed, and
@@ -71,12 +71,12 @@ Windows, its installer program; on Linux and macOS, its zip, whose
 tells your Pythons where it is and records which Python Rexx programs use:
 no environment variables to set.
 
-1. **ooRexx 5.3.0, r13286 or later** (beta). Get it from
+1. **ooRexx 5.3.0, r13289 or later** (beta). Get it from
    [SourceForge](https://sourceforge.net/projects/oorexx/files/oorexx/5.3.0beta/)
    and check that `rexx -v` runs in a terminal. The bridge needs its
    `logicalwrapper.cls` (Python's `bool` in Rexx), new in r13278, and the fix
-   for ooRexx bug #2122 (threads), in r13286; 5.2.0, the current release, has
-   neither.
+   for ooRexx bug #2122 (threads), in r13286; r13289 is the revision the ooRexx
+   bridges are built and tested on. 5.2.0, the current release, has none of them.
 2. **Python 3.9 or later**, any version: the bridge is one binary for all of
    them. If you want the samples that use numpy, matplotlib and pandas,
    install them too: `pip install numpy matplotlib pandas`.
@@ -202,7 +202,7 @@ macOS or Windows, with:
   prompt's environment;
 - `curl`, and [uv](https://docs.astral.sh/uv/) (or `pip`, which
   `setup-pythons.sh` uses to install uv);
-- an ooRexx 5.3.0, r13286 or later, with its API headers: an installed ooRexx (`/usr/local`), or one of ooRexx's portable
+- an ooRexx 5.3.0, r13289 or later, with its API headers: an installed ooRexx (`/usr/local`), or one of ooRexx's portable
   builds from
   [SourceForge](https://sourceforge.net/projects/oorexx/files/oorexx/5.3.0beta/portable/)
   with its `bin/` on the `PATH`.

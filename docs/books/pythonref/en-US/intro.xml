@@ -66,12 +66,12 @@ with oorexx.Interpreter() as rexx:
 only Python's Stable ABI (PEP 384), so the same binary works with CPython 3.9
 and every later version, with no virtual environments and no per-version
 builds.</para>
-<para><emphasis role="bold">ooRexx 5.3.0 r13286 or later.</emphasis> The
+<para><emphasis role="bold">ooRexx 5.3.0 r13289 or later.</emphasis> The
 bridge uses only ooRexx's public native API: the interpreter needs no change,
 and the bridge is an extension package, like <literal>rxsock</literal> or
 BSF4ooRexx. It needs ooRexx's <filename>logicalwrapper.cls</filename>, new in
-r13278 (<xref linkend="valuesBoolean"/>), and a fix for threads, new in
-r13286.</para>
+r13278 (<xref linkend="valuesBoolean"/>), a fix for threads, new in
+r13286, and is built and tested on r13289.</para>
 <para>The bridge runs on Linux, macOS and Windows.</para>
 </section>
 
