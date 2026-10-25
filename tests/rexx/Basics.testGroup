@@ -167,6 +167,30 @@ syntax:
   self~assertSame("42",             b~repr(py.box(b~getattr("int"), "42")), "box a Python type")
   self~assertSame("7",              b~repr(py.box("int", "007")), "box 007 as int")
 
+-- the bridge taking the text of an object that is not a string (a box's
+-- value or type, a keyword's name, ~invoke's name) does not raise NOSTRING
+-- in a caller that traps it: that is for Rexx using it as a string
+::method test_text_of_an_object_no_nostring
+  signal on nostring
+  o = .object~new
+  self~assertSame("an Object", .py~box("str", o)~string, "box's value")
+  self~assertSame("['an Object']", .py~repr(.py~eval("lambda **k: sorted(k)")~new(.py~kw(o, 1))), "a keyword's name")
+  self~assertSame("SYNTAX 98.900", self~trapsOf(.py~eval("[]"), "invoke", o), "~invoke's name: AttributeError")
+  self~assertSame("SYNTAX 98.900", self~trapsOf(.py, "box", o, 1), "box's type: ValueError")
+  return
+nostring:
+  self~fail("NOSTRING raised:" condition("D"))
+
+::method trapsOf private          -- the condition a message raises, NOSTRING trapped too
+  use arg receiver, name, ...
+  signal on nostring; signal on syntax
+  receiver~sendWith(name, arg(3, "A"))
+  return "no condition"
+nostring:
+  return "NOSTRING"
+syntax:
+  return "SYNTAX" condition("O")~code
+
 -- a Rexx "1" or "0" passed to a parameter annotated bool goes as True or
 -- False; everything else follows the Values rule
 ::method test_bool_parameters

@@ -668,6 +668,28 @@ struct ArrayMemo
 
 static void rexxToVal(RexxSide &side, RexxObjectPtr o, Val &v, ArrayMemo &memo);
 
+// the text of any Rexx object, as its STRING method gives it.  Not
+// ObjectToStringValue / ObjectToString on an object that is not a string:
+// they go through the interpreter's requestString, which raises NOSTRING in
+// the Rexx caller when it traps that condition (as Rexx does when it uses
+// such an object as a string), and the bridge taking a name or a value's
+// text is not that.
+static std::string textOf(RexxThreadContext *c, RexxObjectPtr o)
+{
+    if (o == NULLOBJECT) return std::string();
+    if (c->IsString(o))
+        return std::string(c->StringData((RexxStringObject)o), c->StringLength((RexxStringObject)o));
+    RexxObjectPtr s = c->SendMessage0(o, "STRING");
+    std::string text;
+    if (s != NULLOBJECT)
+    {
+        if (c->IsString(s)) text.assign(c->StringData((RexxStringObject)s), c->StringLength((RexxStringObject)s));
+        else text = c->ObjectToStringValue(s);     // a string kept in another form (an integer)
+        if (s != o) c->ReleaseLocalReference(s);
+    }
+    return text;
+}
+
 // whether o is an instance of one of the bridge's classes (.PyObject,
 // .PyKwArgs, .LogicalWrapper)
 static bool instanceOf(RexxThreadContext *c, RexxObjectPtr o, RexxClassObject cls)
@@ -814,7 +836,7 @@ static void rexxArgs(RexxSide &side, RexxArrayObject args, size_t first, Args &o
             for (size_t i = 1; i <= k; i++)
             {
                 std::pair<std::string, Val> kv;
-                kv.first = c->ObjectToStringValue(c->ArrayAt(names, i));
+                kv.first = textOf(c, c->ArrayAt(names, i));
                 rexxToVal(side, c->ArrayAt(values, i), kv.second);
                 out.keywords.push_back(kv);
             }
@@ -3723,7 +3745,7 @@ RexxMethod2(RexxObjectPtr, PyObj_Invoke, ARGLIST, all, CSELF, self)
     StringsScope scope(side.strings);
     RexxObjectPtr target = context->ArraySize(all) >= 1 ? context->ArrayAt(all, 1) : NULLOBJECT;
     bool callSelf = target == NULLOBJECT || target == context->Nil();
-    std::string name = callSelf ? "" : context->ObjectToStringValue(target);
+    std::string name = callSelf ? "" : textOf(context->threadContext, target);
     Args args;
     rexxArgs(side, all, 2, args);
     Val result;
@@ -4068,7 +4090,7 @@ RexxMethod2(RexxObjectPtr, Py_Box, RexxObjectPtr, type, RexxObjectPtr, value)   
     RexxSide side;
     if (!findClasses(context, side)) return NULLOBJECT;
     StringsScope scope(side.strings);
-    std::string text = context->ObjectToStringValue(value);
+    std::string text = textOf(context->threadContext, value);
     std::string kind = "str";
     Args holder;                          // a Python callable given as the type
     if (type != NULLOBJECT)
@@ -4079,7 +4101,7 @@ RexxMethod2(RexxObjectPtr, Py_Box, RexxObjectPtr, type, RexxObjectPtr, value)   
             holder.positional.emplace_back();
             rexxToVal(side, type, holder.positional[0]);
         }
-        else kind = lower(context->ObjectToStringValue(type));
+        else kind = lower(textOf(context->threadContext, type));
     }
     Val result;
     PyError err;

@@ -413,6 +413,15 @@ from the Rexx value's text, never through the *Values* rule. Types: `str`,
 Python class or function. The argument order is that of BSF4ooRexx's `box`,
 so that the related APIs of both bridges take their arguments the same way.
 
+The text of a Rexx object that is not a string (a box's value or type, a
+keyword's name in `.py~kw`, the name given to `~invoke`) is what its
+`STRING` method answers, sent as a message. Not `ObjectToStringValue`: it
+goes through the interpreter's `requestString`, which raises NOSTRING in a
+Rexx caller that traps it, as Rexx does when it uses such an object as a
+string; the bridge reading a name or a value is not that
+(`Basics.testGroup`). Rexx itself using a `.PyObject` as a string (`say
+proxy`) does raise NOSTRING when it is trapped: a proxy is not a string.
+
 ### Exceptions
 
 A Python exception becomes SYNTAX 98.900 "Python error: Type: message", with
