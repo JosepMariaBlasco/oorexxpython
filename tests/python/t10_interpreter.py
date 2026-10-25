@@ -124,30 +124,40 @@ with oorexx.Interpreter() as p:
 with oorexx.Interpreter(stdio=False) as p:
     check("stdio=False",           p.routine("return .output~current~class~id")(), "Stream")
 
-# ADDRESS written in Python
+# ADDRESS written in Python: a handler like any other of ooRexx's
+# (.CommandHandler, RFE #882), its context ooRexx's .CommandContext
 def calc(command, ctx):
     if command == "lines":
-        for line in ctx.lines():
-            ctx.output(str(eval(line)))
+        i, out = ctx.input(), ctx.output()
+        while i.lines():
+            out.lineout(str(eval(i.linein())))
         return 0
     if command == "setvar":
-        ctx.set_var("answer", 42)
-        return ctx.get_var("question")
+        ctx.setVar("answer", 42)
+        return ctx.getVar("question")
     if command == "fail":
-        return ctx.raise_error(7)
+        return ctx.raiseError(7)
+    if command == "failure":
+        return ctx.raise_("FAILURE", -2)
     if command == "boom":
         raise ValueError("bad command")
+    if command == "none":
+        return None
     return eval(command)
-r.add_command_environment("CALC", calc)
+check("add_command_environment: nothing covered", r.add_command_environment("CALC", calc), None)
 check("RC from handler",       r.routine("address calc '2+3'; return rc")(), 5)
+check("None is RC 0",          r.routine("address calc 'none'; return rc")(), 0)
+check("the command is a str",  r.routine("address calc '-3'; return rc")(), -3)
 check("WITH INPUT/OUTPUT stems", r.routine(
     "in.1 = '1+1'; in.2 = '2*3'; in.0 = 2\n"
     "address calc 'lines' with input stem in. output stem out.\n"
     "return out.0 out.1 out.2")(), "2 2 6")
 check("caller's variables",    r.routine(
     "question = 'what?'; address calc 'setvar'; return rc answer")(), "what? 42")
-check("raise_error -> ERROR",  r.routine(
+check("raiseError -> ERROR",   r.routine(
     "signal on error; address calc 'fail'; return 'no'\nerror: return 'ERROR' rc")(), "ERROR 7")
+check("raise_ is RAISE: FAILURE", r.routine(
+    "signal on failure; address calc 'failure'; return 'no'\nfailure: return 'FAILURE' rc")(), "FAILURE -2")
 check("Python exception -> SYNTAX", r.routine(
     "signal on syntax; address calc 'boom'; return 'no'\n"
     "syntax: c = condition('O'); return c~code .py~type(c~additional[2])~getattr('__name__')")(),
@@ -156,42 +166,51 @@ check("... and back as itself", raises(lambda: r.routine("address calc 'boom'")(
 check("RC whatever its sign, no condition", r.routine(
     "signal on error; signal on failure; address calc '-3'; return rc\n"
     "error: failure: return condition('C')")(), -3)
+check("the core sees a .PyCommandHandler", r.eval(".CommandHandler~handler('CALC')~class~id"), "PYCOMMANDHANDLER")
+
+# stacking, as the core's register: the new handler covers the old one
+covered = r.add_command_environment("calc", lambda c, ctx: len(c))
+check("... add gives back the handler covered", covered.handler() is calc, True)
+check("... the new one answers", r.routine("address calc 'abcd'; return rc")(), 4)
+removed = r.remove_command_environment("CALC")
+check("... remove gives back the one removed", removed.handler()("xyz", None), 3)
+check("... the covered one is back", r.routine("address calc '2+3'; return rc")(), 5)
 
 # removing an environment: unknown again, as ooRexx's own (FAILURE, RC 30)
 unknown_env = ("signal on failure; address calc '1'; return 'no'\n"
                "failure: return condition('C') rc")
-check("remove_command_environment", r.remove_command_environment("calc"), None)
+check("remove_command_environment", r.remove_command_environment("calc").handler() is calc, True)
 check("... then FAILURE RC 30",     r.routine(unknown_env)(), "FAILURE 30")
-check("... removing again: ValueError", raises(lambda: r.remove_command_environment("CALC")),
-      "ValueError: remove_command_environment: no ADDRESS environment written in Python named CALC")
-check("... a name never registered", raises(lambda: r.remove_command_environment("nosuchenv")).startswith("ValueError"), True)
+check("... removing again: the core's SYNTAX 93.900", raises(lambda: r.remove_command_environment("CALC")),
+      "RexxError: Rexx error 93.900: deregister: there is no command environment named CALC.")
+check("... a name never registered", raises(lambda: r.remove_command_environment("nosuchenv")).startswith("RexxError: Rexx error 93.900"), True)
 r.add_command_environment("CALC", calc)
 check("... registered again",       r.routine("address calc '2+3'; return rc")(), 5)
 
-# registering and removing from Rexx (.py~addCommandEnvironment)
+# registering and removing from Rexx: the core's register / deregister
 check("from Rexx: registered", r.routine(
-    ".py~addCommandEnvironment('LEN', .py~eval('lambda c, ctx: len(c)'))\n"
+    ".CommandHandler~register('LEN', .py~commandHandler(.py~eval('lambda c, ctx: len(c)')))\n"
     "address len 'abcd'; return rc")(), 4)
 check("... seen from Python's routines", r.routine("address len 'ab'; return rc")(), 2)
-check("... removed from Python", r.remove_command_environment("len"), None)
-check("... removed from Rexx",   r.routine(
-    ".py~addCommandEnvironment('LEN', .py~eval('lambda c, ctx: len(c)'))\n"
-    ".py~removeCommandEnvironment('len')\n"
-    "signal on failure; address len 'x'; return 'no'\n"
-    "failure: return condition('C') rc")(), "FAILURE 30")
-check("... removing a missing name from Rexx: SYNTAX 93.900", r.routine(
-    "signal on syntax; .py~removeCommandEnvironment('len'); return 'no'\n"
-    "syntax: return 'SYNTAX' condition('O')~code")(), "SYNTAX 93.900")
+check("... removed from Python", r.remove_command_environment("len").handler()("ab", None), 2)
 check("... a Python function from Python, registered by Rexx", r.routine(
-    "use arg f; .py~addCommandEnvironment('TWICE', f); address twice 'abc'; return rc")(
+    "use arg f; .CommandHandler~register('TWICE', .py~commandHandler(f)); address twice 'abc'; return rc")(
     lambda c, ctx: 2 * len(c)), 6)
 for what, handler in ((".nil", ".nil"), ("a string", "'abc'")):
     check(f"... {what} as the handler: SYNTAX 93.900", r.routine(
-        f"signal on syntax; .py~addCommandEnvironment('BAD', {handler}); return 'no'\n"
+        f"signal on syntax; .py~commandHandler({handler}); return 'no'\n"
         "syntax: return 'SYNTAX' condition('O')~code")(),
         "SYNTAX 93.900")
 check("... not callable from Python: TypeError", raises(lambda: r.add_command_environment("BAD", None)).startswith("TypeError"), True)
 check("remove_command_environment(non-str)", raises(lambda: r.remove_command_environment(1)).startswith("TypeError"), True)
+
+# a keyword as a Rexx message: a trailing underscore (PEP 8)
+k = r.routine("return .K~new\n::class K\n::method 'raise'\n  return 'raised'\n"
+              "::method 'raise_'\n  return 'its own'")()
+check("keyword_ sends the keyword", k.raise_(), "raised")
+check("... one underscore only",    raises(lambda: k.raise__()).endswith('message "RAISE__".'), True)
+check("... RAISE_ itself: sendMessage", k.sendMessage("raise_"), "its own")
+check("... only after a keyword",   raises(lambda: k.other_()).startswith("RexxError: Rexx error 97.1"), True)
 
 # a Rexx condition that goes through Python and back to Rexx is itself
 raising = {
@@ -213,18 +232,20 @@ return c~condition '|' c~code '|' a '|' c~description '|' c~result
 """
 check("through a handler: SYNTAX itself", r.routine(trapper)("syntax"), "SYNTAX | 40.1 | x |  | The NIL object")
 # a HALT is SYNTAX 4.1 when it leaves the Rexx code (ooRexx's, description
-# gone), and a HALT again back in Rexx
-check("... HALT: HALT again", r.routine(trapper)("halt"),
-      "HALT | The NIL object | The NIL object |  | The NIL object")
+# gone); through a handler, which is a core handler, it stays SYNTAX 4.1, as
+# with a handler written in Rexx (the core is the reference); through a
+# Python function Rexx calls, it is a HALT again (Callbacks.testGroup)
+check("... HALT: SYNTAX 4.1, as with a Rexx handler", r.routine(trapper)("halt"),
+      "SYNTAX | 4.1 | HALT |  | The NIL object")
 check("... HALT, only SYNTAX trapped: SYNTAX 4.1", r.routine(
     "signal on syntax; address raiser 'halt'; return 'no'\n"
     "syntax: return 'SYNTAX' condition('O')~code condition('O')~additional[1]")(), "SYNTAX 4.1 HALT")
 check("... HALT, untrapped: RexxError 4.1 in Python", raises(lambda: r.routine("address raiser 'halt'; return 'no'")()),
       "RexxError: Rexx error 4.1: Program interrupted with HALT condition.")
-# as with a Ctrl-C, CALL ON's handler runs after the next clause (the nop)
-check("... HALT, CALL ON HALT: the clause resumes, rc .nil", r.routine(
+# CALL ON HALT does not trap it (SYNTAX 4.1), as with a Rexx handler
+check("... HALT, CALL ON HALT: SYNTAX 4.1, untrapped", raises(lambda: r.routine(
     "call on halt name h; trapped = 'no'; address raiser 'halt'; nop; return trapped '|' rc\n"
-    "h: trapped = condition('C'); return")(), "HALT | The NIL object")
+    "h: trapped = condition('C'); return")()), "RexxError: Rexx error 4.1: Program interrupted with HALT condition.")
 check("through a Python function: SYNTAX itself", r.routine(
     "use arg o; signal on syntax; o~go; return 'no'\n"
     "syntax: return 'SYNTAX' condition('O')~code condition('O')~additional[1]")(
@@ -238,8 +259,10 @@ def user_raiser(command, ctx):
     e._rexx_condition = user_x
     raise e
 r.add_command_environment("USERX", user_raiser)
-check("... USER X with description, ADDITIONAL and RESULT", r.routine(trapper.replace("raiser", "userx"))("x"),
-      "USER X | The NIL object | extra | the description | the result")
+# through a handler, as with one written in Rexx: DESCRIPTION and ADDITIONAL
+# kept, RESULT lost (the core's .CommandContext~raise has none)
+check("... USER X with description and ADDITIONAL", r.routine(trapper.replace("raiser", "userx"))("x"),
+      "USER X | The NIL object | extra | the description | The NIL object")
 
 # a SIGNAL ON past Python: Rexx calls Python directly (a native method, an
 # ADDRESS handler), Python calls Rexx code that does RAISE USER X ... RETURN.
@@ -267,7 +290,8 @@ for label, how, f, value in (("function, routine", "function", ns(go=lambda: pas
                              ("handler, method", "handler", "method", "rc 7")):
     check(f"SIGNAL ON past Python ({label})", past(how, f) in (value, "trapped USER X d"), True)
 
-# closing an interpreter releases its environments
+# closing an interpreter releases its environments' handlers at once, also
+# while other instances live (r here)
 def closing_handler(command, ctx): return 0
 probe = weakref.ref(closing_handler)
 with oorexx.Interpreter(command_environments={"GONE": closing_handler}) as rc_:

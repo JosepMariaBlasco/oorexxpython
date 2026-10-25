@@ -36,11 +36,17 @@ commands to Python code.</para>
 <para><emphasis role="bold">How it works.</emphasis> A Python function of two
 arguments, the command and a context, is the environment: given to
 <literal>Interpreter</literal> in <literal>command_environments</literal>, or
-added later with <methodname>add_command_environment</methodname>. What it
-returns is <literal>RC</literal>. Through the context it sets the variables of
-the code that issued the command (<methodname>set_var</methodname>), reads
-<literal>ADDRESS ... WITH INPUT</literal> lines and writes
-<literal>WITH OUTPUT</literal> ones.</para>
+added later with <methodname>add_command_environment</methodname>, it is a
+command handler like those written in Rexx (ooRexx's
+<literal>.CommandHandler</literal>), and from Rexx
+<computeroutput>.CommandHandler~register(name, .py~commandHandler(f))</computeroutput>
+does the same. What it returns is <literal>RC</literal>. The context is
+ooRexx's own <literal>.CommandContext</literal>: through it the function sets
+the variables of the code that issued the command
+(<methodname>setVar</methodname>), reads <literal>ADDRESS ... WITH
+INPUT</literal> lines (<computeroutput>ctx.input()</computeroutput>) and
+writes <literal>WITH OUTPUT</literal> ones
+(<computeroutput>ctx.output()</computeroutput>).</para>
 </section>
 
 <section id="ckStdio"><title>Rexx's Output in Python</title>

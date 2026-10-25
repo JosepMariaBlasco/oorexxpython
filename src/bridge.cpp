@@ -414,6 +414,9 @@ struct InstanceData
     RexxObjectPtr falseObj = NULLOBJECT;          // its two instances
     RexxDirectoryObject keep = NULLOBJECT;
     RexxObjectPtr graveyard;              // .PyObject~graveyard (see drainGraveyard)
+    RexxClassObject commandHandlerClass = NULLOBJECT;     // ooRexx's .CommandHandler
+    RexxClassObject pyCommandHandlerClass = NULLOBJECT;   // python.cls's .PyCommandHandler
+    RexxRoutineObject closing = NULLOBJECT;               // python.cls's py.closing
 };
 static std::mutex instancesLock;
 static std::map<RexxInstance *, InstanceData> instances;
@@ -2402,6 +2405,20 @@ static PyObject *rexxProxyCall(PyObject *self, PyObject *args, PyObject *kwargs)
 
 static bool isSendName(const std::string &s);   // below: sendMessage...
 
+// Python's keywords (the hard ones, 3.9 on: they cannot be attribute names)
+static bool isPythonKeyword(const std::string &s)
+{
+    static const char *keywords[] =
+    {
+        "False", "None", "True", "and", "as", "assert", "async", "await", "break", "class",
+        "continue", "def", "del", "elif", "else", "except", "finally", "for", "from", "global",
+        "if", "import", "in", "is", "lambda", "nonlocal", "not", "or", "pass", "raise",
+        "return", "try", "while", "with", "yield", NULL
+    };
+    for (const char **k = keywords; *k != NULL; k++) if (s == *k) return true;
+    return false;
+}
+
 static PyObject *rexxProxyGetAttr(PyObject *self, PyObject *name)
 {
     // Python's own protocol names are not Rexx messages (numpy and friends
@@ -2409,6 +2426,10 @@ static PyObject *rexxProxyGetAttr(PyObject *self, PyObject *name)
     std::string s = pyString(name);
     if (s.size() >= 2 && s[0] == '_' && s[1] == '_') return PyObject_GenericGetAttr(self, name);
     if (isSendName(s)) return PyObject_GenericGetAttr(self, name);   // sendMessage...: ours
+    // a Rexx message named like a Python keyword cannot be written as an
+    // attribute (ctx.raise is a syntax error): PEP 8's trailing underscore
+    // stands for it, ctx.raise_ sends RAISE (one underscore, after a keyword)
+    if (s.size() > 1 && s.back() == '_' && isPythonKeyword(s.substr(0, s.size() - 1))) s.pop_back();
     PyTypeObject *type = (PyTypeObject *)rexxBoundType;
     allocfunc alloc = (allocfunc)PyType_GetSlot(type, Py_tp_alloc);
     RexxBound *b = (RexxBound *)alloc(type, 0);
@@ -2699,8 +2720,8 @@ static PyType_Spec rexxBoundSpec =
     "oorexx.RexxMessage", sizeof(RexxBound), 0, Py_TPFLAGS_DEFAULT, rexxBoundSlots
 };
 
-extern PyType_Spec interpreterSpec, ctxSpec;
-static PyObject *interpreterType = NULL, *commandContextType = NULL;
+extern PyType_Spec interpreterSpec;
+static PyObject *interpreterType = NULL;
 
 // the types, made once (with the GIL)
 static bool makeTypes()
@@ -2727,9 +2748,8 @@ static bool makeTypes()
     rexxErrorType = PyErr_NewException("oorexx.RexxError", PyExc_RuntimeError, attrs);
     Py_XDECREF(attrs);
     interpreterType = PyType_FromSpec(&interpreterSpec);
-    commandContextType = PyType_FromSpec(&ctxSpec);
     return rexxProxyType != NULL && rexxBoundType != NULL && rexxErrorType != NULL &&
-           interpreterType != NULL && commandContextType != NULL;
+           interpreterType != NULL;
 }
 
 // the module's contents (also when Rexx started Python: then the module is
@@ -2740,7 +2760,6 @@ static bool fillModule(PyObject *m)
     PyObject_SetAttrString(m, "RexxObject", rexxProxyType);
     PyObject_SetAttrString(m, "RexxError", rexxErrorType);
     PyObject_SetAttrString(m, "Interpreter", interpreterType);
-    PyObject_SetAttrString(m, "CommandContext", commandContextType);
     if (pairType == NULL) pairType = makePairType();
     if (pairType == NULL) return false;
     PyObject_SetAttrString(m, "_Pair", pairType);
@@ -2893,7 +2912,8 @@ static std::string join(const std::vector<std::string> &parts, const char *sep)
     return out;
 }
 
-static void addCommandEnvironment(RexxInstance *inst, RexxThreadContext *tc, const std::string &name, PyObject *handler);
+static PyObject *registerHandler(Inst *inst, PyObject *nameObj, PyObject *handler);
+static PyObject *interpreterClose(PyObject *self, PyObject *);
 
 static PyObject *interpreterNew(PyTypeObject *type, PyObject *args, PyObject *kwargs)
 {
@@ -3010,6 +3030,16 @@ static PyObject *interpreterNew(PyTypeObject *type, PyObject *args, PyObject *kw
             d.keep = (RexxDirectoryObject)tc->RequestGlobalReference(tc->NewDirectory());
             d.graveyard = graveyardOf(tc, d.pyObjectClass);
             setBooleans(tc, d, tc->FindPackageClass(package, "LOGICALWRAPPER"));
+            RexxClassObject coreHandler = tc->FindClass("COMMANDHANDLER");
+            RexxClassObject pyHandler = tc->FindPackageClass(package, "PYCOMMANDHANDLER");
+            if (coreHandler != NULLOBJECT && pyHandler != NULLOBJECT)
+            {
+                d.commandHandlerClass = (RexxClassObject)tc->RequestGlobalReference(coreHandler);
+                d.pyCommandHandlerClass = (RexxClassObject)tc->RequestGlobalReference(pyHandler);
+            }
+            RexxObjectPtr closing = tc->DirectoryAt(tc->GetPackageRoutines(package), "PY.CLOSING");
+            if (closing != NULLOBJECT) d.closing = (RexxRoutineObject)tc->RequestGlobalReference(closing);
+            tc->ClearCondition();
             {
                 std::lock_guard<std::mutex> guard(instancesLock);
                 instances[inst] = d;
@@ -3057,7 +3087,21 @@ static PyObject *interpreterNew(PyTypeObject *type, PyObject *args, PyObject *kw
         Py_ssize_t pos = 0;
         while (PyDict_Next(environments, &pos, &key, &value))
         {
-            addCommandEnvironment(self->inst->rexx, NULL, pyString(key), value);
+            if (!PyUnicode_Check(key) || !PyCallable_Check(value))
+            {
+                PyErr_SetString(PyExc_TypeError, "command_environments: a dict name -> callable");
+                interpreterClose((PyObject *)self, NULL);
+                Py_DECREF(self);
+                return NULL;
+            }
+            PyObject *covered = registerHandler(self->inst, key, value);
+            if (covered == NULL)
+            {
+                interpreterClose((PyObject *)self, NULL);
+                Py_DECREF(self);
+                return NULL;
+            }
+            Py_DECREF(covered);
         }
     }
     return (PyObject *)self;
@@ -3153,7 +3197,6 @@ static void eraseInstance(Inst *h)
 }
 
 // r.close(): terminate the instance (its Rexx objects in Python become unusable)
-static void forgetEnvironments(RexxInstance *inst);
 
 static PyObject *interpreterClose(PyObject *self, PyObject *)
 {
@@ -3162,10 +3205,12 @@ static PyObject *interpreterClose(PyObject *self, PyObject *)
     {
         Inst *h = r->inst;
         RexxDirectoryObject keep = NULLOBJECT;
+        RexxRoutineObject closing = NULLOBJECT;
+        RexxObjectPtr graveyard = NULLOBJECT;
         {
             std::lock_guard<std::mutex> guard(instancesLock);
             auto it = instances.find(h->rexx);
-            if (it != instances.end()) keep = it->second.keep;
+            if (it != instances.end()) { keep = it->second.keep; closing = it->second.closing; graveyard = it->second.graveyard; }
         }
         forgetInstance(h);
         forgetPairs(h);
@@ -3178,6 +3223,15 @@ static PyObject *interpreterClose(PyObject *self, PyObject *)
         if (keep != NULLOBJECT && h->rexx->AttachThread(&tc))
         {
             tc->SendMessage0(keep, "EMPTY");
+            // its ADDRESS environments written in Python let their callables
+            // go now: a collection that would run their uninits may never come
+            // while other instances live (docs/design.md, *Command environments*)
+            if (closing != NULLOBJECT)
+            {
+                tc->CallRoutine(closing, tc->NewArray(0));
+                tc->ClearCondition();
+                drainGraveyard(tc, graveyard);
+            }
             tc->DetachThread();
         }
 #ifndef _WIN32
@@ -3185,9 +3239,6 @@ static PyObject *interpreterClose(PyObject *self, PyObject *)
 #endif
         h->rexx->Terminate();
         Py_END_ALLOW_THREADS
-        // its ADDRESS environments go with it: their handlers are released,
-        // and a later instance at the same address inherits none of them
-        forgetEnvironments(h->rexx);
         eraseInstance(h);
     }
     Py_RETURN_NONE;
@@ -3248,382 +3299,51 @@ PyType_Spec interpreterSpec =
 };
 
 /* ------------------------------------------------------------------------ */
-/* ADDRESS environments written in Python (design §5)                         */
+/* ADDRESS environments written in Python, as ooRexx's own (RFE #882)         */
 /* ------------------------------------------------------------------------ */
 
 /*
- *   def calc(command, ctx):
- *       for line in ctx.lines():          # ADDRESS ... WITH INPUT
- *           ctx.output(str(eval(line)))   # ... WITH OUTPUT (else sys.stdout)
- *       return 0                          # RC
+ * A Python callable is a command handler like any other: python.cls's
+ * .PyCommandHandler (it inherits .CommandHandler) calls it as
+ * handler(command, context), context being ooRexx's own .CommandContext, and
+ * its result is RC (None: 0).  From Rexx it is registered with
+ * .CommandHandler~register(name, .py~commandHandler(handler)); from Python,
+ *
  *   r.add_command_environment("CALC", calc)
  *
- * ctx (valid only while its command runs), as ooRexx/WASM's layer 1
- * (.CommandContext, ref/cmdhandler.cpp):
- *   ctx.lines()  ctx.line_in()            redirected input (all / next, None at end)
- *   ctx.output(text)  ctx.error(text)     redirected output / error
- *   ctx.is_redirected("input"|"output"|"error"|"same")
- *   ctx.get_var(name)  ctx.set_var(name, value)  ctx.drop_var(name)
- *                                         the variables of the issuing code
- *   ctx.raise_error(rc)  ctx.raise_failure(rc)   ERROR / FAILURE with RC
- * The handler's result is RC (None -> 0).  A Python exception in the handler
- * is a SYNTAX error (98.900) in the code that issued the command.  An
- * environment is per interpreter instance; adding a name again replaces it.
+ * is that same register, and remove_command_environment(name) the core's
+ * deregister: stacking, the results and the errors are ooRexx's.  So the
+ * bridge has no native command handler of its own (docs/design.md, *Command
+ * environments*).
  */
 
-struct CommandContext
+// name served by handler, in the instance (the Python side: with the GIL)
+static PyObject *registerHandler(Inst *inst, PyObject *nameObj, PyObject *handler)
 {
-    PyObject_HEAD
-    RexxExitContext *exit;
-    RexxIORedirectorContext *io;
-    bool valid;
-    std::string *condition;               // "ERROR" / "FAILURE" asked for
-    PyObject *conditionRc;
-};
-
-static std::mutex environmentsLock;
-static std::map<std::pair<RexxInstance *, std::string>, PyObject *> environmentsByName;
-
-// drop every environment of inst (called with the GIL, when it is closed)
-static void forgetEnvironments(RexxInstance *inst)
-{
-    std::vector<PyObject *> handlers;
-    {
-        std::lock_guard<std::mutex> guard(environmentsLock);
-        for (auto it = environmentsByName.begin(); it != environmentsByName.end(); )
-        {
-            if (it->first.first == inst) { handlers.push_back(it->second); it = environmentsByName.erase(it); }
-            else ++it;
-        }
-    }
-    for (PyObject *h : handlers) Py_DECREF(h);   // outside the lock: a handler's
-                                                 // __del__ may run Python code
-}
-
-static CommandContext *liveContext(PyObject *self)
-{
-    CommandContext *c = (CommandContext *)self;
-    if (!c->valid)
-    {
-        PyErr_SetString(rexxErrorType, "this command context belongs to a command that has ended");
-        return NULL;
-    }
-    return c;
-}
-
-static PyObject *ctxLineIn(PyObject *self, PyObject *)
-{
-    CommandContext *c = liveContext(self);
-    if (c == NULL) return NULL;
-    CSTRING data = NULL;
-    size_t length = 0;
-    bool any;
-    std::string line;
-    Py_BEGIN_ALLOW_THREADS
-    c->io->ReadInput(&data, &length);
-    any = data != NULL;
-    if (any) line.assign(data, length);
-    Py_END_ALLOW_THREADS
-    if (!any) Py_RETURN_NONE;
-    return pyText(line.data(), line.size());
-}
-
-static PyObject *ctxLines(PyObject *self, PyObject *)
-{
-    CommandContext *c = liveContext(self);
-    if (c == NULL) return NULL;
-    std::vector<std::string> lines;
-    Py_BEGIN_ALLOW_THREADS
-    if (c->io->IsInputRedirected())
-    {
-        CSTRING data;
-        size_t length;
-        for (;;)
-        {
-            data = NULL;
-            c->io->ReadInput(&data, &length);
-            if (data == NULL) break;
-            lines.emplace_back(data, length);
-        }
-    }
-    Py_END_ALLOW_THREADS
-    PyObject *list = PyList_New(0);
-    for (const std::string &l : lines)
-    {
-        PyObject *item = pyText(l.data(), l.size());
-        PyList_Append(list, item);
-        Py_XDECREF(item);
-    }
-    return list;
-}
-
-static PyObject *ctxWrite(PyObject *self, PyObject *args, bool error)
-{
-    CommandContext *c = liveContext(self);
-    if (c == NULL) return NULL;
-    PyObject *textObj;
-    if (!PyArg_ParseTuple(args, "O", &textObj)) return NULL;
-    Val v;
-    Py_INCREF(textObj);
-    pyToVal(textObj, v);
-    std::string text = v.kind == Val::STR ? v.s : pyString(textObj);
-    dropVal(v);
-    bool redirected;
-    Py_BEGIN_ALLOW_THREADS
-    redirected = error ? c->io->IsErrorRedirected() : c->io->IsOutputRedirected();
-    if (redirected)
-    {
-        if (error) c->io->WriteError(text.data(), text.size());
-        else c->io->WriteOutput(text.data(), text.size());
-    }
-    Py_END_ALLOW_THREADS
-    if (!redirected)
-    {
-        // like a real command's console output: Python's own streams
-        PyObject *sys = PyImport_ImportModule("sys");
-        PyObject *s = sys != NULL ? PyObject_GetAttrString(sys, error ? "stderr" : "stdout") : NULL;
-        std::string line = text + "\n";
-        PyObject *t = pyText(line.data(), line.size());
-        if (s != NULL && t != NULL) Py_XDECREF(PyObject_CallMethod(s, "write", "O", t));
-        Py_XDECREF(t);
-        Py_XDECREF(s);
-        Py_XDECREF(sys);
-        if (PyErr_Occurred()) return NULL;
-    }
-    Py_RETURN_NONE;
-}
-
-static PyObject *ctxOutput(PyObject *self, PyObject *args) { return ctxWrite(self, args, false); }
-static PyObject *ctxError(PyObject *self, PyObject *args) { return ctxWrite(self, args, true); }
-
-static PyObject *ctxIsRedirected(PyObject *self, PyObject *args)
-{
-    CommandContext *c = liveContext(self);
-    if (c == NULL) return NULL;
-    const char *which;
-    if (!PyArg_ParseTuple(args, "s", &which)) return NULL;
-    char w = (char)tolower((unsigned char)which[0]);
-    bool r = false;
-    Py_BEGIN_ALLOW_THREADS
-    switch (w)
-    {
-        case 'i': r = c->io->IsInputRedirected(); break;
-        case 'o': r = c->io->IsOutputRedirected(); break;
-        case 'e': r = c->io->IsErrorRedirected(); break;
-        case 's': r = c->io->AreOutputAndErrorSameTarget(); break;
-    }
-    Py_END_ALLOW_THREADS
-    return PyBool_FromLong(r);
-}
-
-static PyObject *ctxGetVar(PyObject *self, PyObject *args)
-{
-    CommandContext *c = liveContext(self);
-    if (c == NULL) return NULL;
-    const char *name;
-    if (!PyArg_ParseTuple(args, "s", &name)) return NULL;
-    std::string n = upper(name);
-    Val v;
-    Py_BEGIN_ALLOW_THREADS
-    RexxThreadContext *tc = c->exit->threadContext;
-    RexxObjectPtr o = c->exit->GetContextVariable(n.c_str());
-    RexxSide side;
-    if (o != NULLOBJECT && sideFor(tc, side)) rexxToVal(side, o, v);
-    Py_END_ALLOW_THREADS
-    PyObject *r;
-    {
-        StringsScope plain(false);
-        r = valToPy(v);
-    }
-    dropVal(v);
+    PyObject *args = PyTuple_Pack(2, nameObj, handler);
+    if (args == NULL) return NULL;
+    PyObject *r = intoRexx(inst, args, 0, NULL,
+        [&](RexxThreadContext *tc, RexxSide &, RexxArrayObject rargs, std::string &error) -> RexxObjectPtr {
+            RexxClassObject core = NULLOBJECT, ours = NULLOBJECT;
+            {
+                std::lock_guard<std::mutex> guard(instancesLock);
+                auto it = instances.find(tc->instance);
+                if (it != instances.end()) { core = it->second.commandHandlerClass; ours = it->second.pyCommandHandlerClass; }
+            }
+            if (core == NULLOBJECT || ours == NULLOBJECT)
+            {
+                error = "add_command_environment: this ooRexx has no .CommandHandler (5.3.0 r13289 or later is needed)";
+                return NULLOBJECT;
+            }
+            RexxObjectPtr h = tc->SendMessage1(ours, "NEW", tc->ArrayAt(rargs, 2));
+            if (h == NULLOBJECT || tc->CheckCondition()) return NULLOBJECT;
+            return tc->SendMessage2(core, "REGISTER", tc->ArrayAt(rargs, 1), h);
+        });
+    Py_DECREF(args);
     return r;
 }
 
-static PyObject *ctxSetVar(PyObject *self, PyObject *args)
-{
-    CommandContext *c = liveContext(self);
-    if (c == NULL) return NULL;
-    const char *name;
-    PyObject *value;
-    if (!PyArg_ParseTuple(args, "sO", &name, &value)) return NULL;
-    std::string n = upper(name);
-    Val v;
-    Py_INCREF(value);
-    pyToVal(value, v);
-    Py_BEGIN_ALLOW_THREADS
-    RexxThreadContext *tc = c->exit->threadContext;
-    RexxSide side;
-    if (!sideFor(tc, side)) { side.tc = tc; side.inst = tc->instance; side.pyObjectClass = NULLOBJECT; side.kwClass = NULLOBJECT; }
-    RexxObjectPtr o = valToRexx(side, v);
-    c->exit->SetContextVariable(n.c_str(), o);
-    Py_END_ALLOW_THREADS
-    dropVal(v);
-    Py_RETURN_NONE;
-}
-
-static PyObject *ctxDropVar(PyObject *self, PyObject *args)
-{
-    CommandContext *c = liveContext(self);
-    if (c == NULL) return NULL;
-    const char *name;
-    if (!PyArg_ParseTuple(args, "s", &name)) return NULL;
-    std::string n = upper(name);
-    Py_BEGIN_ALLOW_THREADS
-    c->exit->DropContextVariable(n.c_str());
-    Py_END_ALLOW_THREADS
-    Py_RETURN_NONE;
-}
-
-static PyObject *ctxRaise(PyObject *self, PyObject *args, const char *condition)
-{
-    CommandContext *c = liveContext(self);
-    if (c == NULL) return NULL;
-    PyObject *rc = NULL;
-    if (!PyArg_ParseTuple(args, "|O", &rc)) return NULL;
-    *c->condition = condition;
-    Py_XDECREF(c->conditionRc);
-    c->conditionRc = rc;
-    Py_XINCREF(rc);
-    if (rc == NULL) Py_RETURN_NONE;
-    Py_INCREF(rc);
-    return rc;
-}
-
-static PyObject *ctxRaiseError(PyObject *self, PyObject *args) { return ctxRaise(self, args, "ERROR"); }
-static PyObject *ctxRaiseFailure(PyObject *self, PyObject *args) { return ctxRaise(self, args, "FAILURE"); }
-
-static void ctxDealloc(PyObject *self)
-{
-    CommandContext *c = (CommandContext *)self;
-    Py_XDECREF(c->conditionRc);
-    PyTypeObject *type = Py_TYPE(self);
-    freefunc tpFree = (freefunc)PyType_GetSlot(type, Py_tp_free);
-    tpFree(self);
-    Py_DECREF(type);
-}
-
-static PyMethodDef ctxMethods[] =
-{
-    {"line_in", (PyCFunction)ctxLineIn, METH_NOARGS, "the next redirected input line, None at the end"},
-    {"lines", (PyCFunction)ctxLines, METH_NOARGS, "all the redirected input lines"},
-    {"output", (PyCFunction)ctxOutput, METH_VARARGS, "write a line to the command's output"},
-    {"error", (PyCFunction)ctxError, METH_VARARGS, "write a line to the command's error"},
-    {"is_redirected", (PyCFunction)ctxIsRedirected, METH_VARARGS, "is_redirected('input'|'output'|'error'|'same')"},
-    {"get_var", (PyCFunction)ctxGetVar, METH_VARARGS, "a variable of the code that issued the command (None if unset)"},
-    {"set_var", (PyCFunction)ctxSetVar, METH_VARARGS, "set a variable of the code that issued the command"},
-    {"drop_var", (PyCFunction)ctxDropVar, METH_VARARGS, "drop a variable of the code that issued the command"},
-    {"raise_error", (PyCFunction)ctxRaiseError, METH_VARARGS, "raise ERROR after the command (returns rc)"},
-    {"raise_failure", (PyCFunction)ctxRaiseFailure, METH_VARARGS, "raise FAILURE after the command (returns rc)"},
-    {NULL, NULL, 0, NULL}
-};
-
-static PyType_Slot ctxSlots[] =
-{
-    {Py_tp_dealloc, (void *)ctxDealloc},
-    {Py_tp_methods, (void *)ctxMethods},
-    {Py_tp_doc, (void *)"The context of an ADDRESS command handled by Python."},
-    {0, NULL}
-};
-
-PyType_Spec ctxSpec =
-{
-    "oorexx.CommandContext", sizeof(CommandContext), 0, Py_TPFLAGS_DEFAULT, ctxSlots
-};
-
-// the one native handler of every environment written in Python
-static RexxObjectPtr RexxEntry pythonCommandHandler(RexxExitContext *c, RexxStringObject address,
-    RexxStringObject command, RexxIORedirectorContext *io)
-{
-    std::string name = upper(std::string(c->StringData(address), c->StringLength(address)));
-    std::string text(c->StringData(command), c->StringLength(command));
-    RexxInstance *inst = c->threadContext->instance;
-    PyObject *handler = NULL;
-    {
-        // our own reference, taken with the GIL: addCommandEnvironment may
-        // replace (and drop) this handler meanwhile on another thread
-        Gil gil;
-        std::lock_guard<std::mutex> guard(environmentsLock);
-        auto it = environmentsByName.find(std::make_pair(inst, name));
-        if (it != environmentsByName.end()) { handler = it->second; Py_INCREF(handler); }
-    }
-    if (handler == NULL)
-    {
-        RexxObjectPtr rc = c->WholeNumber(RXSUBCOM_NOTREG);
-        c->RaiseCondition("FAILURE", command, NULLOBJECT, rc);
-        return rc;
-    }
-
-    std::string condition;
-    Val rcVal;
-    PyError err;
-    {
-        Gil gil;
-        PyTypeObject *type = (PyTypeObject *)commandContextType;
-        CommandContext *ctx = (CommandContext *)((allocfunc)PyType_GetSlot(type, Py_tp_alloc))(type, 0);
-        if (ctx == NULL) { captureError(err); }
-        else
-        {
-            ctx->exit = c;
-            ctx->io = io;
-            ctx->valid = true;
-            ctx->condition = &condition;
-            ctx->conditionRc = NULL;
-            PyObject *cmd = pyText(text.data(), text.size());
-            PyObject *r = cmd != NULL ? PyObject_CallFunctionObjArgs(handler, cmd, (PyObject *)ctx, NULL) : NULL;
-            Py_XDECREF(cmd);
-            ctx->valid = false;
-            if (r == NULL) captureError(err);
-            else
-            {
-                if (r == Py_None && ctx->conditionRc != NULL)
-                {
-                    Py_DECREF(r);
-                    r = ctx->conditionRc;
-                    Py_INCREF(r);
-                }
-                pyToVal(r, rcVal);
-            }
-            ctx->condition = NULL;
-            Py_DECREF((PyObject *)ctx);
-        }
-        Py_DECREF(handler);
-    }
-    RexxSide side;
-    if (!sideFor(c->threadContext, side))
-    {
-        side.tc = c->threadContext; side.inst = inst; side.pyObjectClass = NULLOBJECT; side.kwClass = NULLOBJECT;
-    }
-    // a Python error: SYNTAX 98.900, as any other (finish)
-    if (err.set) return finish(side, rcVal, err);
-    RexxObjectPtr rc = rcVal.kind == Val::NIL ? c->WholeNumber(0) : valToRexx(side, rcVal);
-    if (holdsPython(rcVal)) { Gil gil; dropVal(rcVal); }
-    if (!condition.empty()) c->RaiseCondition(condition.c_str(), command, NULLOBJECT, rc);
-    return rc;
-}
-
-// make name an ADDRESS environment of inst served by handler (tc: a thread
-// context of inst, or NULL: this Python thread attaches; called with the GIL)
-static void addCommandEnvironment(RexxInstance *inst, RexxThreadContext *tc, const std::string &rawName, PyObject *handler)
-{
-    std::string name = upper(rawName);
-    {
-        std::lock_guard<std::mutex> guard(environmentsLock);
-        auto key = std::make_pair(inst, name);
-        auto it = environmentsByName.find(key);
-        Py_INCREF(handler);
-        if (it != environmentsByName.end()) { Py_DECREF(it->second); it->second = handler; }
-        else environmentsByName[key] = handler;
-    }
-    Py_BEGIN_ALLOW_THREADS
-    RexxThreadContext *t = tc;
-    bool attached = false;
-    if (t == NULL) attached = inst->AttachThread(&t);
-    if (t != NULL) t->AddCommandEnvironment(name.c_str(), (REXXPFN)pythonCommandHandler, REDIRECTING_COMMAND_ENVIRONMENT);
-    if (attached) t->DetachThread();
-    Py_END_ALLOW_THREADS
-}
-
-// r.add_command_environment(name, handler)
+// r.add_command_environment(name, handler): the handler it covers, or None
 static PyObject *interpreterAddEnvironment(PyObject *self, PyObject *args)
 {
     Interpreter *r = (Interpreter *)self;
@@ -3635,88 +3355,31 @@ static PyObject *interpreterAddEnvironment(PyObject *self, PyObject *args)
         PyErr_SetString(PyExc_TypeError, "the handler must be callable: handler(command, context)");
         return NULL;
     }
-    addCommandEnvironment(r->inst->rexx, NULL, pyString(nameObj), handler);
-    Py_RETURN_NONE;
+    return registerHandler(r->inst, nameObj, handler);
 }
 
-// forget name as an environment of inst (called with the GIL): ooRexx has no
-// API to remove one, so its native handler stays registered and answers
-// FAILURE RC 30, as ooRexx does for an unknown environment.  Whether it was
-// an environment written in Python (if not, the callers raise an error).
-static bool removeCommandEnvironment(RexxInstance *inst, const std::string &rawName)
-{
-    PyObject *old = NULL;
-    {
-        std::lock_guard<std::mutex> guard(environmentsLock);
-        auto it = environmentsByName.find(std::make_pair(inst, upper(rawName)));
-        if (it != environmentsByName.end()) { old = it->second; environmentsByName.erase(it); }
-    }
-    Py_XDECREF(old);
-    return old != NULL;
-}
-
-// r.remove_command_environment(name)
+// r.remove_command_environment(name): the handler removed
 static PyObject *interpreterRemoveEnvironment(PyObject *self, PyObject *args)
 {
     Interpreter *r = (Interpreter *)self;
     if (!liveInterpreter(r)) return NULL;
     PyObject *nameObj;
     if (!PyArg_ParseTuple(args, "U:remove_command_environment", &nameObj)) return NULL;
-    std::string name = pyString(nameObj);
-    if (!removeCommandEnvironment(r->inst->rexx, name))
-    {
-        PyErr_Format(PyExc_ValueError, "remove_command_environment: no ADDRESS environment written in Python named %s",
-                     upper(name).c_str());
-        return NULL;
-    }
-    Py_RETURN_NONE;
-}
-
-// .py~addCommandEnvironment(name, handler), from Rexx: handler is a Python
-// callable, as for add_command_environment.  .nil, or anything else that is
-// not callable, is an incorrect argument: SYNTAX 93.900 (from Python, the
-// same is a TypeError).  The bridge's own table is guarded by
-// environmentsLock; ooRexx's (AddCommandEnvironment) by its own lock from
-// r13274 on (#2111).
-RexxMethod2(RexxObjectPtr, Py_AddEnvironment, CSTRING, name, RexxObjectPtr, handler)
-{
-    RexxSide side;
-    if (!findClasses(context, side)) return NULLOBJECT;
-    Val hv, result;
-    rexxToVal(side, handler, hv);
-    PyError err;
-    const char *notCallable = NULL;
-    {
-        Gil gil;
-        PyObject *h = valToPy(hv);
-        if (h == NULL) captureError(err);
-        else if (!PyCallable_Check(h)) notCallable = h == Py_None ? ".nil" : "not callable";
-        else addCommandEnvironment(context->threadContext->instance, context->threadContext, name, h);
-        Py_XDECREF(h);
-        dropVal(hv);
-    }
-    if (err.set) return finish(side, result, err);
-    if (notCallable != NULL)
-        context->RaiseException1(Rexx_Error_Incorrect_method_user_defined,
-            context->String((std::string("addCommandEnvironment: the handler must be a Python callable, "
-                                         "handler(command, context), not ") + notCallable).c_str()));
-    return NULLOBJECT;
-}
-
-// .py~removeCommandEnvironment(name), from Rexx; a name that is not an
-// environment written in Python is an error (SYNTAX 93.900)
-RexxMethod1(RexxObjectPtr, Py_RemoveEnvironment, CSTRING, name)
-{
-    bool removed;
-    {
-        Gil gil;
-        removed = removeCommandEnvironment(context->threadContext->instance, name);
-    }
-    if (!removed)
-        context->RaiseException1(Rexx_Error_Incorrect_method_user_defined,
-            context->String(("removeCommandEnvironment: no ADDRESS environment written in Python named " +
-                             upper(name)).c_str()));
-    return NULLOBJECT;
+    return intoRexx(r->inst, args, 0, NULL,
+        [&](RexxThreadContext *tc, RexxSide &, RexxArrayObject rargs, std::string &error) -> RexxObjectPtr {
+            RexxClassObject core = NULLOBJECT;
+            {
+                std::lock_guard<std::mutex> guard(instancesLock);
+                auto it = instances.find(tc->instance);
+                if (it != instances.end()) core = it->second.commandHandlerClass;
+            }
+            if (core == NULLOBJECT)
+            {
+                error = "remove_command_environment: this ooRexx has no .CommandHandler (5.3.0 r13289 or later is needed)";
+                return NULLOBJECT;
+            }
+            return tc->SendMessage1(core, "DEREGISTER", tc->ArrayAt(rargs, 1));
+        });
 }
 
 /* ------------------------------------------------------------------------ */
@@ -4514,8 +4177,6 @@ static RexxMethodEntry bridgeMethods[] =
     REXX_METHOD(Py_Graveyard,    Py_Graveyard),
     REXX_METHOD(Py_Make,         Py_Make),
     REXX_METHOD(Py_Box,          Py_Box),
-    REXX_METHOD(Py_AddEnvironment,    Py_AddEnvironment),
-    REXX_METHOD(Py_RemoveEnvironment, Py_RemoveEnvironment),
     REXX_METHOD(PyPair_New,      PyPair_New),
     REXX_METHOD(PyPair_Init,     PyPair_Init),
     REXX_LAST_METHOD()

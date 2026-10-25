@@ -123,14 +123,16 @@ interpreter instance of the process shares it.</para>
 the environment object &py; (an instance of the class
 <xref linkend="clsPython" xrefstyle="select:title"/>), the classes
 <classname>PyObject</classname>, <classname>PyArrayProxy</classname>,
-<classname>PyKwArgs</classname>, <classname>PyOutputStream</classname> and
+<classname>PyKwArgs</classname>, <classname>PyCommandHandler</classname>,
+<classname>PyOutputStream</classname> and
 <classname>PyInputStream</classname>, and the routines
 <literal>py.import</literal>, <literal>py.box</literal>,
 <literal>py.kw</literal>, <literal>py.extend</literal> and
 <literal>py.redirectTo</literal>. Python's names are those of the module
 <literal>oorexx</literal>: <classname>Interpreter</classname>,
-<classname>RexxObject</classname>, <classname>RexxError</classname> and
-<classname>CommandContext</classname>.</para>
+<classname>RexxObject</classname> and <classname>RexxError</classname>.
+An <literal>ADDRESS</literal> environment written in Python gets ooRexx's
+own <literal>.CommandContext</literal>, with ooRexx's names.</para>
 <para>The examples' outputs come from CPython; a value printed by Python (a
 list, a float) is printed as Python prints it.</para>
 </section>

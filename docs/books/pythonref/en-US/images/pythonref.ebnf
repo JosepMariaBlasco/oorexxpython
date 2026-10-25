@@ -3,7 +3,7 @@
    with DIAGRAMS=1 makes one SVG per production, named as the production.
    Licensed under the Apache License, Version 2.0. */
 
-python_addcommandenvironment ::= 'addCommandEnvironment(' name ',' handler ')'
+python_commandhandler ::= 'commandHandler(' handler ')'
 
 python_box ::= 'box(' type ',' value ')'
 
@@ -30,8 +30,6 @@ python_main ::= 'main'
 python_raise ::= 'raise(' exception ( ',' argument )* ')'
 
 python_redirectto ::= 'redirectTo' ( '(' arguments ')' )?
-
-python_removecommandenvironment ::= 'removeCommandEnvironment(' name ')'
 
 python_str ::= 'str(' value ')'
 
@@ -211,22 +209,6 @@ rexxobject_sendmessagen ::= ( 'sendMessage0(' name | 'sendMessage1(' name ',' a1
 
 rexxobject_sendmessagescope ::= 'sendMessageScope(' name ',' scope ( ',' '[' ( argument ( ',' argument )* )? ']' )? ')'
 
-commandcontext_linein ::= 'line_in()'
+pycommandhandler_command ::= 'command(' command ',' caller ')'
 
-commandcontext_lines ::= 'lines()'
-
-commandcontext_output ::= 'output(' line ')'
-
-commandcontext_error ::= 'error(' line ')'
-
-commandcontext_isredirected ::= 'is_redirected(' ( "'input'" | "'output'" | "'error'" | "'same'" ) ')'
-
-commandcontext_getvar ::= 'get_var(' name ')'
-
-commandcontext_setvar ::= 'set_var(' name ',' value ')'
-
-commandcontext_dropvar ::= 'drop_var(' name ')'
-
-commandcontext_raiseerror ::= 'raise_error(' rc? ')'
-
-commandcontext_raisefailure ::= 'raise_failure(' rc? ')'
+pycommandhandler_handler ::= 'handler'

@@ -1,7 +1,7 @@
 #!/usr/bin/env rexx
 /*----------------------------------------------------------------------------*/
-/* Address.testGroup: ADDRESS environments written in Python, registered and  */
-/* removed from Rexx (.py~addCommandEnvironment, .py~removeCommandEnvironment).*/
+/* Address.testGroup: ADDRESS environments written in Python, as ooRexx's    */
+/* own (.CommandHandler~register(name, .py~commandHandler(callable))).        */
 /*                                                                            */
 /* Licensed under the Apache License, Version 2.0.                            */
 /*----------------------------------------------------------------------------*/
@@ -24,13 +24,13 @@ return testResult
 ::method setUp
   .py~exec(self~py("def calc(command, ctx):", -
                    "    if command == 'boom': raise ValueError('bad command')", -
-                   "    if command == 'say': ctx.output('said'); ctx.error('warned'); return 0", -
+                   "    if command == 'none': return None", -
                    "    return eval(command)"))
-  .py~addCommandEnvironment("calc", .py~main~getattr("calc"))
+  self~assertSame(.nil, .CommandHandler~register("calc", .py~commandHandler(.py~main~getattr("calc"))), "nothing covered")
 
 ::method tearDown
   signal on syntax                        -- a test may have removed it
-  .py~removeCommandEnvironment("calc")
+  do forever; .CommandHandler~deregister("calc"); end
 syntax:
 
 ::method test_register_and_rc
@@ -40,24 +40,36 @@ syntax:
   self~assertSame(-3, rc, "a negative RC")
   address calc '"abc"'
   self~assertSame("abc", rc, "any value")
+  address calc 'none'
+  self~assertSame(0, rc, "None is RC 0")
 
-::method test_lambda_and_replace
-  .py~addCommandEnvironment("len", .py~eval("lambda c, ctx: len(c)"))
-  address len 'abcd'
-  self~assertSame(4, rc, "a lambda")
-  .py~addCommandEnvironment("LEN", .py~eval("lambda c, ctx: 10 * len(c)"))
-  address len 'abcd'
-  self~assertSame(40, rc, "registering a name again replaces the handler")
-  .py~removeCommandEnvironment("len")
+::method test_the_core_sees_it
+  h = .CommandHandler~handler("CALC")
+  self~assertTrue(h~isA(.PyCommandHandler), "a .PyCommandHandler")
+  self~assertTrue(h~isA(.CommandHandler), "a .CommandHandler")
+  self~assertSame(.py~main~getattr("calc"), h~handler, "its callable")
+  self~assertTrue(.CommandHandler~environments~hasIndex("CALC"), "in ~environments")
 
-::method test_remove
-  .py~removeCommandEnvironment("CALC")
-  self~assertSame("FAILURE 30", self~failureOf, "a removed name is unknown: FAILURE, RC 30")
+::method test_stacking
+  first = .CommandHandler~handler("CALC")
+  covered = .CommandHandler~register("calc", .py~commandHandler(.py~eval("lambda c, ctx: len(c)")))
+  self~assertSame(first, covered, "register gives back the handler it covers")
+  self~assertSame(2, .CommandHandler~handlers("CALC")~items, "two handlers")
+  address calc 'abcd'
+  self~assertSame(4, rc, "the new one answers")
+  removed = .CommandHandler~deregister("calc")
+  self~assertSame(4, removed~handler~invoke("__call__", "abcd", .nil), "deregister gives back the one removed")
+  address calc '1 + 1'
+  self~assertSame(2, rc, "the covered one is back")
+
+::method test_deregister
+  .CommandHandler~deregister("CALC")
+  self~assertSame("FAILURE 30", self~failureOf, "a name with no handler is unknown: FAILURE, RC 30")
   do name over "calc", "nosuchenv"        -- removing again, a name never registered
-    co = self~syntaxOf(.py, "removeCommandEnvironment", name)
-    self~assertSame("93.900", co~code, "removing" name "is an error")
+    co = self~syntaxOf(.CommandHandler, "deregister", name)
+    self~assertSame("93.900", co~code, "deregistering" name "is an error")
   end
-  .py~addCommandEnvironment("calc", .py~main~getattr("calc"))
+  .CommandHandler~register("calc", .py~commandHandler(.py~main~getattr("calc")))
   address calc '1 + 1'
   self~assertSame(2, rc, "registered again")
 
@@ -70,7 +82,7 @@ failure:
 
 ::method test_not_callable
   do handler over .nil, "abc", 42
-    co = self~syntaxOf(.py, "addCommandEnvironment", "bad", handler)
+    co = self~syntaxOf(.py, "commandHandler", handler)
     self~assertSame("93.900", co~code, "not callable:" handler)
   end
 
@@ -83,15 +95,83 @@ syntax:
   self~assertSame("98.900", co~code, "SYNTAX 98.900")
   self~assertSame("ValueError", .py~type(co~additional[2])~getattr("__name__"), "the exception")
 
--- without WITH, the handler's output and error go to Python's sys.stdout and
--- sys.stderr: the console, never dropped
+-- the context is ooRexx's .CommandContext, with its own names
+::method test_context
+  .py~exec(self~py("def ctxh(command, ctx):", -
+                   "    if command == 'var': return ctx.getVar('X') + ctx['X']", -
+                   "    if command == 'set': ctx.setVar('Y', 'from Python'); return 0", -
+                   "    if command == 'has': return ctx.hasVar('NOPE')", -
+                   "    if command == 'out':", -
+                   "        out = ctx.output(); out.lineout('one'); out.lineout('two'); return 0", -
+                   "    if command == 'in':", -
+                   "        i, n = ctx.input(), 0", -
+                   "        while i.lines(): i.linein(); n += 1", -
+                   "        return n", -
+                   "    if command == 'redirected': return 1 if ctx.isRedirected('Output') else 0", -
+                   "    if command == 'error': return ctx.raiseError(5)", -
+                   "    if command == 'failure': return ctx.raise_('FAILURE', -2)"))
+  .CommandHandler~register("ctx", .py~commandHandler(.py~main~getattr("ctxh")))
+  x = 20
+  address ctx 'var'
+  self~assertSame(40, rc, "getVar and []")
+  address ctx 'set'
+  self~assertSame("from Python", y, "setVar")
+  address ctx 'has'
+  self~assertSame(0, rc, "hasVar")
+  out = .array~new
+  address ctx 'out' with output using (out)
+  self~assertSame("one|two", out~toString(, "|"), "output() with WITH OUTPUT")
+  address ctx 'redirected' with output using (out)
+  self~assertSame(1, rc, "isRedirected, redirected")
+  address ctx 'redirected'
+  self~assertSame(0, rc, "isRedirected, not redirected")
+  address ctx 'in' with input using (.array~of("a", "b", "c"))
+  self~assertSame(3, rc, "input() with WITH INPUT")
+  self~assertSame("ERROR 5", self~conditionOf("ctx", "error"), "raiseError")
+  self~assertSame("FAILURE -2", self~conditionOf("ctx", "failure"), "raise_ is RAISE")
+  .CommandHandler~deregister("ctx")
+
+::method conditionOf private
+  use arg env, command
+  signal on error
+  signal on failure name error
+  interpret "address" env "command"
+  return "none"
+error:
+  return condition("C") rc
+
+-- a condition the handler asks for is itself, any condition
+::method test_user_condition
+  .CommandHandler~register("u", .py~commandHandler(.py~eval("lambda c, ctx: ctx.raise_('USER BAD', 9, 'what went wrong')")))
+  signal on user bad
+  address u 'x'
+  self~fail("USER BAD must be raised")
+bad:
+  self~assertSame("what went wrong", condition("D"), "its description")
+  self~assertSame(9, rc, "its RC")
+  .CommandHandler~deregister("u")
+
+-- without WITH, the core's output() is an error (ooRexx's rule); print()
+-- goes to Python's sys.stdout: the console
 ::method test_output_without_with
+  .CommandHandler~register("o", .py~commandHandler(.py~eval("lambda c, ctx: ctx.output()")))
+  co = self~syntaxOfCommand("o")
+  self~assertSame("98.900", co~code, "output() without WITH OUTPUT")
+  .CommandHandler~deregister("o")
   .py~exec(self~py("import io, sys", -
-                   "saved = sys.stdout, sys.stderr", -
-                   "sys.stdout, sys.stderr = io.StringIO(), io.StringIO()"))
-  address calc 'say'
-  .py~exec(self~py("out, err = sys.stdout.getvalue(), sys.stderr.getvalue()", -
-                   "sys.stdout, sys.stderr = saved"))
+                   "saved = sys.stdout", -
+                   "sys.stdout = io.StringIO()"))
+  .CommandHandler~register("o", .py~commandHandler(.py~eval("lambda c, ctx: print('said')")))
+  address o 'x'
+  .py~exec(self~py("out = sys.stdout.getvalue()", "sys.stdout = saved"))
   self~assertSame(0, rc, "rc")
-  self~assertSame("said" || "0a"x, .py~main~out, "output")
-  self~assertSame("warned" || "0a"x, .py~main~err, "error")
+  self~assertSame("said" || "0a"x, .py~main~out, "print()")
+  .CommandHandler~deregister("o")
+
+::method syntaxOfCommand private
+  use arg env
+  signal on syntax
+  interpret "address" env "'x'"
+  return .nil
+syntax:
+  return condition("O")

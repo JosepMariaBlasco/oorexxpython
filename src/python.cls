@@ -153,6 +153,11 @@ final: return
 ::method uninit unguarded
   expose cself
   if cself~isA(.Pointer) then .PyObject~graveyard~queue(cself)
+-- let the Python object go now (the instance is closing: .PyCommandHandler)
+::method "PY.DROP" unguarded
+  expose cself
+  if cself~isA(.Pointer) then .PyObject~graveyard~queue(cself)
+  cself = .nil
 ::attribute graveyard class get unguarded
 ::method activate class
   expose graveyard
@@ -239,12 +244,12 @@ final: return
 ::method float unguarded   external "LIBRARY rexxpython Py_Make"
 ::method decimal unguarded external "LIBRARY rexxpython Py_Make"
 ::method box unguarded     external "LIBRARY rexxpython Py_Box"
--- ADDRESS environments written in Python, registered from Rexx: handler is
--- a Python callable, handler(command, context), as for the Python side's
--- Interpreter.add_command_environment; removeCommandEnvironment makes the
--- name unknown again (FAILURE, RC 30); a name not registered is an error
-::method addCommandEnvironment unguarded    external "LIBRARY rexxpython Py_AddEnvironment"
-::method removeCommandEnvironment unguarded external "LIBRARY rexxpython Py_RemoveEnvironment"
+-- a Python callable as an ADDRESS environment, as ooRexx's own (RFE #882):
+-- .CommandHandler~register(name, .py~commandHandler(handler)); see
+-- .PyCommandHandler, below
+::method commandHandler unguarded
+  use strict arg handler
+  return .PyCommandHandler~new(handler)
 ::method kw unguarded
   return .PyKwArgs~new(arg(1, "A"))
 ::method main unguarded
@@ -903,3 +908,60 @@ def make(bases, name, specs, rexx_class, new_for):
     cls._oorexx_class = cls
     return cls
 ::END
+
+
+/* ------------------------------------------------------------------------ */
+/* .PyCommandHandler: a Python callable as a command handler                  */
+/* ------------------------------------------------------------------------ */
+
+-- An ADDRESS environment written in Python is a command handler like any
+-- other (ooRexx's .CommandHandler, RFE #882): every command sent to it runs
+-- handler(command, context) on the thread that issued it, context being
+-- ooRexx's .CommandContext (as a Rexx object in Python: context.getVar("X"),
+-- context["X"], context.output().lineout(...), context.raise_("ERROR", 5)),
+-- and the handler's result is RC (None: 0).  A Python exception is SYNTAX
+-- 98.900 in the code that issued the command.  Unguarded: several threads
+-- may send commands to the same environment at once.
+::class PyCommandHandler public inherit CommandHandler
+::method init
+  expose handler
+  use strict arg handler
+  if \handler~isA(.PyObject) then callable = 0
+  else callable = .py~invoke("callable", handler)
+  if \callable then
+    raise syntax 93.900 array("commandHandler: the handler must be a Python callable, handler(command, context)")
+::method handler unguarded              -- the Python callable
+  expose handler
+  return handler
+::method command unguarded
+  expose handler
+  use strict arg command, caller
+  signal on any name relay
+  rc = handler~invoke("__call__", .py~str(command), caller)   -- the command always a str
+  if rc == .nil then return 0
+  return rc
+  -- a condition Python raised again (an oorexx.RexxError) reaches the issuer
+  -- as a Rexx handler's would: SYNTAX itself; HALT as SYNTAX 4.1, as when no
+  -- one traps it; any other through the context, its DESCRIPTION and
+  -- ADDITIONAL kept (its RESULT is lost, as with a Rexx handler)
+relay:
+  co = condition("O")
+  if co~condition == "SYNTAX" then raise propagate
+  if co~condition == "HALT" then raise syntax 4.1 array ("HALT")
+  return caller~raise(co~condition, co~result, co~description, co~additional)
+-- the interpreter instance is closing (Interpreter.close): the callable is
+-- let go now, not when a collection runs the uninits
+::method "PY.RELEASE" unguarded
+  expose handler
+  if handler~isA(.PyObject) then handler~"PY.DROP"
+  handler = .nil
+
+-- Interpreter.close: the instance's ADDRESS environments written in Python
+-- let their callables go
+::routine py.closing private
+  envs = .CommandHandler~environments
+  do name over envs~allIndexes
+    do h over .CommandHandler~handlers(name)
+      if h~isA(.PyCommandHandler) then h~"PY.RELEASE"
+    end
+  end

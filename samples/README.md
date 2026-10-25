@@ -42,7 +42,7 @@ by `scripts/samples-deck.rex` (edit those, not the deck), and the skin
 | `08-box.rex` | `py.box(type, value)`: choosing the Python type (float, bytes, fraction, decimal) |
 | `09-threads.rex` | Rexx threads and a Python thread pool, together |
 | `27-string-module.rex` | number-looking text: `.py~str(x)`, or a module imported as `"string"` |
-| `28-address.rex` | an ADDRESS environment written in Python, registered and removed from Rexx: `.py~addCommandEnvironment`, `.py~removeCommandEnvironment` |
+| `28-address.rex` | an ADDRESS environment written in Python, registered and removed from Rexx as ooRexx's own: `.CommandHandler~register(name, .py~commandHandler(f))`, `~deregister` |
 
 ## The Python standard library, from ooRexx
 

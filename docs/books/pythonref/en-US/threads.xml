@@ -39,8 +39,11 @@ with oorexx.Interpreter() as rexx:
 
 <section id="threadsAddress"><title>ADDRESS Environments and Threads</title>
 <para>ADDRESS environments can be registered at any time, from any thread,
-also while other threads run Rexx in the same interpreter. (Before ooRexx
-5.3.0 r13275 that could crash it: ooRexx bugs #2111 and #2112.)</para>
+also while other threads run Rexx in the same interpreter, and several
+threads may send commands to the same environment at once: a
+<xref linkend="clsPyCommandHandler" xrefstyle="select:title"/> runs each
+command on the thread that issued it. (Before ooRexx 5.3.0 r13275
+registering could crash it: ooRexx bugs #2111 and #2112.)</para>
 </section>
 
 </chapter>

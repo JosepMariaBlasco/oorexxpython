@@ -111,19 +111,28 @@ with oorexx.Interpreter(rexx_path=".") as rexx:
 <para>Makes the Python callable <emphasis role="italic">handler</emphasis> the
 <literal>ADDRESS</literal> environment <emphasis role="italic">name</emphasis>
 (<xref linkend="pymoduleAddress"/>), at any time, from any thread
-(<xref linkend="threadsAddress"/>).</para>
+(<xref linkend="threadsAddress"/>). It is ooRexx's
+<computeroutput>.CommandHandler~register(name, .py~commandHandler(handler))</computeroutput>:
+the new handler covers the one in use, and the method returns the handler it
+covers (a <classname>RexxObject</classname> of a
+<xref linkend="clsPyCommandHandler" xrefstyle="select:title"/>, or of
+another <literal>.CommandHandler</literal>), or &None;. A
+<emphasis role="italic">handler</emphasis> that is not callable is a
+<literal>TypeError</literal>.</para>
 </section>
 
 <section id="mthInterpreterRemoveCommandEnvironment"><title>remove_command_environment</title>
 <indexterm><primary>remove_command_environment method</primary><secondary>of Interpreter class</secondary></indexterm>
 <mediaobject><imageobject><imagedata fileref="images/interpreter_removecommandenvironment.svg" scale="55" /></imageobject></mediaobject>
-<para>Makes the <literal>ADDRESS</literal> environment <emphasis role="italic">name</emphasis>,
-written in Python, unknown again: a command sent to it is then
-<literal>FAILURE</literal> with <literal>RC</literal> 30, as ooRexx answers
-for an environment it does not know (ooRexx has no way to remove an
-environment: the bridge forgets the name). A <emphasis role="italic">name</emphasis>
-that is not an environment written in Python is a <literal>ValueError</literal>;
-other environments are not touched. Returns &None;.</para>
+<para>Removes the handler in use for the <literal>ADDRESS</literal> environment
+<emphasis role="italic">name</emphasis>, written in Python or not, and
+returns it: ooRexx's <computeroutput>.CommandHandler~deregister(name)</computeroutput>.
+The handler it covered, if any, is in use again; with none left, a command
+sent to <emphasis role="italic">name</emphasis> is <literal>FAILURE</literal>
+with <literal>RC</literal> 30, as for an environment ooRexx does not know. A
+<emphasis role="italic">name</emphasis> with no handler is the core's error,
+SYNTAX 93.900, an <xref linkend="clsRexxError" xrefstyle="select:title"/>
+in Python.</para>
 </section>
 
 <section id="mthInterpreterClose"><title>close</title>
@@ -186,7 +195,16 @@ strings, numbers, &nil; and Arrays do not come as
 <computeroutput>o.name</computeroutput>, is a callable
 <literal>oorexx.RexxMessage</literal>, which sends the message when it is
 called: <computeroutput>o.name()</computeroutput> sends
-<literal>NAME</literal> with no arguments. Two
+<literal>NAME</literal> with no arguments. A Rexx message named like a
+Python keyword cannot be written as an attribute
+(<computeroutput>o.raise()</computeroutput> is a syntax error): as PEP 8
+suggests, a trailing underscore after a keyword stands for it, so
+<computeroutput>o.raise_(...)</computeroutput> sends <literal>RAISE</literal>.
+Only one underscore, and only after a keyword, is taken off
+(<computeroutput>o.raise__()</computeroutput> sends
+<literal>RAISE__</literal>, <computeroutput>o.other_()</computeroutput>
+<literal>OTHER_</literal>); <methodname>sendMessage</methodname> sends any
+name as it is. Two
 <classname>RexxObject</classname>s of the same Rexx object are
 <literal>==</literal>, though not <literal>is</literal>; a
 <classname>RexxObject</classname> given back to Rexx is the Rexx object
@@ -316,41 +334,57 @@ Arithmetic overflow/underflow.
 <!-- ===================================================================== -->
 <section id="pymoduleAddress"><title>ADDRESS Environments in Python</title>
 <indexterm><primary>ADDRESS</primary><secondary>environments in Python</secondary></indexterm>
-<para>A Python callable can be a Rexx command environment: given with
+<indexterm><primary>CommandContext class</primary><secondary>from Python</secondary></indexterm>
+<para>A Python callable can be a Rexx command environment, and it is one as
+ooRexx's own are: a command handler (ooRexx's <literal>.CommandHandler</literal>,
+in the <citetitle>ooRexx Reference</citetitle>), registered and removed with
+ooRexx's <literal>.CommandHandler~register</literal> and
+<literal>~deregister</literal>, which stack. From Python, give it with
 <literal>command_environments=</literal> when the interpreter is created, or
-with <xref linkend="mthInterpreterAddCommandEnvironment" xrefstyle="select:title"/>,
-or from Rexx with <xref linkend="mthPythonAddCommandEnvironment" xrefstyle="select:title"/>.
-Rexx's <literal>ADDRESS name</literal> commands call it with two arguments,
-the command, a <literal>str</literal>, and a
-<xref linkend="clsCommandContext" xrefstyle="select:title"/>. What it returns
-is <literal>RC</literal>, whatever its sign; &None; is 0. It raises
-<literal>ERROR</literal> or <literal>FAILURE</literal> only through the
-context's <xref linkend="mthCommandContextRaiseError" xrefstyle="select:title"/>
-and <xref linkend="mthCommandContextRaiseFailure" xrefstyle="select:title"/>.
-A Python exception in the handler is a SYNTAX error
-(98.900) there, as any other (<xref linkend="condPythonInRexx"/>), and, if
-the Rexx code does not trap it, Python gets it back as itself. Without
-<literal>WITH</literal>, what the handler writes goes to Python's
-<literal>sys.stdout</literal> and <literal>sys.stderr</literal>. An
-environment belongs to its interpreter instance; adding a name again
-replaces it, and <xref linkend="mthInterpreterRemoveCommandEnvironment" xrefstyle="select:title"/>
-(or <xref linkend="mthPythonRemoveCommandEnvironment" xrefstyle="select:title"/>)
-makes it unknown again.</para>
+with <xref linkend="mthInterpreterAddCommandEnvironment" xrefstyle="select:title"/>
+(and remove it with <xref linkend="mthInterpreterRemoveCommandEnvironment" xrefstyle="select:title"/>);
+from Rexx, with <computeroutput>.CommandHandler~register(name, .py~commandHandler(handler))</computeroutput>
+(<xref linkend="mthPythonCommandHandler" xrefstyle="select:title"/>). Rexx's
+<literal>ADDRESS name</literal> commands call it with two arguments, the
+command, a <literal>str</literal>, and ooRexx's own
+<literal>.CommandContext</literal>, a <classname>RexxObject</classname>, with
+its own names: <computeroutput>ctx.getVar("X")</computeroutput> (or
+<computeroutput>ctx["X"]</computeroutput>), <methodname>setVar</methodname>,
+<methodname>hasVar</methodname>, <methodname>dropVar</methodname>,
+<computeroutput>ctx.input()</computeroutput> and
+<computeroutput>ctx.output()</computeroutput> (the <literal>WITH</literal>
+redirection, as streams: <methodname>linein</methodname>,
+<methodname>lines</methodname>, <methodname>lineout</methodname>; without
+<literal>WITH OUTPUT</literal>, <computeroutput>ctx.output()</computeroutput>
+is an error, as for a handler written in Rexx, while
+<computeroutput>print()</computeroutput> goes to the console),
+<methodname>isRedirected</methodname> (0 or 1),
+<methodname>raiseError</methodname>, <methodname>raiseFailure</methodname>,
+and <computeroutput>ctx.raise_(condition, rc, ...)</computeroutput> for its
+<methodname>raise</methodname>, a Python keyword (<xref linkend="clsRexxObject"/>).
+What the handler returns is <literal>RC</literal>, whatever its sign; &None;
+is 0. It raises <literal>ERROR</literal>, <literal>FAILURE</literal> or any
+other condition only through the context. A Python exception in the handler
+is a SYNTAX error (98.900) there, as any other (<xref linkend="condPythonInRexx"/>),
+and, if the Rexx code does not trap it, Python gets it back as itself. An
+environment belongs to its interpreter instance, and closing the instance
+releases its handlers.</para>
 <example id="ex.pymodule-address">
 <title>ADDRESS environments written in Python</title>
 <programlisting language="python">import oorexx
 
 def calc(command, ctx):
     try:
-        ctx.set_var("RESULT", eval(command, {"__builtins__": {}}))
+        ctx.setVar("RESULT", eval(command, {"__builtins__": {}}))
         return 0
     except Exception as e:
-        ctx.set_var("RESULT", str(e))
+        ctx.setVar("RESULT", str(e))
         return 1
 
 def upper(command, ctx):
-    for line in ctx.lines():
-        ctx.output(line.upper())
+    i, out = ctx.input(), ctx.output()
+    while i.lines():
+        out.lineout(i.linein().upper())
     return 0
 
 with oorexx.Interpreter(command_environments={"CALC": calc}, prefixes=False) as rexx:
@@ -367,81 +401,6 @@ with oorexx.Interpreter(command_environments={"CALC": calc}, prefixes=False) as 
 1 division by zero
 2 ONE TWO</screen>
 </example>
-</section>
-
-<!-- ===================================================================== -->
-<section id="clsCommandContext"><title>CommandContext Class</title>
-<indexterm><primary>CommandContext class</primary></indexterm>
-<para>What an <literal>ADDRESS</literal> environment written in Python gets
-with each command: the command's redirected input and output
-(<literal>ADDRESS ... WITH</literal>), the variables of the Rexx code that
-issued it, and the conditions to raise there. It is valid only during the
-call.</para>
-
-<section id="mthCommandContextLineIn"><title>line_in</title>
-<indexterm><primary>line_in method</primary><secondary>of CommandContext class</secondary></indexterm>
-<mediaobject><imageobject><imagedata fileref="images/commandcontext_linein.svg" scale="55" /></imageobject></mediaobject>
-<para>Returns the next line of the redirected input, or &None; at the end.</para>
-</section>
-<section id="mthCommandContextLines"><title>lines</title>
-<indexterm><primary>lines method</primary><secondary>of CommandContext class</secondary></indexterm>
-<mediaobject><imageobject><imagedata fileref="images/commandcontext_lines.svg" scale="55" /></imageobject></mediaobject>
-<para>Returns a list of all the lines of the redirected input.</para>
-</section>
-<section id="mthCommandContextOutput"><title>output</title>
-<indexterm><primary>output method</primary><secondary>of CommandContext class</secondary></indexterm>
-<mediaobject><imageobject><imagedata fileref="images/commandcontext_output.svg" scale="55" /></imageobject></mediaobject>
-<para>Writes <emphasis role="italic">line</emphasis> to the command's output:
-the redirected output if there is one, else Python's
-<literal>sys.stdout</literal>, as a real command writes to the
-console.</para>
-</section>
-<section id="mthCommandContextError"><title>error</title>
-<indexterm><primary>error method</primary><secondary>of CommandContext class</secondary></indexterm>
-<mediaobject><imageobject><imagedata fileref="images/commandcontext_error.svg" scale="55" /></imageobject></mediaobject>
-<para>Writes <emphasis role="italic">line</emphasis> to the command's error
-output: the redirected one if there is one, else Python's
-<literal>sys.stderr</literal>.</para>
-</section>
-<section id="mthCommandContextIsRedirected"><title>is_redirected</title>
-<indexterm><primary>is_redirected method</primary><secondary>of CommandContext class</secondary></indexterm>
-<mediaobject><imageobject><imagedata fileref="images/commandcontext_isredirected.svg" scale="55" /></imageobject></mediaobject>
-<para>Returns whether the command's input, output or error is redirected, or,
-for <literal>'same'</literal>, whether output and error go to the same
-target.</para>
-</section>
-<section id="mthCommandContextGetVar"><title>get_var</title>
-<indexterm><primary>get_var method</primary><secondary>of CommandContext class</secondary></indexterm>
-<mediaobject><imageobject><imagedata fileref="images/commandcontext_getvar.svg" scale="55" /></imageobject></mediaobject>
-<para>Returns the value of the variable <emphasis role="italic">name</emphasis>
-of the code that issued the command, or &None; if it has none.</para>
-</section>
-<section id="mthCommandContextSetVar"><title>set_var</title>
-<indexterm><primary>set_var method</primary><secondary>of CommandContext class</secondary></indexterm>
-<mediaobject><imageobject><imagedata fileref="images/commandcontext_setvar.svg" scale="55" /></imageobject></mediaobject>
-<para>Sets the variable <emphasis role="italic">name</emphasis> of the code
-that issued the command.</para>
-</section>
-<section id="mthCommandContextDropVar"><title>drop_var</title>
-<indexterm><primary>drop_var method</primary><secondary>of CommandContext class</secondary></indexterm>
-<mediaobject><imageobject><imagedata fileref="images/commandcontext_dropvar.svg" scale="55" /></imageobject></mediaobject>
-<para>Drops the variable <emphasis role="italic">name</emphasis> of the code
-that issued the command.</para>
-</section>
-<section id="mthCommandContextRaiseError"><title>raise_error</title>
-<indexterm><primary>raise_error method</primary><secondary>of CommandContext class</secondary></indexterm>
-<mediaobject><imageobject><imagedata fileref="images/commandcontext_raiseerror.svg" scale="55" /></imageobject></mediaobject>
-<para>Raises <literal>ERROR</literal> in the code that issued the command,
-after the command, with <literal>RC</literal> <emphasis role="italic">rc</emphasis>
-(when the handler returns &None;, <emphasis role="italic">rc</emphasis> is RC);
-returns <emphasis role="italic">rc</emphasis>, so that it can be returned:
-<computeroutput>return ctx.raise_error(5)</computeroutput>.</para>
-</section>
-<section id="mthCommandContextRaiseFailure"><title>raise_failure</title>
-<indexterm><primary>raise_failure method</primary><secondary>of CommandContext class</secondary></indexterm>
-<mediaobject><imageobject><imagedata fileref="images/commandcontext_raisefailure.svg" scale="55" /></imageobject></mediaobject>
-<para>The same, raising <literal>FAILURE</literal>.</para>
-</section>
 </section>
 
 </chapter>

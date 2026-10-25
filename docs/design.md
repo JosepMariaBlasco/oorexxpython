@@ -458,6 +458,9 @@ Rexx it would reach a caller that traps it. That is ooRexx's (measured on
 r13275, `NativeActivation::trap`; being looked at upstream), the same for
 every bridge; the bridge does not work around it, and once such a condition
 reaches it, it goes back as itself like any other.
+Through an ADDRESS environment written in Python, a handler like any other
+of ooRexx's, these conditions go back as a Rexx handler's would (*ADDRESS in
+Python*): a HALT stays SYNTAX 4.1, as the core gives it.
 
 A `RexxError` carries the condition's parts as attributes (`condition`,
 `code`, `rc`, `message`, `errortext`, `position`, `program`, `description`,
@@ -605,7 +608,8 @@ program needs no ooRexx on the `PATH`, `tests/python/t32_off_path.py`),
 `extensions` (EXTERNAL_CALL_EXTENSIONS), `initial_address`
 (INITIAL_ADDRESS_ENVIRONMENT), `load_libraries` (LOAD_REQUIRED_LIBRARY),
 `command_environments={"NAME": callable}` (see *ADDRESS in Python*;
-`add_command_environment` adds one later), `stdio` and `prefixes` (see
+`add_command_environment` adds one later; registered with ooRexx's
+`.CommandHandler` once the instance exists), `stdio` and `prefixes` (see
 *Standard streams*).
 
 ### Standard streams
@@ -682,10 +686,10 @@ the duration of the call.
 ```python
 def calc(command, ctx):
     try:
-        ctx.set_var("RESULT", eval(command, {"__builtins__": {}, "max": max}))
+        ctx.setVar("RESULT", eval(command, {"__builtins__": {}, "max": max}))
         return 0                                 # RC
     except Exception as e:
-        ctx.set_var("RESULT", str(e))
+        ctx.setVar("RESULT", str(e))
         return 1
 
 with oorexx.Interpreter(command_environments={"CALC": calc}) as rexx:
@@ -696,29 +700,51 @@ with oorexx.Interpreter(command_environments={"CALC": calc}) as rexx:
     """)()
 ```
 
-A Python callable registered as a command environment receives the command
-and an `oorexx.CommandContext`: `line_in()` and `lines()` (the redirected
-input), `output(line)` and `error(line)`, `is_redirected(...)`, the caller's
-variables (`get_var`, `set_var`, `drop_var`), and `raise_error(rc)` /
-`raise_failure(rc)`. The return value is RC, whatever its sign (`None`: 0):
-ERROR and FAILURE are raised only by `raise_error` / `raise_failure`, as in
-the family's other bridges and in ooRexx itself, which never turns a
-handler's RC into a condition. A Python exception in the handler is SYNTAX
-98.900, as any other. Without `WITH`, `output` and `error` write to Python's
-`sys.stdout` and `sys.stderr`: the console, never dropped.
+An ADDRESS environment written in Python is a command handler like any other
+of ooRexx's (`.CommandHandler`, RFE #882, in the interpreter since r13288): the
+bridge has no native command handler of its own. `python.cls`'s
+`.PyCommandHandler` inherits `.CommandHandler`; its `command(command,
+caller)` calls the Python callable with the command, always a `str`, and
+ooRexx's `.CommandContext`, which Python uses as any Rexx object, with its own
+names: `getVar`, `setVar`, `hasVar`, `dropVar`, `ctx["X"]`, `variables`,
+`input()` and `output()` / `error()` (the `WITH` redirection as streams;
+without `WITH`, an error, as for a Rexx handler), `isRedirected` (0 or 1),
+`raiseError`, `raiseFailure` and `raise`, written `ctx.raise_(...)` since
+`raise` is a Python keyword (*Names*). The return value is RC, whatever its
+sign (`None`: 0): ERROR and FAILURE are raised only through the context, as
+ooRexx itself never turns a handler's RC into a condition. A Python exception
+in the handler is SYNTAX 98.900, as any other. The method is unguarded:
+several threads may send commands to one environment at once.
 
-Environments are registered from either side, and removed from either side:
+A Rexx condition that the callable raises again (an `oorexx.RexxError` from
+Rexx code it called) would be raised by the bridge in `command`, a Rexx
+activation that does not trap it, where ooRexx ignores a condition other than
+SYNTAX. So `command` traps any condition and gives it to the issuer as a
+handler written in Rexx would: SYNTAX as itself (`raise propagate`), a HALT as
+SYNTAX 4.1 (what the core gives when no one traps it: the core is the
+reference here, and a HALT through a handler is not made a HALT again), any
+other through `caller~raise`, with its `DESCRIPTION` and `ADDITIONAL`; its
+`RESULT` is lost, as with a Rexx handler (`raise` has none).
+
+Registering and removing are ooRexx's: from Rexx,
+`.CommandHandler~register(name, .py~commandHandler(handler))` and
+`.CommandHandler~deregister(name)`; from Python,
 `Interpreter.add_command_environment(name, handler)` and
-`remove_command_environment(name)` in Python, `.py~addCommandEnvironment(name,
-handler)` and `.py~removeCommandEnvironment(name)` in Rexx (the handler a
-Python callable in both; one that is not callable, `.nil` included, is a
-`TypeError` in Python and an incorrect argument, SYNTAX 93.900, in Rexx).
-Registering a name again replaces its handler. ooRexx has no API to remove
-an environment, so removing keeps the bridge's native handler registered and
-forgets the name: an `ADDRESS` to it is then FAILURE with RC 30, which is
-what ooRexx answers for an unknown environment. Removing a name that is not
-registered is an error (`ValueError` in Python, SYNTAX 93.900 in Rexx), not a
-silent no-op; removing returns nothing.
+`remove_command_environment(name)`, which are that same `register` and
+`deregister` (`registerHandler` in `bridge.cpp`, through the global
+references to `.CommandHandler` and `.PyCommandHandler` that each instance
+keeps). So registrations stack (the new handler covers the old one, and
+`add_command_environment` returns the one covered, or `None`), removing gives
+back the handler removed and uncovers the one below, a name with no handler
+left is FAILURE RC 30, and the errors are the core's: a name with no handler,
+SYNTAX 93.900 (a `RexxError` in Python). A handler that is not callable is a
+`TypeError` in Python and SYNTAX 93.900 from `.py~commandHandler`.
+
+Closing an instance releases its handlers' callables at once: before
+`Terminate`, `close()` runs `py.closing` (`python.cls`), which lets every
+`.PyCommandHandler`'s callable go (`PY.DROP`), and empties the graveyard.
+Otherwise they would wait for a collection that runs their uninits, which may
+never come while other instances live.
 
 ## Who starts whom
 
@@ -905,9 +931,12 @@ are listed in [`../notes/oorexx-bugs.md`](../notes/oorexx-bugs.md).
 ## Names
 
 The Rexx package is `python.cls`, with the entry object `.py` and the proxy
-class `.PyObject`; its native library is `librexxpython.so`. The Python
-module is `oorexx`, with `oorexx.Interpreter`, `oorexx.RexxObject`,
-`oorexx.CommandContext` and `oorexx.RexxError`.
+class `.PyObject`; its native library is `librexxpython.so`. Its class
+`.PyCommandHandler` makes a Python callable an ooRexx command handler. The
+Python module is `oorexx`, with `oorexx.Interpreter`, `oorexx.RexxObject` and
+`oorexx.RexxError`. A Rexx message named like a Python keyword is written
+with a trailing underscore (PEP 8's convention): `o.raise_(...)` sends
+`RAISE`; one underscore, only after a keyword (`rexxProxyGetAttr`).
 
 ## Licence
 

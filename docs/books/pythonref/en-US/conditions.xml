@@ -96,6 +96,12 @@ handler after the next clause (the call gives <literal>.nil</literal>
 meanwhile), and a caller that does not trap HALT gets SYNTAX 4.1, as in
 plain Rexx. Its description, <literal>ADDITIONAL</literal> and result are
 lost on the way: ooRexx drops them when it turns the HALT into 4.1.</para>
+<para>Through an <literal>ADDRESS</literal> environment written in Python,
+which is a command handler like those written in Rexx
+(<xref linkend="clsPyCommandHandler" xrefstyle="select:title"/>), a condition
+goes back as from a handler written in Rexx: SYNTAX as itself, a HALT as
+SYNTAX 4.1 (not a HALT again), any other condition with its description and
+<literal>ADDITIONAL</literal> but not its result.</para>
 </section>
 
 <section id="condRexxInPython"><title>Rexx Conditions in Python</title>

@@ -47,8 +47,8 @@ unchanged. <computeroutput>.py~len(x)</computeroutput> is
  <row><entry>
   <simplelist columns="3">
    <member><xref linkend="mthPythonBuiltin" xrefstyle="select:title"/></member>
-   <member><xref linkend="mthPythonAddCommandEnvironment" xrefstyle="select:title"/></member>
    <member><xref linkend="mthPythonBox" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPythonCommandHandler" xrefstyle="select:title"/></member>
    <member><xref linkend="mthPythonDecimal" xrefstyle="select:title"/></member>
    <member><xref linkend="mthPythonEval" xrefstyle="select:title"/></member>
    <member><xref linkend="mthPythonExec" xrefstyle="select:title"/></member>
@@ -60,7 +60,6 @@ unchanged. <computeroutput>.py~len(x)</computeroutput> is
    <member><xref linkend="mthPythonMain" xrefstyle="select:title"/></member>
    <member><xref linkend="mthPythonRaise" xrefstyle="select:title"/></member>
    <member><xref linkend="mthPythonRedirectTo" xrefstyle="select:title"/></member>
-   <member><xref linkend="mthPythonRemoveCommandEnvironment" xrefstyle="select:title"/></member>
    <member><xref linkend="mthPythonStr" xrefstyle="select:title"/></member>
   </simplelist>
  </entry></row>
@@ -95,41 +94,6 @@ say .py~isinstance(.py~list~new, .py~list) .py~hex(255)
 <screen>3 7 [1, 2, 3]
 [0, 1, 2, 3] ('a', 1) 2.57
 1 0xff</screen>
-</example>
-</section>
-
-<section id="mthPythonAddCommandEnvironment"><title>addCommandEnvironment</title>
-<indexterm><primary>addCommandEnvironment method</primary>
-<secondary>of Python class</secondary></indexterm>
-<mediaobject><imageobject>
-<imagedata fileref="images/python_addcommandenvironment.svg" scale="55" />
-</imageobject></mediaobject>
-<para>Makes the Python callable <emphasis role="italic">handler</emphasis> the
-<literal>ADDRESS</literal> environment <emphasis role="italic">name</emphasis>
-of this interpreter instance, from Rexx: the same as the Python side's
-<xref linkend="mthInterpreterAddCommandEnvironment" xrefstyle="select:title"/>,
-and the handler works the same way (<xref linkend="pymoduleAddress"/>).
-Registering a name again replaces its handler. A
-<emphasis role="italic">handler</emphasis> that is not callable, &nil;
-included, is an incorrect argument (SYNTAX 93.900). See also
-<xref linkend="mthPythonRemoveCommandEnvironment" xrefstyle="select:title"/>.</para>
-
-<example id="ex.python-addcommandenvironment">
-<title>Python class &mdash; addCommandEnvironment method</title>
-<programlisting language="rexx">.py~addCommandEnvironment("len", .py~eval("lambda command, ctx: len(command)"))
-address len "abcd"
-say rc
-.py~removeCommandEnvironment("len")
-trace off                      -- no trace line for the failing command
-signal on failure
-address len "abcd"
-exit
-failure:
-  say condition("C") rc
-
-::requires "python.cls"</programlisting>
-<screen>4
-FAILURE 30</screen>
 </example>
 </section>
 
@@ -170,6 +134,40 @@ say .py~box(.py~import("pathlib")~PurePosixPath, "/tmp")~name
 b'ab' True (1+2j)
 0.3
 tmp</screen>
+</example>
+</section>
+
+<section id="mthPythonCommandHandler"><title>commandHandler</title>
+<indexterm><primary>commandHandler method</primary>
+<secondary>of Python class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/python_commandhandler.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Returns a <xref linkend="clsPyCommandHandler" xrefstyle="select:title"/>
+for the Python callable <emphasis role="italic">handler</emphasis>: an ooRexx
+command handler, to register as an <literal>ADDRESS</literal> environment
+with ooRexx's <computeroutput>.CommandHandler~register(name, handler)</computeroutput>
+and remove with <computeroutput>.CommandHandler~deregister(name)</computeroutput>
+(<xref linkend="pymoduleAddress"/>). A <emphasis role="italic">handler</emphasis>
+that is not a Python callable, &nil; included, is an incorrect argument
+(SYNTAX 93.900).</para>
+
+<example id="ex.python-commandhandler">
+<title>Python class &mdash; commandHandler method</title>
+<programlisting language="rexx">.CommandHandler~register("len", .py~commandHandler(.py~eval("lambda command, ctx: len(command)")))
+address len "abcd"
+say rc
+.CommandHandler~deregister("len")
+trace off                      -- no trace line for the failing command
+signal on failure
+address len "abcd"
+exit
+failure:
+  say condition("C") rc
+
+::requires "python.cls"</programlisting>
+<screen>4
+FAILURE 30</screen>
 </example>
 </section>
 
@@ -358,23 +356,6 @@ gets the exception itself. See <xref linkend="conditions"/>.</para>
 <para>Sends Rexx's standard streams to Python's. The same as the routine
 <xref linkend="rtnPyRedirectTo" xrefstyle="select:title"/>, with the same
 arguments; see <xref linkend="streams"/>.</para>
-</section>
-
-<section id="mthPythonRemoveCommandEnvironment"><title>removeCommandEnvironment</title>
-<indexterm><primary>removeCommandEnvironment method</primary>
-<secondary>of Python class</secondary></indexterm>
-<mediaobject><imageobject>
-<imagedata fileref="images/python_removecommandenvironment.svg" scale="55" />
-</imageobject></mediaobject>
-<para>Makes the <literal>ADDRESS</literal> environment <emphasis role="italic">name</emphasis>,
-written in Python, unknown again: a command sent to it is then
-<literal>FAILURE</literal> with <literal>RC</literal> 30, as for an
-environment ooRexx does not know. A <emphasis role="italic">name</emphasis>
-that is not an environment written in Python is an error (SYNTAX 93.900).
-Returns nothing. The same as the Python side's
-<xref linkend="mthInterpreterRemoveCommandEnvironment" xrefstyle="select:title"/>;
-see the example of
-<xref linkend="mthPythonAddCommandEnvironment" xrefstyle="select:title"/>.</para>
 </section>
 
 <section id="mthPythonStr"><title>str</title>
@@ -1029,6 +1010,72 @@ snapshot).</para>
 </section>
 
 <!-- ===================================================================== -->
+<section id="clsPyCommandHandler"><title>PyCommandHandler Class</title>
+<indexterm><primary>PyCommandHandler class</primary></indexterm>
+<indexterm><primary>class</primary>
+<secondary>PyCommandHandler class</secondary></indexterm>
+<indexterm><primary>ADDRESS</primary><secondary>environments in Python</secondary></indexterm>
+
+<para>A <classname>PyCommandHandler</classname> is an ooRexx command handler
+(it inherits ooRexx's <literal>.CommandHandler</literal>) that runs a Python
+callable: <xref linkend="mthPythonCommandHandler" xrefstyle="select:title"/>
+makes one, and the Python side's
+<xref linkend="mthInterpreterAddCommandEnvironment" xrefstyle="select:title"/>
+registers one. ooRexx sees it as any other handler:
+<literal>.CommandHandler~handler(name)</literal>,
+<literal>~handlers(name)</literal> and <literal>~environments</literal> show
+it, and <literal>register</literal> and <literal>deregister</literal> give it
+back. Its <methodname>command</methodname> method calls the callable with the
+command, as a <literal>str</literal>, and ooRexx's
+<literal>.CommandContext</literal>, on the thread that issued the command
+(<xref linkend="pymoduleAddress"/>). A Rexx condition that the callable raises
+again (an <xref linkend="clsRexxError" xrefstyle="select:title"/> from Rexx
+code it called) reaches the code that issued the command as with a handler
+written in Rexx: SYNTAX as itself; a HALT as SYNTAX 4.1, as when no one traps
+it; any other condition with its description and <literal>ADDITIONAL</literal>
+(its <literal>RESULT</literal> is lost, as with a Rexx handler).</para>
+
+<table id="ooRexxPyCommandHandlerClass" frame="all" pgwide="1">
+<title>PyCommandHandler Class</title>
+<tgroup cols="1">
+<tbody>
+ <row><entry align="center"><emphasis role="bold">CommandHandler</emphasis></entry></row>
+ <row><entry>Methods inherited from ooRexx's CommandHandler class</entry></row>
+ <row><entry align="center"><emphasis role="bold">PyCommandHandler</emphasis></entry></row>
+ <row><entry>
+  <simplelist columns="2">
+   <member><xref linkend="mthPyCommandHandlerCommand" xrefstyle="select:title"/></member>
+   <member><xref linkend="mthPyCommandHandlerHandler" xrefstyle="select:title"/></member>
+  </simplelist>
+ </entry></row>
+</tbody>
+</tgroup>
+</table>
+
+<section id="mthPyCommandHandlerCommand"><title>command</title>
+<indexterm><primary>command method</primary>
+<secondary>of PyCommandHandler class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pycommandhandler_command.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Calls the Python callable with <emphasis role="italic">command</emphasis>,
+as a <literal>str</literal>, and <emphasis role="italic">caller</emphasis>,
+the <literal>.CommandContext</literal>, and returns its result, the
+command's <literal>RC</literal> (&None;: 0). ooRexx sends it for every
+command; it is unguarded, so several threads may send commands to the same
+environment at once.</para>
+</section>
+
+<section id="mthPyCommandHandlerHandler"><title>handler</title>
+<indexterm><primary>handler method</primary>
+<secondary>of PyCommandHandler class</secondary></indexterm>
+<mediaobject><imageobject>
+<imagedata fileref="images/pycommandhandler_handler.svg" scale="55" />
+</imageobject></mediaobject>
+<para>Returns the Python callable, a <xref linkend="clsPyObject" xrefstyle="select:title"/>.</para>
+</section>
+</section>
+
 <section id="clsPyKwArgs"><title>PyKwArgs Class</title>
 <indexterm><primary>PyKwArgs class</primary></indexterm>
 <indexterm><primary>class</primary>
