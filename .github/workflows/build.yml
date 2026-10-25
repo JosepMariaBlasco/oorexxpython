@@ -230,9 +230,7 @@ jobs:
           svn export -q "$U/tools/bldoc_orx" "$RUNNER_TEMP/docSVN/tools/bldoc_orx"
           svn export -q "$U/oorexx" "$RUNNER_TEMP/docSVN/oorexx"
           P=https://rexx.epbcn.com/rexx-parser/
-          zip=$(curl -sSfL --retry 3 "$P" | grep -o 'Rexx-Parser-[^"/]*\.zip' | sort -u | tail -1)
-          echo "Rexx Parser: $zip"
-          curl -sSfL --retry 3 -o "$RUNNER_TEMP/parser.zip" "$P$zip"
+          curl -sSfL --retry 3 -o "$RUNNER_TEMP/parser.zip" "${P}Rexx-Parser-latest.zip"
           mkdir -p "$RUNNER_TEMP/rexx-parser" && unzip -q "$RUNNER_TEMP/parser.zip" -d "$RUNNER_TEMP/rexx-parser"
           test -f "$RUNNER_TEMP/rexx-parser/bin/Rexx.Parser.cls"
       - name: Build the books
