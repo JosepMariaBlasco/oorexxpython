@@ -680,7 +680,16 @@ methods of `RexxObject`, so `o.sendMessage` never sends a Rexx message of
 that name; `o.sendMessage("sendMessage")` does.
 
 A Python thread that uses an interpreter attaches to it (`AttachThread`) for
-the duration of the call.
+the duration of the call, also when Rexx called the Python code and waits
+for it (then the attach is nested): every call from Python runs in an
+activity of its own, never in the thread context Rexx handed to native code.
+This matters for conditions. ooRexx implements `SIGNAL ON` by unwinding with
+a C++ exception, and a condition other than SYNTAX raised by Rexx code sent
+a message on a borrowed context would look for its trap past the native
+frames, in the Rexx code below Python; a `SIGNAL ON` there would unwind
+through Python's C frames, and end the process. In an activity of its own
+the condition stops at its boundary, as it does when Rexx code calls a
+routine (`Callbacks.testGroup`).
 
 ## ADDRESS in Python
 

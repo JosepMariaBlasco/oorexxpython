@@ -104,6 +104,38 @@ halted:
   trapped = condition("C")
   return
 
+-- a condition other than SYNTAX raised by a Rexx method that Python sends a
+-- message to, with a SIGNAL ON for it in the Rexx code below Python (and in
+-- .PyCommandHandler's command): every call from Python attaches its own
+-- activity, so the condition stops there and no SIGNAL unwinds through
+-- Python's frames (that would end the process)
+::method test_signal_not_through_python
+  send = .py~eval("lambda o: o.raiser()")
+  do c over "USER", "NOTREADY", "ERROR", "FAILURE"
+    self~assertSame("no condition", self~signalOnAny(send, .Raiser~new(c)), c "from a method Python calls")
+  end
+  h = .py~eval("lambda o: (lambda c, ctx: o.raiser())")
+  do c over "USER", "NOTREADY"
+    .CommandHandler~register("PYRAISER", .py~commandHandler(h~new(.Raiser~new(c))))
+    self~assertSame("no condition", self~signalOnAnyAddress, c "from a method a Python handler calls")
+    .CommandHandler~deregister("PYRAISER")
+  end
+
+::method signalOnAny private
+  use arg pyCallable, o
+  signal on user x; signal on notready; signal on error; signal on failure
+  pyCallable~new(o)
+  return "no condition"
+x: notready: error: failure:
+  return condition("C")
+
+::method signalOnAnyAddress private
+  signal on user x; signal on notready
+  address pyraiser "x"
+  return "no condition"
+x: notready:
+  return condition("C")
+
 -- Rexx -> Python -> Rexx -> Python
 ::method test_nested
   self~assertSame("25", .py~eval("lambda f, x: f(x)")~new(self~routine("viaPython"), 5), "nested")
@@ -124,3 +156,14 @@ halted:
   return .py~eval("lambda f: f()")~new(.context~package~findRoutine("halts"))
 ::routine viaPython
   return .py~pow(arg(1), 2)
+::class Raiser
+::method init
+  expose c; use arg c
+::method raiser
+  expose c
+  select
+    when c == "USER" then raise user x
+    when c == "NOTREADY" then raise notready
+    when c == "ERROR" then raise error 1
+    when c == "FAILURE" then raise failure 1
+  end
