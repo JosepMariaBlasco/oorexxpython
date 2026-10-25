@@ -8,7 +8,7 @@ Source, documentation and design: https://github.com/JosepMariaBlasco/oorexxpyth
 
 ## What you need
 
-- **ooRexx 5.3.0, r13289 or later** (beta, from
+- **ooRexx 5.3.0, r13297 or later** (beta, from
   [SourceForge](https://sourceforge.net/projects/oorexx/files/oorexx/5.3.0beta/)),
   installed so that `rexx` runs. The bridge needs its `logicalwrapper.cls`
   (Python's `bool` in Rexx), new in r13278, and the fix for ooRexx bug

@@ -70,7 +70,7 @@ Var Problem
 
 !define MUI_ABORTWARNING
 !define MUI_WELCOMEPAGE_TEXT "This wizard installs the ${LONGNAME} into an \
-  installed ooRexx (5.3.0 r13289 or later), and makes it importable from the Pythons \
+  installed ooRexx (5.3.0 r13297 or later), and makes it importable from the Pythons \
   (3.9 or later) you choose.$\r$\n$\r$\nRexx programs then use Python with \
   ::requires $\"python.cls$\", and Python programs use Rexx with \
   $\"import oorexx$\".$\r$\n$\r$\nClose any program that uses the bridge \
@@ -294,7 +294,7 @@ Function RexxFolderLeave
   ${OrIfNot} ${FileExists} "$INSTDIR\rexx.dll"
     MessageBox MB_OK|MB_ICONEXCLAMATION "There is no ooRexx in $INSTDIR \
       (rexx.exe and rexx.dll).$\r$\n$\r$\nChoose the folder of ooRexx 5.3.0 \
-      r13289 or later, or install ooRexx first (sourceforge.net/projects/oorexx)."
+      r13297 or later, or install ooRexx first (sourceforge.net/projects/oorexx)."
     Abort
   ${EndIf}
 FunctionEnd

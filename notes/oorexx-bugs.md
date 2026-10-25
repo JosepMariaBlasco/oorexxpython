@@ -12,7 +12,7 @@ fix. The code marks the workarounds with the ticket number, so
 | [#2101](https://sourceforge.net/p/oorexx/bugs/2101/) | `runUninits()` crashes or hangs when an uninit method gives up the kernel lock while other threads create objects with uninit methods | r13256 | `.PyObject`'s uninit is two Rexx clauses that only queue the pointer; the bridge drops the Python reference at its next call (`drainGraveyard`) |
 | [#2102](https://sourceforge.net/p/oorexx/bugs/2102/) | `pendingUninits` only grows, so after a while every call scans the whole uninit table | r13259 | nothing can avoid it (every proxy has an uninit): use an ooRexx with the fix for serious work |
 | [#2103](https://sourceforge.net/p/oorexx/bugs/2103/) | an ending thread uses its Activity after the garbage collector may have swept it: a rare crash at exit under heavy threading | r13265 | nothing in the bridge; seen only in the heavy run of `Threads.testGroup` |
-| [#2122](https://sourceforge.net/p/oorexx/bugs/2122/) | `IsInstanceOf` (also `IsRoutine`, `IsMethod`) is a non-blocking API call, but a number with no text yet (the result of `j + 0`) answers it by making its string, an allocation without the kernel lock: heap corruption when other threads run Rexx (crashes, hangs in the collector, wrong values) | r13286 | nothing: the minimum, r13289, has the fix (until r13286 `instanceOf()` in `bridge.cpp` never asked `IsInstanceOf` of a string or a number); seen as a rare crash of `t50_subclass.py`'s eight threads |
+| [#2122](https://sourceforge.net/p/oorexx/bugs/2122/) | `IsInstanceOf` (also `IsRoutine`, `IsMethod`) is a non-blocking API call, but a number with no text yet (the result of `j + 0`) answers it by making its string, an allocation without the kernel lock: heap corruption when other threads run Rexx (crashes, hangs in the collector, wrong values) | r13286 | nothing: the minimum, r13297, has the fix (until r13286 `instanceOf()` in `bridge.cpp` never asked `IsInstanceOf` of a string or a number); seen as a rare crash of `t50_subclass.py`'s eight threads |
 | [#2107](https://sourceforge.net/p/oorexx/bugs/2107/) | `Terminate` waits forever if the thread that created the instance called `DetachThread` | open | the creating thread stays attached until `Interpreter.close()` |
 
 The workarounds above stay right on older versions, and none of them
@@ -20,8 +20,8 @@ depends on a fix being present. #2122 has none any more: the bridge needs
 its fix. The design notes behind them are in
 [`../docs/design.md`](../docs/design.md), *Lifetime*.
 
-The bridge needs ooRexx 5.3.0 r13289 or later (`logicalwrapper.cls`, since
-r13278, #2122's fix, since r13286), so the fixes above are all present. Before that, ooRexx 5.2.0 was the minimum for
+The bridge needs ooRexx 5.3.0 r13297 or later (`logicalwrapper.cls`, since
+r13278, #2122's fix, since r13286, the ooRexx bridges' revision), so the fixes above are all present. Before that, ooRexx 5.2.0 was the minimum for
 using an interpreter from one thread at a time: from several at once it
 crashed inside ooRexx (in its tables of activities, on `AttachThread` and
 when a thread waits for the kernel lock), and `Threads.testGroup`,

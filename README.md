@@ -46,7 +46,7 @@ with oorexx.Interpreter() as rexx:
 **Status: prototype.** Both directions work and are covered by automated
 tests (ooRexxUnit test groups and Python checks, every nutshell sample
 included), on Linux x86_64, macOS (arm64 and x86_64) and Windows x64, with CPython
-3.9–3.15, against ooRexx 5.3.0 (trunk, r13297; the minimum is r13289:
+3.9–3.15, against ooRexx 5.3.0 (trunk, r13297, also the minimum:
 [`docs/design.md`](docs/design.md), *ooRexx versions*). Every push runs them
 all with every Python on all four (GitHub Actions:
 `.github/workflows/build.yml`). The design is still being discussed, and
@@ -71,7 +71,7 @@ Windows, its installer program; on Linux and macOS, its zip, whose
 tells your Pythons where it is and records which Python Rexx programs use:
 no environment variables to set.
 
-1. **ooRexx 5.3.0, r13289 or later** (beta). Get it from
+1. **ooRexx 5.3.0, r13297 or later** (beta). Get it from
    [SourceForge](https://sourceforge.net/projects/oorexx/files/oorexx/5.3.0beta/)
    and check that `rexx -v` runs in a terminal. The bridge needs its
    `logicalwrapper.cls` (Python's `bool` in Rexx), new in r13278, and the fix
@@ -202,7 +202,7 @@ macOS or Windows, with:
   prompt's environment;
 - `curl`, and [uv](https://docs.astral.sh/uv/) (or `pip`, which
   `setup-pythons.sh` uses to install uv);
-- an ooRexx 5.3.0, r13289 or later, with its API headers: an installed ooRexx (`/usr/local`), or one of ooRexx's portable
+- an ooRexx 5.3.0, r13297 or later, with its API headers: an installed ooRexx (`/usr/local`), or one of ooRexx's portable
   builds from
   [SourceForge](https://sourceforge.net/projects/oorexx/files/oorexx/5.3.0beta/portable/)
   with its `bin/` on the `PATH`.

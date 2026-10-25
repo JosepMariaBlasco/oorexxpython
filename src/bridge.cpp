@@ -3354,7 +3354,7 @@ static PyObject *registerHandler(Inst *inst, PyObject *nameObj, PyObject *handle
             }
             if (core == NULLOBJECT || ours == NULLOBJECT)
             {
-                error = "add_command_environment: this ooRexx has no .CommandHandler (5.3.0 r13289 or later is needed)";
+                error = "add_command_environment: this ooRexx has no .CommandHandler (5.3.0 r13297 or later is needed)";
                 return NULLOBJECT;
             }
             RexxObjectPtr h = tc->SendMessage1(ours, "NEW", tc->ArrayAt(rargs, 2));
@@ -3397,7 +3397,7 @@ static PyObject *interpreterRemoveEnvironment(PyObject *self, PyObject *args)
             }
             if (core == NULLOBJECT)
             {
-                error = "remove_command_environment: this ooRexx has no .CommandHandler (5.3.0 r13289 or later is needed)";
+                error = "remove_command_environment: this ooRexx has no .CommandHandler (5.3.0 r13297 or later is needed)";
                 return NULLOBJECT;
             }
             return tc->SendMessage1(core, "DEREGISTER", tc->ArrayAt(rargs, 1));
