@@ -1031,9 +1031,13 @@ command, as a <literal>str</literal>, and ooRexx's
 (<xref linkend="pymoduleAddress"/>). A Rexx condition that the callable raises
 again (an <xref linkend="clsRexxError" xrefstyle="select:title"/> from Rexx
 code it called) reaches the code that issued the command as with a handler
-written in Rexx: SYNTAX as itself; a HALT as SYNTAX 4.1, as when no one traps
-it; any other condition with its description and <literal>ADDITIONAL</literal>
-(its <literal>RESULT</literal> is lost, as with a Rexx handler).</para>
+written in Rexx: SYNTAX as itself; any other condition with its description
+and <literal>ADDITIONAL</literal> (its <literal>RESULT</literal> is lost, as
+with a Rexx handler). A HALT that the Rexx code did not trap is a HALT again,
+since there is Python code in between: <literal>SIGNAL ON HALT</literal>
+traps it, <literal>CALL ON HALT</literal> resumes with RC 0, and untrapped it
+ends as SYNTAX 4.1, as with <literal>caller~raise("HALT", 0)</literal> in a
+handler written in Rexx.</para>
 
 <table id="ooRexxPyCommandHandlerClass" frame="all" pgwide="1">
 <title>PyCommandHandler Class</title>

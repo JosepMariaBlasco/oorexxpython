@@ -99,9 +99,11 @@ lost on the way: ooRexx drops them when it turns the HALT into 4.1.</para>
 <para>Through an <literal>ADDRESS</literal> environment written in Python,
 which is a command handler like those written in Rexx
 (<xref linkend="clsPyCommandHandler" xrefstyle="select:title"/>), a condition
-goes back as from a handler written in Rexx: SYNTAX as itself, a HALT as
-SYNTAX 4.1 (not a HALT again), any other condition with its description and
-<literal>ADDITIONAL</literal> but not its result.</para>
+goes back as from a handler written in Rexx: SYNTAX as itself, any other
+condition with its description and <literal>ADDITIONAL</literal> but not its
+result. A HALT is a HALT again there too: <literal>SIGNAL ON HALT</literal>
+traps it, <literal>CALL ON HALT</literal> resumes the command with RC 0, and
+untrapped it ends as SYNTAX 4.1.</para>
 </section>
 
 <section id="condRexxInPython"><title>Rexx Conditions in Python</title>

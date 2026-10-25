@@ -460,7 +460,8 @@ every bridge; the bridge does not work around it, and once such a condition
 reaches it, it goes back as itself like any other.
 Through an ADDRESS environment written in Python, a handler like any other
 of ooRexx's, these conditions go back as a Rexx handler's would (*ADDRESS in
-Python*): a HALT stays SYNTAX 4.1, as the core gives it.
+Python*), but a HALT is a HALT again there too: there is Python code in
+between.
 
 A `RexxError` carries the condition's parts as attributes (`condition`,
 `code`, `rc`, `message`, `errortext`, `position`, `program`, `description`,
@@ -720,11 +721,16 @@ A Rexx condition that the callable raises again (an `oorexx.RexxError` from
 Rexx code it called) would be raised by the bridge in `command`, a Rexx
 activation that does not trap it, where ooRexx ignores a condition other than
 SYNTAX. So `command` traps any condition and gives it to the issuer as a
-handler written in Rexx would: SYNTAX as itself (`raise propagate`), a HALT as
-SYNTAX 4.1 (what the core gives when no one traps it: the core is the
-reference here, and a HALT through a handler is not made a HALT again), any
+handler written in Rexx would: SYNTAX as itself (`raise propagate`), any
 other through `caller~raise`, with its `DESCRIPTION` and `ADDITIONAL`; its
-`RESULT` is lost, as with a Rexx handler (`raise` has none).
+`RESULT` is lost, as with a Rexx handler (`raise` has none). A HALT that the
+Rexx code left untrapped is a HALT for the issuer, not the SYNTAX 4.1 a
+routine called by a handler written in Rexx would give: there is Python code
+in between, so the rule for Rexx code that Python calls applies. The bridge
+makes it pending again (`HaltThread`), it falls on `command`, and `command`
+gives it on with `caller~raise("HALT", 0)`, as a handler written in Rexx
+would: `SIGNAL ON HALT` traps it, `CALL ON HALT` resumes with RC 0 (the
+condition's description is the command), and untrapped it ends as SYNTAX 4.1.
 
 Registering and removing are ooRexx's: from Rexx,
 `.CommandHandler~register(name, .py~commandHandler(handler))` and

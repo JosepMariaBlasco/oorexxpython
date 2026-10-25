@@ -941,13 +941,17 @@ def make(bases, name, specs, rexx_class, new_for):
   if rc == .nil then return 0
   return rc
   -- a condition Python raised again (an oorexx.RexxError) reaches the issuer
-  -- as a Rexx handler's would: SYNTAX itself; HALT as SYNTAX 4.1, as when no
-  -- one traps it; any other through the context, its DESCRIPTION and
-  -- ADDITIONAL kept (its RESULT is lost, as with a Rexx handler)
+  -- as a Rexx handler's would: SYNTAX itself; any other through the
+  -- context, its DESCRIPTION and ADDITIONAL kept (its RESULT is lost, as
+  -- with a Rexx handler).  A HALT that Rexx code the handler called left
+  -- untrapped is a HALT for the issuer, not SYNTAX 4.1: there is Python code
+  -- in between, and the bridge makes it pending again, so it falls here
+  -- (SIGNAL ON HALT traps it, CALL ON HALT resumes with RC 0, untrapped it
+  -- ends as SYNTAX 4.1, as caller~raise("HALT", 0) from a Rexx handler)
 relay:
   co = condition("O")
   if co~condition == "SYNTAX" then raise propagate
-  if co~condition == "HALT" then raise syntax 4.1 array ("HALT")
+  if co~condition == "HALT" then return caller~raise("HALT", 0)
   return caller~raise(co~condition, co~result, co~description, co~additional)
 -- the interpreter instance is closing (Interpreter.close): the callable is
 -- let go now, not when a collection runs the uninits
