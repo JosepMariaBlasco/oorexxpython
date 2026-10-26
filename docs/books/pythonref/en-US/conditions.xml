@@ -84,11 +84,8 @@ ADDRESS environment written in Python), Python calls Rexx code that fails,
 and if Python does not catch the <xref linkend="clsRexxError" xrefstyle="select:title"/>,
 the Rexx caller gets the original condition, not SYNTAX 98.900: a SYNTAX
 error with its code and message, any other condition with its description,
-<literal>ADDITIONAL</literal> and result. A SYNTAX error loses its
-description on the way (<literal>raise syntax ... description</literal>):
-ooRexx 5.3.0 r13297 has no way for native code to raise a SYNTAX error with
-one. This holds through an <literal>ADDRESS</literal> environment written in
-Python too. With ooRexx 5.3.0 r13297, only
+<literal>ADDITIONAL</literal> and result (a SYNTAX error raised with
+<literal>raise syntax ... description</literal> keeps its description). With ooRexx 5.3.0 r13297, only
 SYNTAX errors leave Rexx code that Python calls, and ooRexx does not give a
 native caller a USER, NOTREADY, ERROR or FAILURE condition that the Rexx
 code does not trap.</para>

@@ -76,10 +76,12 @@ Tickets filed for other reasons that also touch the bridge:
 - Not filed yet (found by the Lua bridge): native code cannot raise a
   SYNTAX condition again with its `DESCRIPTION`. `RaiseException(code,
   additional)` takes none, and `RaiseCondition("SYNTAX", ...)` crashes the
-  process. A SYNTAX error with a description that goes through Python back
-  to Rexx keeps its code and `ADDITIONAL` but loses the description
-  (`test_rexx_error_description` in `Callbacks.testGroup`); the bridge
-  never calls `RaiseCondition` with `SYNTAX`.
+  process. The bridge never calls `RaiseCondition` with `SYNTAX`; it raises
+  the error with `RaiseException` and then puts the description and the
+  result into the pending condition object that `GetConditionInfo()`
+  answers (`raiseAgain` in `bridge.cpp`, marked as a workaround), so a SYNTAX
+  error that goes through Python back to Rexx keeps them
+  (`test_rexx_error_description` in `Callbacks.testGroup`).
 
 Not a bug, but worth knowing when writing native code: `IsString` is false
 for strings the interpreter keeps in another form (internal integers, number

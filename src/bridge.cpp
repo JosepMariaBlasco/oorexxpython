@@ -1757,6 +1757,22 @@ static bool raiseAgain(RexxSide &side, PyError &err, bool *halted)
             return true;
         }
         c->RaiseException((size_t)(major * 1000 + minor), args);
+        // Workaround (ooRexx, not filed; until an API raises a condition
+        // object as it is): RaiseException takes no DESCRIPTION or RESULT.
+        // GetConditionInfo() answers the pending condition object itself,
+        // the one ooRexx passes on to the caller (reraiseException rewrites
+        // its position, program and message, not these two), so put them
+        // there.  Undocumented: if ooRexx ever answered a copy, the
+        // description would be lost again (Callbacks.testGroup,
+        // test_rexx_error_description, would show it).
+        RexxDirectoryObject now = c->GetConditionInfo();
+        if (now != NULLOBJECT)
+        {
+            RexxObjectPtr description = c->DirectoryAt(d, "DESCRIPTION");
+            RexxObjectPtr result = c->DirectoryAt(d, "RESULT");
+            if (description != NULLOBJECT) c->DirectoryPut(now, description, "DESCRIPTION");
+            if (result != NULLOBJECT) c->DirectoryPut(now, result, "RESULT");
+        }
         return true;
     }
     RexxObjectPtr description = c->DirectoryAt(d, "DESCRIPTION");

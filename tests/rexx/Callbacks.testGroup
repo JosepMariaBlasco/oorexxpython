@@ -65,14 +65,25 @@ return testResult
   self~assertSame("93.924", co~code, "the Rexx error itself, not 98.900")
   self~assertTrue(pos("Invalid position", co~message) > 0, "its message")
 
--- a SYNTAX with a description: code and ADDITIONAL come back, the description
--- does not (ooRexx, not filed: no API raises a SYNTAX with one; r13297).
--- When an API arrives and raiseAgain uses it, expect "the description".
+-- a SYNTAX with a description comes back with it, through a Python function
+-- and through an ADDRESS environment written in Python.  ooRexx's API cannot
+-- raise a SYNTAX with a description (not filed; r13297): raiseAgain puts it
+-- into the pending condition object, a workaround this test watches
 ::method test_rexx_error_description
   co = self~syntaxOf(.py~eval("lambda f: f()"), "new", self~routine("described"))
   self~assertSame("40.1", co~code, "its code")
   self~assertSame("BOOM", co~additional[1], "its ADDITIONAL")
-  self~assertSame("", co~description, "its description, lost by ooRexx's API")
+  self~assertSame("the description", co~description, "its description")
+  h = .py~eval("lambda f: (lambda c, ctx: f())")~new(self~routine("described"))
+  .CommandHandler~register("pydesc", .py~commandHandler(h))
+  signal on syntax
+  address pydesc "x"
+  self~fail("SYNTAX 40.1 must come back through ADDRESS")
+syntax:
+  .CommandHandler~deregister("pydesc")
+  co = condition("O")
+  self~assertSame("40.1", co~code, "its code, through ADDRESS")
+  self~assertSame("the description", co~description, "its description, through ADDRESS")
 
 ::method test_python_catches_rexx_error
   b = .py

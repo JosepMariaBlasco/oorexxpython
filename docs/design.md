@@ -448,13 +448,18 @@ other way round: Rexx calls Python (a function, an ADDRESS environment
 written in Python), which calls Rexx code that fails; if Python does not
 catch the `RexxError`, the Rexx caller gets the original condition, not
 98.900: SYNTAX with its code and `ADDITIONAL` (so its message), any other
-condition with its `DESCRIPTION`, `ADDITIONAL` and `RESULT`. A SYNTAX loses
-its `DESCRIPTION` on the way (`raise syntax ... description`): the only API
-that raises a SYNTAX, `RaiseException(code, additional)`, takes none
-(measured on r13297, the same for every bridge; `RaiseCondition("SYNTAX")`
-is no way out, it crashes the process). The bridge does not work around it
-(raising the condition again in Rexx code would route every call through
-Rexx); a later ooRexx API can fix it in `raiseAgain` alone. The
+condition with its `DESCRIPTION`, `ADDITIONAL` and `RESULT`. A SYNTAX keeps
+its `DESCRIPTION` and `RESULT` too, through a workaround: the only API that
+raises a SYNTAX, `RaiseException(code, additional)`, takes neither (r13297;
+`RaiseCondition("SYNTAX")` is no way out, it crashes the process), so
+`raiseAgain` puts them into the pending condition object that
+`GetConditionInfo()` answers, which is the object ooRexx passes on to the
+caller (it rewrites its position, program and message, not those two). The
+same as the JavaScript bridge does. It relies on `GetConditionInfo()`
+answering the object itself, not a copy: if that changed, the description
+would be lost again and nothing worse (`test_rexx_error_description` in
+`Callbacks.testGroup` would show it). An ooRexx API that raises a condition
+object as it is would replace it. The
 `RexxError` keeps the condition object for this (`_rexx_condition`, set by
 `raiseRexxError`; `raiseAgain` in `bridge.cpp`), within the same
 interpreter instance. What reaches Python is only what ooRexx's API gives a
