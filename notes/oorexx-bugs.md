@@ -73,6 +73,13 @@ Tickets filed for other reasons that also touch the bridge:
   a thread context of its own (`AttachThread`), where the condition is seen
   and nothing is left behind (checked from Python and from Rexx through
   Python, with a collection after each failed call).
+- Not filed yet (found by the Lua bridge): native code cannot raise a
+  SYNTAX condition again with its `DESCRIPTION`. `RaiseException(code,
+  additional)` takes none, and `RaiseCondition("SYNTAX", ...)` crashes the
+  process. A SYNTAX error with a description that goes through Python back
+  to Rexx keeps its code and `ADDITIONAL` but loses the description
+  (`test_rexx_error_description` in `Callbacks.testGroup`); the bridge
+  never calls `RaiseCondition` with `SYNTAX`.
 
 Not a bug, but worth knowing when writing native code: `IsString` is false
 for strings the interpreter keeps in another form (internal integers, number

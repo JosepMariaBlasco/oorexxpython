@@ -448,7 +448,13 @@ other way round: Rexx calls Python (a function, an ADDRESS environment
 written in Python), which calls Rexx code that fails; if Python does not
 catch the `RexxError`, the Rexx caller gets the original condition, not
 98.900: SYNTAX with its code and `ADDITIONAL` (so its message), any other
-condition with its `DESCRIPTION`, `ADDITIONAL` and `RESULT`. The
+condition with its `DESCRIPTION`, `ADDITIONAL` and `RESULT`. A SYNTAX loses
+its `DESCRIPTION` on the way (`raise syntax ... description`): the only API
+that raises a SYNTAX, `RaiseException(code, additional)`, takes none
+(measured on r13297, the same for every bridge; `RaiseCondition("SYNTAX")`
+is no way out, it crashes the process). The bridge does not work around it
+(raising the condition again in Rexx code would route every call through
+Rexx); a later ooRexx API can fix it in `raiseAgain` alone. The
 `RexxError` keeps the condition object for this (`_rexx_condition`, set by
 `raiseRexxError`; `raiseAgain` in `bridge.cpp`), within the same
 interpreter instance. What reaches Python is only what ooRexx's API gives a

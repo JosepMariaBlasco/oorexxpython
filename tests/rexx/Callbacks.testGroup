@@ -65,6 +65,15 @@ return testResult
   self~assertSame("93.924", co~code, "the Rexx error itself, not 98.900")
   self~assertTrue(pos("Invalid position", co~message) > 0, "its message")
 
+-- a SYNTAX with a description: code and ADDITIONAL come back, the description
+-- does not (ooRexx, not filed: no API raises a SYNTAX with one; r13297).
+-- When an API arrives and raiseAgain uses it, expect "the description".
+::method test_rexx_error_description
+  co = self~syntaxOf(.py~eval("lambda f: f()"), "new", self~routine("described"))
+  self~assertSame("40.1", co~code, "its code")
+  self~assertSame("BOOM", co~additional[1], "its ADDITIONAL")
+  self~assertSame("", co~description, "its description, lost by ooRexx's API")
+
 ::method test_python_catches_rexx_error
   b = .py
   b~exec(self~py("def catch(f):",                       -
@@ -150,6 +159,8 @@ x: notready:
   return .directory~new
 ::routine fails
   return substr("x", 0)
+::routine described
+  raise syntax 40.1 array("BOOM") description "the description"
 ::routine halts
   raise halt description "h"
 ::routine haltsViaPython
