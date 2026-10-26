@@ -1585,6 +1585,27 @@ static bool resolveName(PyObject *o, const std::string &rexxName, std::string *e
 
 /* phase 3: Val -> Rexx (no GIL) -------------------------------------------- */
 
+/*
+ * A Rexx object that goes back to Rexx, as a context's local reference.
+ * What keeps it alive until then is its Python proxy (its entry in the
+ * instance's keep Directory), and the proxy is let go as soon as the value
+ * has been converted: its release is only queued, but another thread that
+ * enters the instance meanwhile (this one is still in native code) applies
+ * it, and a collection could then take the object before the code that gets
+ * it holds it (a Rexx object returned by Python code, its proxy's only
+ * reference the result: a crash under load, measured).  An API call that
+ * answers the object makes it a local reference, which the context keeps
+ * until it returns; that of a one-item Array costs one small allocation.
+ */
+static RexxObjectPtr localRef(RexxThreadContext *c, RexxObjectPtr o)
+{
+    if (o == NULLOBJECT) return o;
+    RexxArrayObject a = c->ArrayOfOne(o);
+    RexxObjectPtr r = c->ArrayAt(a, 1);
+    c->ReleaseLocalReference(a);
+    return r;
+}
+
 static RexxObjectPtr valToRexx(RexxSide &side, Val &v)
 {
     RexxThreadContext *c = side.tc;
@@ -1612,7 +1633,7 @@ static RexxObjectPtr valToRexx(RexxSide &side, Val &v)
                     c->String("ooRexx/Python: a Rexx object of an interpreter instance that has been closed"));
                 return NULLOBJECT;
             }
-            return v.robj;
+            return localRef(c, v.robj);
         case Val::LIST:
         {
             RexxArrayObject a = c->NewArray(v.items.size());
@@ -1703,6 +1724,7 @@ static bool raiseAgain(RexxSide &side, PyError &err, bool *halted)
         PyErr_Clear();
     }
     RexxThreadContext *c = side.tc;
+    cond = localRef(c, cond);             // held by the context, not only by the proxy (localRef)
     if (cond == NULLOBJECT || !c->IsDirectory(cond)) return false;
     RexxDirectoryObject d = (RexxDirectoryObject)cond;
     RexxObjectPtr nameObj = c->DirectoryAt(d, "CONDITION");

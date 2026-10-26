@@ -904,6 +904,18 @@ Directory, 0.3–0.4 µs for global references, both invisible next to a bridge
 call (2–8 µs). Global references are counted, so switching to them once a
 fixed ooRexx is the minimum is a small change.
 
+**A Rexx object going back to Rexx** (the result of Python code that Rexx
+called, a Rexx condition Python lets through) is made a local reference of
+the native context (`localRef`: an API call that answers it) before its
+proxy is let go. A proxy that dies only queues its release, but another
+thread that enters the instance meanwhile applies it, while this one is
+still in native code: the object would then be held by nothing until the
+caller has it, and a collection could take it. Measured: Python functions
+that return a Rexx object whose proxy is their result's only reference,
+called by 16 Rexx threads while Python threads force collections, crashed
+the process within seconds; none since, 0 in 240,000 calls
+(`t72_returned_rexx_objects.py`).
+
 **Interpreters.** A Python object returned by Rexx to Python is given its
 own reference before the thread detaches from the instance, so a garbage
 collection on another thread cannot free it before the GIL comes back
