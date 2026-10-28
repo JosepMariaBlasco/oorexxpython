@@ -67,7 +67,7 @@ return testResult
 
 -- a SYNTAX with a description comes back with it, through a Python function
 -- and through an ADDRESS environment written in Python.  ooRexx's API cannot
--- raise a SYNTAX with a description (not filed; r13297): raiseAgain puts it
+-- raise a SYNTAX with a description (RFE #883; r13324): raiseAgain puts it
 -- into the pending condition object, a workaround this test watches
 ::method test_rexx_error_description
   co = self~syntaxOf(.py~eval("lambda f: f()"), "new", self~routine("described"))
@@ -127,19 +127,51 @@ halted:
 -- a condition other than SYNTAX raised by a Rexx method that Python sends a
 -- message to, with a SIGNAL ON for it in the Rexx code below Python (and in
 -- .PyCommandHandler's command): every call from Python attaches its own
--- activity, so the condition stops there and no SIGNAL unwinds through
--- Python's frames (that would end the process)
+-- activity, so no SIGNAL unwinds through Python's frames (that would end the
+-- process); the condition stops there, reaches Python as a RexxError (ooRexx
+-- delivers it since r13320, #2123) and is raised again for the caller, as
+-- itself
 ::method test_signal_not_through_python
   send = .py~eval("lambda o: o.raiser()")
   do c over "USER", "NOTREADY", "ERROR", "FAILURE"
-    self~assertSame("no condition", self~signalOnAny(send, .Raiser~new(c)), c "from a method Python calls")
+    self~assertSame(c, word(self~signalOnAny(send, .Raiser~new(c)), 1), c "from a method Python calls")
   end
   h = .py~eval("lambda o: (lambda c, ctx: o.raiser())")
   do c over "USER", "NOTREADY"
     .CommandHandler~register("PYRAISER", .py~commandHandler(h~new(.Raiser~new(c))))
-    self~assertSame("no condition", self~signalOnAnyAddress, c "from a method a Python handler calls")
+    self~assertSame(c, word(self~signalOnAnyAddress, 1), c "from a method a Python handler calls")
     .CommandHandler~deregister("PYRAISER")
   end
+
+-- rule 1 for a condition other than SYNTAX: back in Rexx with its
+-- description and ADDITIONAL, through a function and through ADDRESS; Python
+-- sees it as a RexxError it can catch
+::method test_other_conditions_round_trip
+  call = .py~eval("lambda f: f()")
+  d = self~conditionOf(call, self~routine("userDescribed"))
+  self~assertSame("USER X", d~condition, "USER X through a function")
+  self~assertSame("the description", d~description, "its description")
+  self~assertSame("A", d~additional[1], "its ADDITIONAL")
+  .CommandHandler~register("PYUSER", .py~commandHandler(.py~eval("lambda f: (lambda c, ctx: f())")~new(self~routine("userDescribed"))))
+  signal on user x name viaAddress
+  address pyuser "x"
+  self~fail("USER X must come back through ADDRESS")
+viaAddress:
+  .CommandHandler~deregister("PYUSER")
+  self~assertSame("the description", condition("D"), "its description, through ADDRESS")
+  self~assertSame("A", condition("O")~additional[1], "its ADDITIONAL, through ADDRESS")
+  .py~exec(self~py("def caught(f):",                        -
+                   "    try: f()",                          -
+                   "    except Exception as e: return type(e).__name__ + ': ' + str(e)"))
+  self~assertSame("RexxError: Rexx condition USER X", .py~main~caught(self~routine("userDescribed")), "Python catches it")
+
+::method conditionOf private
+  use arg pyCallable, f
+  signal on user x
+  pyCallable~new(f)
+  self~fail("USER X must come back")
+x:
+  return condition("O")
 
 ::method signalOnAny private
   use arg pyCallable, o
@@ -172,6 +204,8 @@ x: notready:
   return substr("x", 0)
 ::routine described
   raise syntax 40.1 array("BOOM") description "the description"
+::routine userDescribed
+  raise user x description "the description" array("A") return 7
 ::routine halts
   raise halt description "h"
 ::routine haltsViaPython

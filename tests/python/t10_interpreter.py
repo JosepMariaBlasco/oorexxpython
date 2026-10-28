@@ -250,8 +250,8 @@ check("through a Python function: SYNTAX itself", r.routine(
     "use arg o; signal on syntax; o~go; return 'no'\n"
     "syntax: return 'SYNTAX' condition('O')~code condition('O')~additional[1]")(
     __import__("types").SimpleNamespace(go=lambda: raising["syntax"]())), "SYNTAX 40.1 x")
-# any other condition keeps its description, ADDITIONAL and RESULT (one that
-# reaches Python; ooRexx's API gives the host only SYNTAX from a Rexx call)
+# any other condition keeps its description, ADDITIONAL and RESULT (here a
+# condition object made by hand; real ones below, past Python)
 user_x = r.routine("d = .directory~new; d~condition = 'USER X'; d~description = 'the description'\n"
                    "d~additional = .array~of('extra'); d~result = 'the result'; return d")()
 def user_raiser(command, ctx):
@@ -268,8 +268,9 @@ check("... USER X with description and ADDITIONAL", r.routine(trapper.replace("r
 # ADDRESS handler), Python calls Rexx code that does RAISE USER X ... RETURN.
 # Every call from Python into Rexx takes its own thread context (intoRexx,
 # AttachThread), so the condition never unwinds the Rexx caller through
-# Python's frames: today (r13275) it is lost there and the RETURN value comes
-# back; if ooRexx comes to deliver it, it must reach the caller as itself.
+# Python's frames: it stops there, reaches Python as a RexxError (ooRexx
+# delivers it since r13320, #2123) and is raised again for the caller, as
+# itself.
 past_routine = r.routine('raise user x description "d" return 7')
 past_object = r.routine("return .PastRaiser~new\n::class PastRaiser\n::method go\n"
                         "  raise user x description 'd' return 7")()
@@ -288,7 +289,7 @@ for label, how, f, value in (("function, routine", "function", ns(go=lambda: pas
                              ("function, method", "function", ns(go=lambda: past_object.go()), "result 7"),
                              ("handler, routine", "handler", "routine", "rc 7"),
                              ("handler, method", "handler", "method", "rc 7")):
-    check(f"SIGNAL ON past Python ({label})", past(how, f) in (value, "trapped USER X d"), True)
+    check(f"SIGNAL ON past Python ({label})", past(how, f), "trapped USER X d")
 
 # closing an interpreter releases its environments' handlers at once, also
 # while other instances live (r here)

@@ -448,36 +448,39 @@ other way round: Rexx calls Python (a function, an ADDRESS environment
 written in Python), which calls Rexx code that fails; if Python does not
 catch the `RexxError`, the Rexx caller gets the original condition, not
 98.900: SYNTAX with its code and `ADDITIONAL` (so its message), any other
-condition with its `DESCRIPTION`, `ADDITIONAL` and `RESULT`. A SYNTAX keeps
+condition with its `DESCRIPTION`, `ADDITIONAL` and `RESULT` (but not the
+`RC` of an ERROR or FAILURE: `RaiseCondition` takes none). A SYNTAX keeps
 its `DESCRIPTION` and `RESULT` too, through a workaround: the only API that
-raises a SYNTAX, `RaiseException(code, additional)`, takes neither (r13297;
-`RaiseCondition("SYNTAX")` is no way out, it crashes the process), so
-`raiseAgain` puts them into the pending condition object that
+raises a SYNTAX, `RaiseException(code, additional)`, takes neither (r13324;
+`RaiseCondition("SYNTAX")` is no way out, it gives Error 93.900 since
+r13317), so `raiseAgain` puts them into the pending condition object that
 `GetConditionInfo()` answers, which is the object ooRexx passes on to the
 caller (it rewrites its position, program and message, not those two). The
 same as the JavaScript bridge does. It relies on `GetConditionInfo()`
 answering the object itself, not a copy: if that changed, the description
 would be lost again and nothing worse (`test_rexx_error_description` in
 `Callbacks.testGroup` would show it). An ooRexx API that raises a condition
-object as it is would replace it. The
+object as it is (RFE #883) would replace it. The
 `RexxError` keeps the condition object for this (`_rexx_condition`, set by
 `raiseRexxError`; `raiseAgain` in `bridge.cpp`), within the same
-interpreter instance. What reaches Python is only what ooRexx's API gives a
-native caller: a Rexx call from native code (`CallRoutine`, `SendMessage`)
-traps SYNTAX alone. A HALT the Rexx code does not trap is already SYNTAX 4.1
-when it leaves it (its description, `ADDITIONAL` and result gone); back in
-Rexx it is a HALT again, raised with `HaltThread`, as a Ctrl-C on that
-thread: `SIGNAL ON HALT` traps it at the end of the clause, `CALL ON HALT`
-after the next one (the call returns `.nil` meanwhile), and untrapped it is
-SYNTAX 4.1 again, as in plain Rexx. Not `RaiseCondition`: ooRexx ignores a
-condition other than SYNTAX that native code raises and nobody traps, and a
-HALT must not be lost. A USER, NOTREADY, ERROR or FAILURE
-condition never reaches the native caller (`CheckCondition` is false, and a
-plain `RAISE` even cuts the Rexx code short with no result), where in plain
-Rexx it would reach a caller that traps it. That is ooRexx's (measured on
-r13275, `NativeActivation::trap`; being looked at upstream), the same for
-every bridge; the bridge does not work around it, and once such a condition
-reaches it, it goes back as itself like any other.
+interpreter instance. What reaches Python is what ooRexx's API gives a
+native caller: since r13320 (#2123), a Rexx call from native code
+(`CallRoutine`, `SendMessage`) gives it any condition the Rexx code raises
+and does not trap, USER, NOTREADY, ERROR, FAILURE, LOSTDIGITS and the rest,
+not only SYNTAX (before, they never reached it, and a plain `RAISE` even
+cut the Rexx code short with no result). Every call from Python into Rexx
+attaches its own activity (`intoRexx`), so such a condition stops there,
+never unwinding Python's frames, reaches Python as a `RexxError`, and goes
+back to the Rexx caller as itself (`test_signal_not_through_python` and
+`test_other_conditions_round_trip` in `Callbacks.testGroup`, the "SIGNAL ON
+past Python" checks in `t10_interpreter.py`). A HALT the Rexx code does not
+trap is already SYNTAX 4.1 when it leaves it (its description, `ADDITIONAL`
+and result gone); back in Rexx it is a HALT again, raised with
+`HaltThread`, as a Ctrl-C on that thread: `SIGNAL ON HALT` traps it at the
+end of the clause, `CALL ON HALT` after the next one (the call returns
+`.nil` meanwhile), and untrapped it is SYNTAX 4.1 again, as in plain Rexx.
+Not `RaiseCondition`: before r13317 (#2126) ooRexx ignored a HALT that
+native code raised and nobody trapped, and a HALT must not be lost.
 Through an ADDRESS environment written in Python, a handler like any other
 of ooRexx's, these conditions go back as a Rexx handler's would (*ADDRESS in
 Python*), but a HALT is a HALT again there too: there is Python code in
@@ -934,9 +937,11 @@ collection on another thread cannot free it before the GIL comes back
 interpreter stays attached until `close()`: detaching it makes `Terminate`
 wait forever (ooRexx bug #2107).
 
-**ooRexx versions.** The minimum is ooRexx 5.3.0 r13297, which CI also
+**ooRexx versions.** The minimum is ooRexx 5.3.0 r13324, which CI also
 runs: the revision the ooRexx bridges are built and tested on. The bridge
-needs ooRexx's `.CommandHandler` (RFE #882, the base of *ADDRESS in Python*);
+needs ooRexx's `.CommandHandler` (RFE #882, the base of *ADDRESS in Python*)
+and, for conditions other than SYNTAX to go through Python as themselves,
+ooRexx's fix for #2123 (r13320; see *Exceptions*);
 Python's `bool` is ooRexx's own `.LogicalWrapper` (`logicalwrapper.cls`,
 new in r13278; see *Values*), and before r13286 `IsInstanceOf` could corrupt
 ooRexx's heap when other threads ran Rexx (ooRexx bug #2122; the bridge asks

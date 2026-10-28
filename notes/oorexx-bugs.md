@@ -12,7 +12,7 @@ fix. The code marks the workarounds with the ticket number, so
 | [#2101](https://sourceforge.net/p/oorexx/bugs/2101/) | `runUninits()` crashes or hangs when an uninit method gives up the kernel lock while other threads create objects with uninit methods | r13256 | `.PyObject`'s uninit is two Rexx clauses that only queue the pointer; the bridge drops the Python reference at its next call (`drainGraveyard`) |
 | [#2102](https://sourceforge.net/p/oorexx/bugs/2102/) | `pendingUninits` only grows, so after a while every call scans the whole uninit table | r13259 | nothing can avoid it (every proxy has an uninit): use an ooRexx with the fix for serious work |
 | [#2103](https://sourceforge.net/p/oorexx/bugs/2103/) | an ending thread uses its Activity after the garbage collector may have swept it: a rare crash at exit under heavy threading | r13265 | nothing in the bridge; seen only in the heavy run of `Threads.testGroup` |
-| [#2122](https://sourceforge.net/p/oorexx/bugs/2122/) | `IsInstanceOf` (also `IsRoutine`, `IsMethod`) is a non-blocking API call, but a number with no text yet (the result of `j + 0`) answers it by making its string, an allocation without the kernel lock: heap corruption when other threads run Rexx (crashes, hangs in the collector, wrong values) | r13286 | nothing: the minimum, r13297, has the fix (until r13286 `instanceOf()` in `bridge.cpp` never asked `IsInstanceOf` of a string or a number); seen as a rare crash of `t50_subclass.py`'s eight threads |
+| [#2122](https://sourceforge.net/p/oorexx/bugs/2122/) | `IsInstanceOf` (also `IsRoutine`, `IsMethod`) is a non-blocking API call, but a number with no text yet (the result of `j + 0`) answers it by making its string, an allocation without the kernel lock: heap corruption when other threads run Rexx (crashes, hangs in the collector, wrong values) | r13286 | nothing: the minimum, r13324, has the fix (until r13286 `instanceOf()` in `bridge.cpp` never asked `IsInstanceOf` of a string or a number); seen as a rare crash of `t50_subclass.py`'s eight threads |
 | [#2107](https://sourceforge.net/p/oorexx/bugs/2107/) | `Terminate` waits forever if the thread that created the instance called `DetachThread` | open | the creating thread stays attached until `Interpreter.close()` |
 
 The workarounds above stay right on older versions, and none of them
@@ -20,8 +20,8 @@ depends on a fix being present. #2122 has none any more: the bridge needs
 its fix. The design notes behind them are in
 [`../docs/design.md`](../docs/design.md), *Lifetime*.
 
-The bridge needs ooRexx 5.3.0 r13297 or later (`logicalwrapper.cls`, since
-r13278, #2122's fix, since r13286, the ooRexx bridges' revision), so the fixes above are all present. Before that, ooRexx 5.2.0 was the minimum for
+The bridge needs ooRexx 5.3.0 r13324 or later (`logicalwrapper.cls`, since
+r13278, #2122's fix, since r13286, #2123's, since r13320, the ooRexx bridges' revision), so the fixes above are all present. Before that, ooRexx 5.2.0 was the minimum for
 using an interpreter from one thread at a time: from several at once it
 crashed inside ooRexx (in its tables of activities, on `AttachThread` and
 when a thread waits for the kernel lock), and `Threads.testGroup`,
@@ -63,25 +63,34 @@ Tickets filed for other reasons that also touch the bridge:
   registered while eight threads address them). On r13271 it fails 24 times
   in 30 (crashes, a hang, lost registrations); on r13275, 0 in 200. It is
   skipped before r13275.
-- [#2116](https://sourceforge.net/p/oorexx/bugs/2116/) (open; filed by Tom
-  Dyer): an argument error raised by a native method (wrong number of
-  arguments, an argument its signature cannot convert) is invisible to the
-  native code that sent the message from its own *method* context:
-  `CheckCondition()` is false, and a later garbage collection can crash.
-  Its first part, `ReleaseGlobalReference`, is #2100 above. The bridge is
-  not exposed: every message it sends with a user's arguments goes through
-  a thread context of its own (`AttachThread`), where the condition is seen
-  and nothing is left behind (checked from Python and from Rexx through
-  Python, with a collection after each failed call).
-- Not filed yet (found by the Lua bridge): native code cannot raise a
-  SYNTAX condition again with its `DESCRIPTION`. `RaiseException(code,
-  additional)` takes none, and `RaiseCondition("SYNTAX", ...)` crashes the
-  process. The bridge never calls `RaiseCondition` with `SYNTAX`; it raises
+- [#2116](https://sourceforge.net/p/oorexx/bugs/2116/) (fixed in r13324;
+  filed by Tom Dyer): an argument error raised by a native method (wrong
+  number of arguments, an argument its signature cannot convert) was
+  invisible to the native code that sent the message from its own *method*
+  context: `CheckCondition()` was false, and a later garbage collection could
+  crash. Its first part, `ReleaseGlobalReference`, is #2100 above. The
+  bridge was not exposed: every message it sends with a user's arguments
+  goes through a thread context of its own (`AttachThread`), where the
+  condition is seen and nothing is left behind (checked from Python and
+  from Rexx through Python, with a collection after each failed call).
+- [#2123](https://sourceforge.net/p/oorexx/bugs/2123/) (fixed in r13320):
+  a condition other than SYNTAX (USER, NOTREADY, ERROR, FAILURE...) raised
+  by Rexx code that native code calls never reached the native caller, so
+  it could not go through Python back to Rexx as itself. The bridge needed
+  no change (it already kept any condition and raised it again); the tests
+  now check every one of them both ways.
+- [#2126](https://sourceforge.net/p/oorexx/bugs/2126/) (fixed in r13317)
+  and [RFE #883](https://sourceforge.net/p/oorexx/feature-requests/883/)
+  (open): native code cannot raise a SYNTAX condition again with its
+  `DESCRIPTION`. `RaiseException(code, additional)` takes none, and
+  `RaiseCondition("SYNTAX", ...)` crashed the process (an error 93.900 since
+  #2126). The bridge never calls `RaiseCondition` with `SYNTAX`; it raises
   the error with `RaiseException` and then puts the description and the
   result into the pending condition object that `GetConditionInfo()`
   answers (`raiseAgain` in `bridge.cpp`, marked as a workaround), so a SYNTAX
   error that goes through Python back to Rexx keeps them
-  (`test_rexx_error_description` in `Callbacks.testGroup`).
+  (`test_rexx_error_description` in `Callbacks.testGroup`). RFE #883 asks
+  for an API that raises a condition object as it is.
 
 Not a bug, but worth knowing when writing native code: `IsString` is false
 for strings the interpreter keeps in another form (internal integers, number

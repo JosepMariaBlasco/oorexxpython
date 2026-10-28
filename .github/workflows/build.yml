@@ -2,8 +2,8 @@
 # 3.9 to 3.15, on Linux, macOS (arm64 and x64) and Windows. ooRexx comes from its portable
 # builds on SourceForge, pinned to one revision; a newer one is taken
 # deliberately, after checking it (the ooRexx bridges move together). The
-# minimum is ooRexx 5.3.0 r13297, the revision this runs on (the ooRexx bridges'; logicalwrapper.cls
-# since r13278, the fix for #2122 since r13286).
+# minimum is ooRexx 5.3.0 r13324, the revision this runs on (the ooRexx bridges'; logicalwrapper.cls
+# since r13278, the fix for #2122 since r13286, for #2123 since r13320).
 #
 # Each platform's build is then packaged as a zip of binaries
 # (scripts/package.sh; artifacts oorexxpython-<platform>), which is checked
@@ -24,7 +24,7 @@ on:
   workflow_dispatch:
 
 env:
-  OOREXX_REV: "13297"
+  OOREXX_REV: "13324"
   OOREXX_URL: https://downloads.sourceforge.net/project/oorexx/oorexx/5.3.0beta/portable
   PYTHONS: "3.9 3.10 3.11 3.12 3.13 3.14 3.15"
 
