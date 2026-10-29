@@ -811,6 +811,15 @@ static void rexxToVal(RexxSide &side, RexxObjectPtr o, Val &v, ArrayMemo &memo)
     }
 }
 
+// any Rexx object by reference, a string too (a REXX Val)
+static void refVal(RexxSide &side, RexxObjectPtr o, Val &v)
+{
+    v.kind = Val::REXX;
+    v.robj = o;
+    v.inst = handleOf(side.inst);
+    v.keepKey = keepObject(side, o);
+}
+
 // a method's arguments, with an optional .py~kw(...) marker last
 struct Args
 {
@@ -1706,25 +1715,37 @@ static PyObject *rexxErrorType = NULL;   // oorexx.RexxError
 // ADDITIONAL and RESULT (any other), as Rexx would see it with no Python in
 // between.  Whether it did; *halted when it was a HALT (raised by halting the
 // thread, so the call still returns a value: see below).
-static bool raiseAgain(RexxSide &side, PyError &err, bool *halted)
+static bool raiseAgain(RexxSide &side, PyError &err, bool *halted, RexxObjectPtr *value)
 {
     *halted = false;
-    RexxObjectPtr cond = NULLOBJECT;
+    *value = NULLOBJECT;
+    RexxObjectPtr cond = NULLOBJECT, val = NULLOBJECT;
     {
         Gil gil;
         if (err.exc != NULL && PyObject_IsInstance(err.exc, rexxErrorType) == 1)
         {
-            PyObject *p = PyObject_GetAttrString(err.exc, "_rexx_condition");
-            Inst *inst;
-            RexxObjectPtr target;
-            if (p != NULL && rexxProxyTarget(p, &inst, &target) && inst != NULL && inst->rexx == side.inst)
-                cond = target;            // alive while err.exc holds the proxy
-            Py_XDECREF(p);
+            // the condition object, and the value the Rexx call returned
+            // with it, if any (raiseRexxError); both alive while err.exc
+            // holds their proxies
+            auto target = [&](const char *attr)
+            {
+                RexxObjectPtr t = NULLOBJECT;
+                PyObject *p = PyObject_GetAttrString(err.exc, attr);
+                Inst *inst;
+                RexxObjectPtr o;
+                if (p != NULL && rexxProxyTarget(p, &inst, &o) && inst != NULL && inst->rexx == side.inst) t = o;
+                Py_XDECREF(p);
+                PyErr_Clear();
+                return t;
+            };
+            cond = target("_rexx_condition");
+            val = target("_rexx_value");
         }
         PyErr_Clear();
     }
     RexxThreadContext *c = side.tc;
     cond = localRef(c, cond);             // held by the context, not only by the proxy (localRef)
+    val = localRef(c, val);
     if (cond == NULLOBJECT || !c->IsDirectory(cond)) return false;
     RexxDirectoryObject d = (RexxDirectoryObject)cond;
     RexxObjectPtr nameObj = c->DirectoryAt(d, "CONDITION");
@@ -1777,6 +1798,21 @@ static bool raiseAgain(RexxSide &side, PyError &err, bool *halted)
     }
     RexxObjectPtr description = c->DirectoryAt(d, "DESCRIPTION");
     RexxObjectPtr result = c->DirectoryAt(d, "RESULT");
+    // Workaround (ooRexx, not filed; a fix is proposed):
+    // Rexx code that does RAISE ... RETURN v (or EXIT v) gives its caller v
+    // with the condition pending.  A native method that raises a condition
+    // and returns a value without a RESULT for it gets Error 91 or 44.1
+    // instead (checkConditions() puts the condition's RESULT, none here, in
+    // place of the routine's own value).  So the value goes as RESULT too,
+    // and the call returns it: untrapped and under CALL ON the caller gets
+    // v, as in plain Rexx; the one difference is that condition("O")~result
+    // is v where plain Rexx has none (Callbacks.testGroup,
+    // test_raise_return_value).
+    if (val != NULLOBJECT)
+    {
+        result = val;
+        *value = val;
+    }
     c->RaiseCondition(name.c_str(), description != NULLOBJECT ? c->ObjectToString(description) : NULLOBJECT,
                       additional, result);
     return true;
@@ -1786,10 +1822,11 @@ static RexxObjectPtr finish(RexxSide &side, Val &result, PyError &err)
 {
     RexxThreadContext *c = side.tc;
     bool halted;
-    if (err.set && raiseAgain(side, err, &halted))
+    RexxObjectPtr value;
+    if (err.set && raiseAgain(side, err, &halted, &value))
     {
         if (result.kind != Val::NIL) { Gil gil; dropVal(result); }
-        return halted ? c->Nil() : NULLOBJECT;
+        return halted ? c->Nil() : value;
     }
     if (err.set)
     {
@@ -1904,6 +1941,9 @@ struct ConditionInfo
     size_t position = 0;
     Val object;                           // the condition object itself (REXX), so
                                           // that it can be raised again as itself
+    Val value;                            // what the Rexx call returned with the
+                                          // condition pending (REXX), if anything
+                                          // (RAISE ... RETURN v): raiseAgain
 };
 
 // a pending Rexx condition as the text of an oorexx.RexxError (and cleared),
@@ -1972,7 +2012,7 @@ static std::string takeCondition(RexxThreadContext *tc, RexxSide *side = NULL, V
 static void raiseRexxError(const std::string &text, ConditionInfo &ci)
 {
     PyObject *e = PyObject_CallFunction(rexxErrorType, "s", text.c_str());
-    if (e == NULL) { dropVal(ci.object); return; }
+    if (e == NULL) { dropVal(ci.object); dropVal(ci.value); return; }
     if (ci.object.kind == Val::REXX)
     {
         // the condition object, for raising it again as itself if the error
@@ -1981,7 +2021,14 @@ static void raiseRexxError(const std::string &text, ConditionInfo &ci)
         if (o != NULL) { PyObject_SetAttrString(e, "_rexx_condition", o); Py_DECREF(o); }
         PyErr_Clear();
     }
+    if (ci.value.kind == Val::REXX)
+    {
+        PyObject *o = valToPy(ci.value);
+        if (o != NULL) { PyObject_SetAttrString(e, "_rexx_value", o); Py_DECREF(o); }
+        PyErr_Clear();
+    }
     dropVal(ci.object);
+    dropVal(ci.value);
     if (ci.set)
     {
         auto str = [&](const char *attr, const std::string &v, bool none)
@@ -2075,7 +2122,14 @@ static PyObject *intoRexx(Inst *inst, PyObject *args, Py_ssize_t skip, PyObject 
             if (o != NULLOBJECT) tc->ArrayPut(rargs, o, i + 1);
         }
         RexxObjectPtr r = tc->CheckCondition() ? NULLOBJECT : op(tc, side, rargs, error);
-        if (tc->CheckCondition()) error = takeCondition(tc, &side, &exc, &ci);
+        if (tc->CheckCondition())
+        {
+            // a value returned with the condition (RAISE ... RETURN v), by
+            // reference whatever it is, to give back to Rexx as it is
+            // (raiseAgain)
+            if (r != NULLOBJECT) refVal(side, r, ci.value);
+            error = takeCondition(tc, &side, &exc, &ci);
+        }
         else if (error.empty() && r != NULLOBJECT) rexxToVal(side, r, result);   // may run Rexx code
         // The Python objects in the result are borrowed from their .PyObject
         // proxies, which only this thread context's local references keep
@@ -2107,6 +2161,7 @@ static PyObject *intoRexx(Inst *inst, PyObject *args, Py_ssize_t skip, PyObject 
             Py_XDECREF(type);
             dropVal(exc);
             dropVal(ci.object);
+            dropVal(ci.value);
             return NULL;
         }
         dropVal(exc);

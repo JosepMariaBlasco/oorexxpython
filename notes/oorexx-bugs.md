@@ -91,6 +91,16 @@ Tickets filed for other reasons that also touch the bridge:
   error that goes through Python back to Rexx keeps them
   (`test_rexx_error_description` in `Callbacks.testGroup`). RFE #883 asks
   for an API that raises a condition object as it is.
+- Not filed (a fix is proposed to ooRexx): a native method that raises a
+  condition with no `RESULT` and returns a value gives its caller Error 91
+  (or 44.1) instead of the value, where Rexx code doing `RAISE ... RETURN v`
+  gives `v` with the condition pending (ooRexx's `checkConditions()` puts
+  the condition's `RESULT` in place of the method's value, even when there
+  is none). The bridge raises the condition again with the value as
+  `RESULT` and returns it (`raiseAgain` in `bridge.cpp`, marked as a
+  workaround), so the caller gets `v` as in plain Rexx; only
+  `condition("O")~result` differs (`test_raise_return_value` in
+  `Callbacks.testGroup`).
 
 Not a bug, but worth knowing when writing native code: `IsString` is false
 for strings the interpreter keeps in another form (internal integers, number

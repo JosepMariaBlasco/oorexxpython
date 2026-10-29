@@ -165,6 +165,41 @@ viaAddress:
                    "    except Exception as e: return type(e).__name__ + ': ' + str(e)"))
   self~assertSame("RexxError: Rexx condition USER X", .py~main~caught(self~routine("userDescribed")), "Python catches it")
 
+-- RAISE ... RETURN v in Rexx code called through Python: the Rexx caller
+-- gets v, untrapped and under CALL ON, as in plain Rexx (not Error 91 or
+-- 44.1); SIGNAL ON traps it.  A workaround: condition("O")~result is v too,
+-- where plain Rexx has none
+::method test_raise_return_value
+  call = .py~eval("lambda f: f()")
+  r = self~routine("userDescribed")
+  signal on syntax name noValue
+  x = call~new(r)
+  signal off syntax
+  self~assertSame(7, x, "untrapped: the value")
+  ran = 0; res = "none"
+  call on user x name handler
+  x = call~new(r)
+  call off user x
+  self~assertSame(7, x, "CALL ON: the value")
+  self~assertSame(1, ran, "CALL ON: the handler ran")
+  self~assertSame(7, res, "CALL ON: the workaround's RESULT")
+  self~assertSame("USER X", self~conditionOf(call, r)~condition, "SIGNAL ON traps it")
+  -- an object comes back as itself, by reference
+  o = .directory~new
+  x = .py~eval("lambda f, x: f(x)")~new(self~routine("raisesWith"), o)
+  self~assertSame(o, x, "an object: itself")
+  .CommandHandler~register("PYRET", .py~commandHandler(.py~eval("lambda f: (lambda c, ctx: f())")~new(r)))
+  address pyret "x"
+  .CommandHandler~deregister("PYRET")
+  self~assertSame(7, rc, "through ADDRESS: the value as RC")
+  return
+handler:
+  ran = ran + 1
+  if condition("O")~hasIndex("RESULT") then res = condition("O")~result
+  return
+noValue:
+  self~fail("Error" condition("O")~code "instead of the value")
+
 ::method conditionOf private
   use arg pyCallable, f
   signal on user x
@@ -206,6 +241,9 @@ x: notready:
   raise syntax 40.1 array("BOOM") description "the description"
 ::routine userDescribed
   raise user x description "the description" array("A") return 7
+::routine raisesWith
+  use arg o
+  raise user x return (o)
 ::routine halts
   raise halt description "h"
 ::routine haltsViaPython

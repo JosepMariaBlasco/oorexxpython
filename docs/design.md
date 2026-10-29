@@ -460,7 +460,21 @@ same as the JavaScript bridge does. It relies on `GetConditionInfo()`
 answering the object itself, not a copy: if that changed, the description
 would be lost again and nothing worse (`test_rexx_error_description` in
 `Callbacks.testGroup` would show it). An ooRexx API that raises a condition
-object as it is (RFE #883) would replace it. The
+object as it is (RFE #883) would replace it. A condition raised with
+`RAISE ... RETURN v` (or `EXIT v`) keeps its value, through a second
+workaround: in plain Rexx the caller gets `v` with the condition pending, so
+untrapped, or under `CALL ON`, the call is `v`; a native method that raises
+a condition with no `RESULT` and returns a value gets Error 91 or 44.1
+instead (r13324: ooRexx puts the condition's `RESULT` in place of the
+method's own value). So the bridge keeps the value the Rexx call returned
+with the condition (`_rexx_value`, by reference), raises the condition again
+with it as `RESULT`, and returns it: the caller gets `v` untrapped and under
+`CALL ON`, `SIGNAL ON` traps the condition, and through an ADDRESS
+environment `v` is RC. The one difference from plain Rexx is that
+`condition("O")~result` is `v`, where plain Rexx has none
+(`test_raise_return_value` in `Callbacks.testGroup`). Once ooRexx keeps a
+native method's value when the condition has no `RESULT`, the bridge will
+raise the condition without one and match plain Rexx exactly. The
 `RexxError` keeps the condition object for this (`_rexx_condition`, set by
 `raiseRexxError`; `raiseAgain` in `bridge.cpp`), within the same
 interpreter instance. What reaches Python is what ooRexx's API gives a
