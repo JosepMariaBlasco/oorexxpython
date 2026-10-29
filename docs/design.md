@@ -433,7 +433,15 @@ it is that call's condition, a `RexxError` in Python, and the Rexx caller
 below gets it as itself if Python does not catch it. The conversion of a
 reply runs in the thread context the bridge attached for the call
 (`intoRexx`), so the condition never unwinds Python's frames
-(`test_reply_conversion_raises` in `Callbacks.testGroup`).
+(`test_reply_conversion_raises` in `Callbacks.testGroup`). A conversion
+stops at the first such condition, as Rexx stops at the first error: the
+rest of an Array, the other arguments, a keyword's value are not converted,
+so no more user code runs with a condition pending and the caller gets the
+first one. The same for the text of a name or a box's value (`textOf`),
+whose `STRING` may answer such a string; and keyword arguments whose
+`NAMES` or `VALUES` (a subclass of `.PyKwArgs` may override them) are not
+Arrays are an error, SYNTAX 98.900
+(`test_conversion_stops_at_first_condition`).
 
 ### Exceptions
 

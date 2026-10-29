@@ -269,6 +269,39 @@ userReply:
 noCaller:
   self~assertSame("40.925", condition("O")~code, "a stem name: no Rexx caller")
 
+-- a conversion stops at the first condition user code raises (as Rexx
+-- stops at the first error): an Array or arguments whose second item would
+-- fail too give the first item's SYNTAX, with only one MAKESTRING run; a
+-- STRING method answering such a string is SYNTAX, not a crash; keyword
+-- arguments whose NAMES is no Array are an error
+::method test_conversion_stops_at_first_condition
+  .local~orxpy.calls = 0
+  self~assertSame("93.900 boom 1", self~syntaxText(.py~eval("lambda x: len(x)"), .array~of(.CountingBad~new("a"), .CountingBad~new("b"))), "an Array")
+  self~assertSame(1, .local~orxpy.calls, "an Array: one MAKESTRING")
+  .local~orxpy.calls = 0
+  self~assertSame("93.900 boom 1", self~syntaxText(.py~eval("lambda x, y: 0"), .CountingBad~new("a"), .CountingBad~new("b")), "arguments")
+  self~assertSame(1, .local~orxpy.calls, "arguments: one MAKESTRING")
+  .local~orxpy.calls = 0
+  signal on syntax name boxed
+  .py~box("str", .AnswersBad~new)
+  self~fail("SYNTAX 93.900 must come from box")
+boxed:
+  self~assertSame("93.900", condition("O")~code, "box: STRING answering a failing string")
+  signal on syntax name keywords
+  .py~eval("lambda **k: len(k)")~new(.OddKw~new(.array~of("a", 1)))
+  self~fail("an error must come from the keyword arguments")
+keywords:
+  self~assertSame("98.900", condition("O")~code, "keyword arguments: NAMES no Array")
+
+::method syntaxText private
+  use arg pyCallable, a1, a2
+  signal on syntax
+  if arg() = 2 then pyCallable~new(a1)
+  else pyCallable~new(a1, a2)
+  return "no condition"
+syntax:
+  return condition("O")~code condition("O")~additional[1]
+
 ::method conditionOf private
   use arg pyCallable, f
   signal on user x
@@ -348,3 +381,15 @@ x: notready:
 ::method makestring
   raise user x description "in MAKESTRING"
   return "bad"
+
+-- test_conversion_stops_at_first_condition
+::class CountingBad subclass String
+::method makestring
+  .local~orxpy.calls = .local~orxpy.calls + 1
+  raise syntax 93.900 array("boom" .local~orxpy.calls)
+::class AnswersBad
+::method string
+  return .CountingBad~new("x")
+::class OddKw subclass PyKwArgs
+::method names
+  return "not an array"

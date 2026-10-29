@@ -684,7 +684,15 @@ static std::string textOf(RexxThreadContext *c, RexxObjectPtr o)
     if (s != NULLOBJECT)
     {
         if (c->IsString(s)) text.assign(c->StringData((RexxStringObject)s), c->StringLength((RexxStringObject)s));
-        else text = c->ObjectToStringValue(s);     // a string kept in another form (an integer)
+        else
+        {
+            // a string kept in another form (an integer), or any object:
+            // its conversion can run user code (a .String subclass's
+            // MAKESTRING) and fail, answering NULL with the condition
+            // pending, which the caller checks
+            CSTRING t = c->ObjectToStringValue(s);
+            if (t != NULL) text = t;
+        }
         if (s != o) c->ReleaseLocalReference(s);
     }
     return text;
@@ -739,8 +747,14 @@ static void rexxToVal(RexxSide &side, RexxObjectPtr o, Val &v, ArrayMemo &memo)
     {
         // a .LogicalWrapper (or a subclass's: JSON's, YAML's): Python's bool
         // (docs/design.md, *Values*)
+        CSTRING t = c->ObjectToStringValue(o);
+        if (t == NULL)                    // a condition pending (as for a string, above)
+        {
+            v.kind = Val::NIL;
+            return;
+        }
         v.kind = Val::STR;
-        v.s = c->ObjectToStringValue(o);
+        v.s = t;
         v.boolean = true;
     }
     else if (c->IsInstanceOf(o, side.pyObjectClass))
@@ -782,6 +796,14 @@ static void rexxToVal(RexxSide &side, RexxObjectPtr o, Val &v, ArrayMemo &memo)
             RexxObjectPtr item = c->ArrayAt(a, i);
             rexxToVal(side, item, v.items[i - 1], memo);
             if (item != NULLOBJECT) c->ReleaseLocalReference(item);
+            // user code in that conversion raised a condition: stop the
+            // copy there (no more user code with it pending; the caller
+            // checks), as Rexx stops at the first error
+            if (c->CheckCondition())
+            {
+                memo.depth--;
+                return;
+            }
         }
         memo.depth--;
         // a multi-dimensional Array: nested lists, by dimension, the first
@@ -847,15 +869,29 @@ static void rexxArgs(RexxSide &side, RexxArrayObject args, size_t first, Args &o
         if (instanceOf(c, tail, side.kwClass))
         {
             last = n - 1;
-            RexxArrayObject names = (RexxArrayObject)c->SendMessage0(tail, "NAMES");
-            RexxArrayObject values = (RexxArrayObject)c->SendMessage0(tail, "VALUES");
-            size_t k = c->ArraySize(names);
+            // a .PyKwArgs (or a subclass's: NAMES and VALUES may be
+            // overridden, and must still be Arrays)
+            RexxObjectPtr names = c->SendMessage0(tail, "NAMES");
+            if (c->CheckCondition()) return;
+            RexxObjectPtr values = c->SendMessage0(tail, "VALUES");
+            if (c->CheckCondition()) return;
+            if (names == NULLOBJECT || values == NULLOBJECT || !c->IsArray(names) || !c->IsArray(values))
+            {
+                c->RaiseException1(Rexx_Error_Execution_user_defined,
+                                   c->String("keyword arguments: NAMES and VALUES must be Arrays"));
+                return;
+            }
+            size_t k = c->ArraySize((RexxArrayObject)names);
             for (size_t i = 1; i <= k; i++)
             {
                 std::pair<std::string, Val> kv;
-                kv.first = textOf(c, c->ArrayAt(names, i));
-                rexxToVal(side, c->ArrayAt(values, i), kv.second);
+                kv.first = textOf(c, c->ArrayAt((RexxArrayObject)names, i));
+                // user code in a conversion raised a condition: stop there
+                // (the caller checks)
+                if (c->CheckCondition()) return;
+                rexxToVal(side, c->ArrayAt((RexxArrayObject)values, i), kv.second);
                 out.keywords.push_back(kv);
+                if (c->CheckCondition()) return;
             }
         }
     }
@@ -863,6 +899,7 @@ static void rexxArgs(RexxSide &side, RexxArrayObject args, size_t first, Args &o
     {
         out.positional.emplace_back();
         rexxToVal(side, c->ArrayAt(args, i), out.positional.back());
+        if (c->CheckCondition()) return;  // as above
     }
 }
 
@@ -3860,6 +3897,7 @@ RexxMethod2(RexxObjectPtr, PyObj_Invoke, ARGLIST, all, CSELF, self)
     RexxObjectPtr target = context->ArraySize(all) >= 1 ? context->ArrayAt(all, 1) : NULLOBJECT;
     bool callSelf = target == NULLOBJECT || target == context->Nil();
     std::string name = callSelf ? "" : textOf(context->threadContext, target);
+    if (context->CheckCondition()) return NULLOBJECT;   // raised by user code in the conversion (textOf)
     Args args;
     rexxArgs(side, all, 2, args);
     if (side.tc->CheckCondition()) return NULLOBJECT;   // raised by user code in the conversion (rexxToVal)
@@ -4211,6 +4249,7 @@ RexxMethod2(RexxObjectPtr, Py_Box, RexxObjectPtr, type, RexxObjectPtr, value)   
     if (!findClasses(context, side)) return NULLOBJECT;
     StringsScope scope(side.strings);
     std::string text = textOf(context->threadContext, value);
+    if (context->CheckCondition()) return NULLOBJECT;   // raised by user code in the conversion (textOf)
     std::string kind = "str";
     Args holder;                          // a Python callable given as the type
     if (type != NULLOBJECT)
@@ -4222,6 +4261,7 @@ RexxMethod2(RexxObjectPtr, Py_Box, RexxObjectPtr, type, RexxObjectPtr, value)   
             rexxToVal(side, type, holder.positional[0]);
         }
         else kind = lower(textOf(context->threadContext, type));
+        if (context->CheckCondition()) return NULLOBJECT;   // as above
     }
     Val result;
     PyError err;
