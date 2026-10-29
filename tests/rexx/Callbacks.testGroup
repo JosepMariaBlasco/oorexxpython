@@ -114,13 +114,15 @@ trapped:
   self~assertSame("RexxError", b~main~catch(self~routine("fails")), "Python catches it")
 
 -- a HALT in Rexx code called by Python is a HALT again back in Rexx (ooRexx
--- gives Python SYNTAX 4.1, with the description gone); untrapped, 4.1 as in
--- plain Rexx
+-- gives Python SYNTAX 4.1, with the description gone), as plain Rexx gives
+-- it: CALL ON HALT runs the handler and the call then has no value (91.999);
+-- untrapped, 4.1
 ::method test_halt_round_trip
   call = .py~eval("lambda f: f()")
   halts = self~routine("halts")
   self~assertSame("HALT", self~signalOnHalt(call, halts), "SIGNAL ON HALT")
-  self~assertSame("HALT .nil", self~callOnHalt(call, halts), "CALL ON HALT: the clause resumes, the call gives .nil")
+  self~assertSame(self~callOnHalt(.nil, halts), self~callOnHalt(call, halts), "CALL ON HALT: as in plain Rexx")
+  self~assertSame("HALT 91.999", self~callOnHalt(call, halts), "CALL ON HALT: the handler runs, then the call has no value")
   self~assertSame("4.1", self~syntaxOf(call, "new", halts)~code, "SYNTAX 4.1 when only SYNTAX is trapped")
   self~assertSame("HALT", self~signalOnHalt(call, self~routine("haltsViaPython")), -
                   "Rexx -> Python -> Rexx -> Python -> Rexx")
@@ -137,20 +139,16 @@ halt:
   use arg pyCallable, f
   call on halt name halted
   trapped = "no condition"
-  x = pyCallable~new(f)
-  nop    -- as with a Ctrl-C, CALL ON's handler runs after the next clause
-  return trapped (x == .nil)~?(".nil", x)
+  signal on syntax name noValue
+  if pyCallable == .nil then x = f~call
+  else x = pyCallable~new(f)
+  return trapped "value" x
 halted:
   trapped = condition("C")
   return
+noValue:
+  return trapped condition("O")~code
 
--- a condition other than SYNTAX raised by a Rexx method that Python sends a
--- message to, with a SIGNAL ON for it in the Rexx code below Python (and in
--- .PyCommandHandler's command): every call from Python attaches its own
--- activity, so no SIGNAL unwinds through Python's frames (that would end the
--- process); the condition stops there, reaches Python as a RexxError (ooRexx
--- delivers it since r13320, #2123) and is raised again for the caller, as
--- itself
 ::method test_signal_not_through_python
   send = .py~eval("lambda o: o.raiser()")
   do c over "USER", "NOTREADY", "ERROR", "FAILURE"

@@ -1810,16 +1810,22 @@ static bool raiseAgain(RexxSide &side, PyError &err, bool *halted, RexxObjectPtr
         // 4.1 "Program interrupted with %1 condition" is what ooRexx makes of
         // a HALT the Rexx code did not trap, before a native caller sees it:
         // the Rexx caller gets a HALT again (its DESCRIPTION, ADDITIONAL and
-        // RESULT are already gone).  Not RaiseCondition: before r13317 (#2126)
-        // ooRexx ignored a HALT that native code raised and nobody trapped,
-        // and a HALT must not be lost.  HaltThread is a Ctrl-C on this
-        // thread: SIGNAL ON HALT and CALL ON HALT trap it at the end of the
-        // clause, and untrapped it is SYNTAX 4.1, as in plain Rexx.  The call
-        // returns .nil meanwhile (CALL ON HALT resumes the clause).
+        // RESULT are already gone), raised as Rexx code raises it, so the
+        // caller sees what plain Rexx gives: SIGNAL ON HALT traps it,
+        // CALL ON HALT runs its handler and then the call has no value (Error
+        // 91.999 around an assignment), and untrapped it is SYNTAX 4.1.
+        // Since r13317 (#2126) a HALT native code raises and nobody traps is
+        // no longer ignored; before (an older thread interface) HaltThread,
+        // a Ctrl-C on this thread, so that the HALT is not lost.
         if (major == 4 && minor == 1)
         {
-            c->HaltThread();
-            *halted = true;
+            if (c->functions->interfaceVersion < THREAD_INTERFACE_VERSION_5_3_0)
+            {
+                c->HaltThread();
+                *halted = true;
+                return true;
+            }
+            c->RaiseCondition("HALT", NULLOBJECT, NULLOBJECT, NULLOBJECT);
             return true;
         }
         if (c->functions->interfaceVersion < THREAD_INTERFACE_VERSION_5_3_0)

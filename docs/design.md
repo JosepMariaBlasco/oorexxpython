@@ -507,11 +507,14 @@ back to the Rexx caller as itself (`test_signal_not_through_python` and
 past Python" checks in `t10_interpreter.py`). A HALT the Rexx code does not
 trap is already SYNTAX 4.1 when it leaves it (its description, `ADDITIONAL`
 and result gone); back in Rexx it is a HALT again, raised with
-`HaltThread`, as a Ctrl-C on that thread: `SIGNAL ON HALT` traps it at the
-end of the clause, `CALL ON HALT` after the next one (the call returns
-`.nil` meanwhile), and untrapped it is SYNTAX 4.1 again, as in plain Rexx.
-Not `RaiseCondition`: before r13317 (#2126) ooRexx ignored a HALT that
-native code raised and nobody trapped, and a HALT must not be lost.
+`RaiseCondition("HALT")` as Rexx code raises it, so the caller gets what
+plain Rexx gives: `SIGNAL ON HALT` traps it, `CALL ON HALT` runs its
+handler and then the call has no value (Error 91.999 around an assignment,
+as in plain Rexx), and untrapped it is SYNTAX 4.1 again
+(`test_halt_round_trip` compares with plain Rexx). Since r13317 (#2126)
+ooRexx no longer ignores a HALT that native code raises and nobody traps;
+with an older thread interface the bridge falls back to `HaltThread`, a
+Ctrl-C on that thread, so that the HALT is not lost.
 Through an ADDRESS environment written in Python, a handler like any other
 of ooRexx's, these conditions go back as a Rexx handler's would (*ADDRESS in
 Python*), but a HALT is a HALT again there too: there is Python code in
@@ -790,7 +793,7 @@ other through `caller~raise`, with its `DESCRIPTION` and `ADDITIONAL`; its
 Rexx code left untrapped is a HALT for the issuer, not the SYNTAX 4.1 a
 routine called by a handler written in Rexx would give: there is Python code
 in between, so the rule for Rexx code that Python calls applies. The bridge
-makes it pending again (`HaltThread`), it falls on `command`, and `command`
+raises it again, it falls on `command`, and `command`
 gives it on with `caller~raise("HALT", 0)`, as a handler written in Rexx
 would: `SIGNAL ON HALT` traps it, `CALL ON HALT` resumes with RC 0 (the
 condition's description is the command), and untrapped it ends as SYNTAX 4.1.

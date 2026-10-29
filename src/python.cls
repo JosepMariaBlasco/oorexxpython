@@ -945,7 +945,7 @@ def make(bases, name, specs, rexx_class, new_for):
   -- context, its DESCRIPTION and ADDITIONAL kept (its RESULT is lost, as
   -- with a Rexx handler).  A HALT that Rexx code the handler called left
   -- untrapped is a HALT for the issuer, not SYNTAX 4.1: there is Python code
-  -- in between, and the bridge makes it pending again, so it falls here
+  -- in between, and the bridge raises it again, so it falls here
   -- (SIGNAL ON HALT traps it, CALL ON HALT resumes with RC 0, untrapped it
   -- ends as SYNTAX 4.1, as caller~raise("HALT", 0) from a Rexx handler)
 relay:
