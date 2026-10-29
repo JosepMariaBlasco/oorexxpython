@@ -1785,44 +1785,46 @@ static bool raiseAgain(RexxSide &side, PyError &err, bool *halted, RexxObjectPtr
             *halted = true;
             return true;
         }
-        c->RaiseException((size_t)(major * 1000 + minor), args);
-        // Workaround (ooRexx, not filed; until an API raises a condition
-        // object as it is): RaiseException takes no DESCRIPTION or RESULT.
-        // GetConditionInfo() answers the pending condition object itself,
-        // the one ooRexx passes on to the caller (reraiseException rewrites
-        // its position, program and message, not these two), so put them
-        // there.  Undocumented: if ooRexx ever answered a copy, the
-        // description would be lost again (Callbacks.testGroup,
-        // test_rexx_error_description, would show it).
-        RexxDirectoryObject now = c->GetConditionInfo();
-        if (now != NULLOBJECT)
+        if (c->functions->interfaceVersion < THREAD_INTERFACE_VERSION_5_3_0)
         {
-            RexxObjectPtr description = c->DirectoryAt(d, "DESCRIPTION");
-            RexxObjectPtr result = c->DirectoryAt(d, "RESULT");
-            if (description != NULLOBJECT) c->DirectoryPut(now, description, "DESCRIPTION");
-            if (result != NULLOBJECT) c->DirectoryPut(now, result, "RESULT");
+            // an ooRexx older than the minimum: no RaiseConditionObject, and
+            // RaiseException loses the DESCRIPTION
+            c->RaiseException((size_t)(major * 1000 + minor), args);
+            return true;
         }
+    }
+    else if (c->functions->interfaceVersion < THREAD_INTERFACE_VERSION_5_3_0)
+    {
+        RexxObjectPtr description = c->DirectoryAt(d, "DESCRIPTION");
+        c->RaiseCondition(name.c_str(), description != NULLOBJECT ? (RexxStringObject)description : NULLOBJECT,
+                          additional, val != NULLOBJECT ? val : c->DirectoryAt(d, "RESULT"));
+        *value = val;
         return true;
     }
-    RexxObjectPtr description = c->DirectoryAt(d, "DESCRIPTION");
-    RexxObjectPtr result = c->DirectoryAt(d, "RESULT");
-    // Workaround (ooRexx, not filed; a fix is proposed):
-    // Rexx code that does RAISE ... RETURN v (or EXIT v) gives its caller v
-    // with the condition pending.  A native method that raises a condition
-    // and returns a value without a RESULT for it gets Error 91 or 44.1
-    // instead (checkConditions() puts the condition's RESULT, none here, in
-    // place of the routine's own value).  So the value goes as RESULT too,
-    // and the call returns it: untrapped and under CALL ON the caller gets
-    // v, as in plain Rexx; the one difference is that condition("O")~result
-    // is v where plain Rexx has none (Callbacks.testGroup,
-    // test_raise_return_value).
+    // the kept condition object itself (RaiseConditionObject raises a copy
+    // of it, RFE #883, r13329): a SYNTAX as that error with its DESCRIPTION
+    // and RESULT, any other condition with its DESCRIPTION, ADDITIONAL,
+    // RESULT and RC (an ERROR's or a FAILURE's)
     if (val != NULLOBJECT)
     {
-        result = val;
+        // Workaround (ooRexx #2130, filed; a fix in trunk later): Rexx code
+        // that does RAISE ... RETURN v (or EXIT v) gives its caller v with
+        // the condition pending.  A native method that raises a condition
+        // with no RESULT and returns a value gets Error 91 or 44.1 instead
+        // (checkConditions() puts the condition's RESULT, none here, in
+        // place of the method's own value).  So the value goes as RESULT
+        // too, in a copy (the kept object stays as it was), and the call
+        // returns it: untrapped and under CALL ON the caller gets v, as in
+        // plain Rexx; the one difference is that condition("O")~result is v
+        // where plain Rexx has none (Callbacks.testGroup,
+        // test_raise_return_value).
+        RexxObjectPtr copy = c->SendMessage0(d, "COPY");
+        if (copy == NULLOBJECT || c->CheckCondition() || !c->IsDirectory(copy)) return false;
+        d = (RexxDirectoryObject)copy;
+        c->DirectoryPut(d, val, "RESULT");
         *value = val;
     }
-    c->RaiseCondition(name.c_str(), description != NULLOBJECT ? c->ObjectToString(description) : NULLOBJECT,
-                      additional, result);
+    c->RaiseConditionObject(d);
     return true;
 }
 
@@ -3462,7 +3464,7 @@ static PyObject *registerHandler(Inst *inst, PyObject *nameObj, PyObject *handle
             }
             if (core == NULLOBJECT || ours == NULLOBJECT)
             {
-                error = "add_command_environment: this ooRexx has no .CommandHandler (5.3.0 r13324 or later is needed)";
+                error = "add_command_environment: this ooRexx has no .CommandHandler (5.3.0 r13329 or later is needed)";
                 return NULLOBJECT;
             }
             RexxObjectPtr h = tc->SendMessage1(ours, "NEW", tc->ArrayAt(rargs, 2));
@@ -3505,7 +3507,7 @@ static PyObject *interpreterRemoveEnvironment(PyObject *self, PyObject *args)
             }
             if (core == NULLOBJECT)
             {
-                error = "remove_command_environment: this ooRexx has no .CommandHandler (5.3.0 r13324 or later is needed)";
+                error = "remove_command_environment: this ooRexx has no .CommandHandler (5.3.0 r13329 or later is needed)";
                 return NULLOBJECT;
             }
             return tc->SendMessage1(core, "DEREGISTER", tc->ArrayAt(rargs, 1));

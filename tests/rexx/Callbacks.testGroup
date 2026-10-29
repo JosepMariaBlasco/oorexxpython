@@ -66,9 +66,8 @@ return testResult
   self~assertTrue(pos("Invalid position", co~message) > 0, "its message")
 
 -- a SYNTAX with a description comes back with it, through a Python function
--- and through an ADDRESS environment written in Python.  ooRexx's API cannot
--- raise a SYNTAX with a description (RFE #883; r13324): raiseAgain puts it
--- into the pending condition object, a workaround this test watches
+-- and through an ADDRESS environment written in Python (raiseAgain raises
+-- the kept condition object, RaiseConditionObject: RFE #883, r13329)
 ::method test_rexx_error_description
   co = self~syntaxOf(.py~eval("lambda f: f()"), "new", self~routine("described"))
   self~assertSame("40.1", co~code, "its code")
@@ -84,6 +83,27 @@ syntax:
   co = condition("O")
   self~assertSame("40.1", co~code, "its code, through ADDRESS")
   self~assertSame("the description", co~description, "its description, through ADDRESS")
+
+-- an ERROR or a FAILURE raised by Rexx code that Python calls comes back
+-- with its RC, through a Python function, as in plain Rexx
+::method test_error_failure_rc
+  call = .py~eval("lambda f: f()")
+  do r over "raisesError", "raisesFailure"
+    plain = self~errorOf(.nil, self~routine(r))
+    self~assertSame(plain, self~errorOf(call, self~routine(r)), r "through Python, as in plain Rexx")
+  end
+  self~assertSame("ERROR 127 127 e127", self~errorOf(call, self~routine("raisesError")), "ERROR's RC")
+  self~assertSame("FAILURE -3 -3 f3", self~errorOf(call, self~routine("raisesFailure")), "FAILURE's RC")
+
+::method errorOf private
+  use arg pyCallable, f
+  signal on error name trapped
+  signal on failure name trapped
+  if pyCallable == .nil then f~call
+  else pyCallable~new(f)
+  return "no condition"
+trapped:
+  return condition("C") rc condition("O")~rc condition("D")
 
 ::method test_python_catches_rexx_error
   b = .py
@@ -232,6 +252,23 @@ viaArgument:
 userReply:
   self~assertSame("in MAKESTRING", condition("D"), "the reply's USER")
 
+-- a native routine that uses its caller's variables (rexxutil's SysFileTree
+-- with a stem name) called from Python: there is no Rexx caller, so it is
+-- SYNTAX 40.925, not a crash (#2129, r13326); with a stem object it works
+::method test_native_routine_from_python
+  sft = .context~package~findRoutine("SFT")
+  f = .py~eval("lambda f, *a: f(*a)")
+  pattern = filespec("location", .context~package~name) || "*.testGroup"
+  call SysFileTree pattern, "direct.", "FO"
+  s = .stem~new
+  self~assertSame(0, f~new(sft, pattern, s, "FO"), "SysFileTree with a stem object")
+  self~assertSame(direct.0, s[0], "the stem object filled")
+  signal on syntax name noCaller
+  f~new(sft, pattern, "T.", "FO")
+  self~fail("SYNTAX 40.925 must come back")
+noCaller:
+  self~assertSame("40.925", condition("O")~code, "a stem name: no Rexx caller")
+
 ::method conditionOf private
   use arg pyCallable, f
   signal on user x
@@ -280,6 +317,11 @@ x: notready:
   return .BadString~new("abc")
 ::routine userReply
   return .UserString~new("abc")
+::routine SFT external "LIBRARY rexxutil SysFileTree"
+::routine raisesError
+  raise error 127 description "e127"
+::routine raisesFailure
+  raise failure (-3) description "f3"
 ::routine halts
   raise halt description "h"
 ::routine haltsViaPython

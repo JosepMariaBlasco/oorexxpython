@@ -20,7 +20,7 @@ depends on a fix being present. #2122 has none any more: the bridge needs
 its fix. The design notes behind them are in
 [`../docs/design.md`](../docs/design.md), *Lifetime*.
 
-The bridge needs ooRexx 5.3.0 r13324 or later (`logicalwrapper.cls`, since
+The bridge needs ooRexx 5.3.0 r13329 or later (`logicalwrapper.cls`, since
 r13278, #2122's fix, since r13286, #2123's, since r13320, the ooRexx bridges' revision), so the fixes above are all present. Before that, ooRexx 5.2.0 was the minimum for
 using an interpreter from one thread at a time: from several at once it
 crashed inside ooRexx (in its tables of activities, on `AttachThread` and
@@ -79,19 +79,25 @@ Tickets filed for other reasons that also touch the bridge:
   it could not go through Python back to Rexx as itself. The bridge needed
   no change (it already kept any condition and raised it again); the tests
   now check every one of them both ways.
+- [#2129](https://sourceforge.net/p/oorexx/bugs/2129/) (fixed in r13326):
+  a native routine that uses its caller's variables (rexxutil's
+  `SysFileTree` with a stem name) crashed the process when native code
+  called it, and Python reaches such a routine by sending its Routine
+  object `CALL`. Now it is SYNTAX 40.925 (there is no Rexx caller whose
+  variables it could use); with a stem object it works
+  (`test_native_routine_from_python` in `Callbacks.testGroup`).
 - [#2126](https://sourceforge.net/p/oorexx/bugs/2126/) (fixed in r13317)
   and [RFE #883](https://sourceforge.net/p/oorexx/feature-requests/883/)
-  (open): native code cannot raise a SYNTAX condition again with its
-  `DESCRIPTION`. `RaiseException(code, additional)` takes none, and
-  `RaiseCondition("SYNTAX", ...)` crashed the process (an error 93.900 since
-  #2126). The bridge never calls `RaiseCondition` with `SYNTAX`; it raises
-  the error with `RaiseException` and then puts the description and the
-  result into the pending condition object that `GetConditionInfo()`
-  answers (`raiseAgain` in `bridge.cpp`, marked as a workaround), so a SYNTAX
-  error that goes through Python back to Rexx keeps them
-  (`test_rexx_error_description` in `Callbacks.testGroup`). RFE #883 asks
-  for an API that raises a condition object as it is.
-- Not filed (a fix is proposed to ooRexx): a native method that raises a
+  (done in r13329): native code could not raise a SYNTAX condition again
+  with its `DESCRIPTION` (`RaiseException(code, additional)` takes none, and
+  `RaiseCondition("SYNTAX", ...)` crashed the process, an error 93.900 since
+  #2126), nor an ERROR or FAILURE with its `RC`. Until r13329 the bridge
+  raised a SYNTAX with `RaiseException` and put the description and the
+  result into the pending condition object; RFE #883's
+  `RaiseConditionObject` raises the kept condition object as it is, and the
+  workaround is gone (`test_rexx_error_description` and
+  `test_error_failure_rc` in `Callbacks.testGroup`).
+- [#2130](https://sourceforge.net/p/oorexx/bugs/2130/) (filed, not fixed yet): a native method that raises a
   condition with no `RESULT` and returns a value gives its caller Error 91
   (or 44.1) instead of the value, where Rexx code doing `RAISE ... RETURN v`
   gives `v` with the condition pending (ooRexx's `checkConditions()` puts

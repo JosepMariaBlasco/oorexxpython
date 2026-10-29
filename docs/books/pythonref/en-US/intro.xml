@@ -66,14 +66,15 @@ with oorexx.Interpreter() as rexx:
 only Python's Stable ABI (PEP 384), so the same binary works with CPython 3.9
 and every later version, with no virtual environments and no per-version
 builds.</para>
-<para><emphasis role="bold">ooRexx 5.3.0 r13324 or later.</emphasis> The
+<para><emphasis role="bold">ooRexx 5.3.0 r13329 or later.</emphasis> The
 bridge uses only ooRexx's public native API: the interpreter needs no change,
 and the bridge is an extension package, like <literal>rxsock</literal> or
 BSF4ooRexx. It needs ooRexx's <filename>logicalwrapper.cls</filename>, new in
 r13278 (<xref linkend="valuesBoolean"/>), a fix for threads, new in
 r13286, ooRexx's <literal>.CommandHandler</literal> (RFE #882), and a fix
-that lets conditions other than SYNTAX reach the bridge, new in r13320
-(<xref linkend="condRoundTrip"/>); it is built and tested on r13324.</para>
+that lets conditions other than SYNTAX reach the bridge, new in r13320,
+and an API that raises a condition again as it is, new in r13329
+(<xref linkend="condRoundTrip"/>); it is built and tested on r13329.</para>
 <para>The bridge runs on Linux, macOS and Windows.</para>
 </section>
 

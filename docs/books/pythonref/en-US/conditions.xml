@@ -90,8 +90,10 @@ This holds for any condition the Rexx code raises and does not trap: USER,
 NOTREADY, ERROR, FAILURE, LOSTDIGITS and the rest reach Python as a
 <literal>RexxError</literal> that Python can catch, and, if it does not,
 go back to the Rexx caller, where <literal>SIGNAL ON</literal> or
-<literal>CALL ON</literal> traps them as if no Python were in between.
-Only the RC of an ERROR or FAILURE condition is lost on the way.</para>
+<literal>CALL ON</literal> traps them as if no Python were in between,
+an ERROR or FAILURE with its RC. When the Rexx code raised the condition with
+<literal>raise ... return value</literal>, the caller gets that value, as in
+plain Rexx, and the condition also has it as its result.</para>
 <para>A HALT is SYNTAX 4.1 by the time it leaves that Rexx code (Python sees
 <literal>Rexx error 4.1</literal>), and back in Rexx it is a HALT again, as
 a Ctrl-C would be: <literal>SIGNAL ON HALT</literal> traps it at the end of

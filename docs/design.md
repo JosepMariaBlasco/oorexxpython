@@ -460,34 +460,30 @@ says "missing" with `KeyError`. Any other Rexx condition is still a
 other way round: Rexx calls Python (a function, an ADDRESS environment
 written in Python), which calls Rexx code that fails; if Python does not
 catch the `RexxError`, the Rexx caller gets the original condition, not
-98.900: SYNTAX with its code and `ADDITIONAL` (so its message), any other
-condition with its `DESCRIPTION`, `ADDITIONAL` and `RESULT` (but not the
-`RC` of an ERROR or FAILURE: `RaiseCondition` takes none). A SYNTAX keeps
-its `DESCRIPTION` and `RESULT` too, through a workaround: the only API that
-raises a SYNTAX, `RaiseException(code, additional)`, takes neither (r13324;
-`RaiseCondition("SYNTAX")` is no way out, it gives Error 93.900 since
-r13317), so `raiseAgain` puts them into the pending condition object that
-`GetConditionInfo()` answers, which is the object ooRexx passes on to the
-caller (it rewrites its position, program and message, not those two). The
-same as the JavaScript bridge does. It relies on `GetConditionInfo()`
-answering the object itself, not a copy: if that changed, the description
-would be lost again and nothing worse (`test_rexx_error_description` in
-`Callbacks.testGroup` would show it). An ooRexx API that raises a condition
-object as it is (RFE #883) would replace it. A condition raised with
-`RAISE ... RETURN v` (or `EXIT v`) keeps its value, through a second
-workaround: in plain Rexx the caller gets `v` with the condition pending, so
+98.900: SYNTAX with its code, `ADDITIONAL` (so its message), `DESCRIPTION`
+and `RESULT`, any other condition with its `DESCRIPTION`, `ADDITIONAL`,
+`RESULT` and, for an ERROR or a FAILURE, its `RC`. `raiseAgain` raises the
+kept condition object itself with `RaiseConditionObject` (RFE #883, r13329,
+the reason for the minimum), which raises a copy of it with everything it
+holds (`test_rexx_error_description` and `test_error_failure_rc` in
+`Callbacks.testGroup`). Before, the only API that raised a SYNTAX,
+`RaiseException(code, additional)`, took no description, and
+`RaiseCondition` no RC. A condition raised with
+`RAISE ... RETURN v` (or `EXIT v`) keeps its value, through a workaround: in
+plain Rexx the caller gets `v` with the condition pending, so
 untrapped, or under `CALL ON`, the call is `v`; a native method that raises
 a condition with no `RESULT` and returns a value gets Error 91 or 44.1
-instead (r13324: ooRexx puts the condition's `RESULT` in place of the
-method's own value). So the bridge keeps the value the Rexx call returned
-with the condition (`_rexx_value`, by reference), raises the condition again
-with it as `RESULT`, and returns it: the caller gets `v` untrapped and under
-`CALL ON`, `SIGNAL ON` traps the condition, and through an ADDRESS
-environment `v` is RC. The one difference from plain Rexx is that
-`condition("O")~result` is `v`, where plain Rexx has none
-(`test_raise_return_value` in `Callbacks.testGroup`). Once ooRexx keeps a
-native method's value when the condition has no `RESULT`, the bridge will
-raise the condition without one and match plain Rexx exactly. The
+instead (ooRexx bug #2130: ooRexx puts the condition's `RESULT` in place of
+the method's own value; the condition object Rexx code raised that way has
+no `RESULT`, nor has its copy). So the bridge keeps the value the Rexx call
+returned with the condition (`_rexx_value`, by reference), raises a copy of
+the condition with it as `RESULT`, and returns it: the caller gets `v`
+untrapped and under `CALL ON`, `SIGNAL ON` traps the condition, and through
+an ADDRESS environment `v` is RC. The one difference from plain Rexx is that
+`condition("O")~result` is `v`, where plain Rexx has none (the rexxref,
+*RAISE*, says it is there; `test_raise_return_value` in
+`Callbacks.testGroup`). Once #2130 is fixed, the bridge will raise the
+condition as it is and match plain Rexx exactly. The
 `RexxError` keeps the condition object for this (`_rexx_condition`, set by
 `raiseRexxError`; `raiseAgain` in `bridge.cpp`), within the same
 interpreter instance. What reaches Python is what ooRexx's API gives a
@@ -964,7 +960,7 @@ collection on another thread cannot free it before the GIL comes back
 interpreter stays attached until `close()`: detaching it makes `Terminate`
 wait forever (ooRexx bug #2107).
 
-**ooRexx versions.** The minimum is ooRexx 5.3.0 r13324, which CI also
+**ooRexx versions.** The minimum is ooRexx 5.3.0 r13329, which CI also
 runs: the revision the ooRexx bridges are built and tested on. The bridge
 needs ooRexx's `.CommandHandler` (RFE #882, the base of *ADDRESS in Python*)
 and, for conditions other than SYNTAX to go through Python as themselves,
@@ -972,8 +968,10 @@ ooRexx's fix for #2123 (r13320; see *Exceptions*);
 Python's `bool` is ooRexx's own `.LogicalWrapper` (`logicalwrapper.cls`,
 new in r13278; see *Values*), and before r13286 `IsInstanceOf` could corrupt
 ooRexx's heap when other threads ran Rexx (ooRexx bug #2122; the bridge asks
-it of every Rexx value that goes to Python). The native API used is still 5.2.0's (5.3.0's
-`oorexxapi.h` adds only the version constant), but 5.2.0 has no
+it of every Rexx value that goes to Python). The native API used is 5.2.0's
+plus `RaiseConditionObject` (thread interface 104, RFE #883, r13329; with an
+older interface `raiseAgain` falls back to `RaiseException` and
+`RaiseCondition`, losing a SYNTAX's description and an ERROR's RC), but 5.2.0 has no
 `logicalwrapper.cls`, and it also crashed when an interpreter was used from
 several threads at once (in its tables of activities, `AttachThread`,
 `addWaitingActivity`; fixed by r13265), and has bug #2102, which slows down
