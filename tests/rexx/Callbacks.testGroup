@@ -225,6 +225,12 @@ viaReply:
 viaArgument:
   self~assertSame("93.900", condition("O")~code, "the argument's SYNTAX")
   self~assertSame(0, .py~eval("len(called)"), "Python was not called")
+  -- a USER raised in MAKESTRING itself reaches the caller, as in plain Rexx
+  signal on user x name userReply
+  call~new(self~routine("userReply"))
+  self~fail("USER X must come back from the reply")
+userReply:
+  self~assertSame("in MAKESTRING", condition("D"), "the reply's USER")
 
 ::method conditionOf private
   use arg pyCallable, f
@@ -272,6 +278,8 @@ x: notready:
   raise user x return (o)
 ::routine badReply
   return .BadString~new("abc")
+::routine userReply
+  return .UserString~new("abc")
 ::routine halts
   raise halt description "h"
 ::routine haltsViaPython
@@ -294,3 +302,7 @@ x: notready:
 ::class BadString subclass String
 ::method makestring
   raise syntax 93.900 array("boom in MAKESTRING")
+::class UserString subclass String
+::method makestring
+  raise user x description "in MAKESTRING"
+  return "bad"
