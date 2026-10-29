@@ -722,6 +722,14 @@ static void rexxToVal(RexxSide &side, RexxObjectPtr o, Val &v, ArrayMemo &memo)
         // arithmetic and of many built-in functions are internal integers,
         // which IsString does not recognize)
         RexxStringObject str = c->ObjectToString(o);
+        // NULL when user code it ran raised a condition (a .String subclass's
+        // MAKESTRING raising SYNTAX): pending in this context, the caller
+        // checks (CheckCondition after rexxArgs; intoRexx for a reply)
+        if (str == NULLOBJECT)
+        {
+            v.kind = Val::NIL;
+            return;
+        }
         v.kind = Val::STR;
         v.s.assign(c->StringData(str), c->StringLength(str));
         if ((RexxObjectPtr)str != o) c->ReleaseLocalReference(str);
@@ -2130,7 +2138,14 @@ static PyObject *intoRexx(Inst *inst, PyObject *args, Py_ssize_t skip, PyObject 
             if (r != NULLOBJECT) refVal(side, r, ci.value);
             error = takeCondition(tc, &side, &exc, &ci);
         }
-        else if (error.empty() && r != NULLOBJECT) rexxToVal(side, r, result);   // may run Rexx code
+        else if (error.empty() && r != NULLOBJECT)
+        {
+            rexxToVal(side, r, result);   // may run Rexx code
+            // a condition raised by that code (a .String subclass's
+            // MAKESTRING): the call's own, as if the Rexx code had raised it
+            // (Callbacks.testGroup, test_reply_conversion_raises)
+            if (tc->CheckCondition()) error = takeCondition(tc, &side, &exc, &ci);   // result dropped below
+        }
         // The Python objects in the result are borrowed from their .PyObject
         // proxies, which only this thread context's local references keep
         // alive: once it detaches, a collection can run their uninits and
@@ -3537,6 +3552,7 @@ RexxMethod3(RexxObjectPtr, PyPair_New, OSELF, self, RexxObjectPtr, pyclass, Rexx
     if (cls == NULL) return noPython(context);
     Args args;
     rexxArgs(side, rexxArgs_, 1, args);
+    if (side.tc->CheckCondition()) return NULLOBJECT;   // raised by user code in the conversion (rexxToVal)
     unsigned long long id;
     {
         std::lock_guard<std::mutex> guard(pairsLock);
@@ -3592,6 +3608,7 @@ RexxMethod2(RexxObjectPtr, PyPair_Init, RexxArrayObject, rexxArgs_, CSELF, self)
     StringsScope scope(side.strings);
     Args args;
     rexxArgs(side, rexxArgs_, 1, args);
+    if (side.tc->CheckCondition()) return NULLOBJECT;   // raised by user code in the conversion (rexxToVal)
     PyError err;
     Val none;
     {
@@ -3717,6 +3734,7 @@ RexxMethod3(RexxObjectPtr, PyObj_Unknown, CSTRING, message, RexxArrayObject, rex
     if (assign) name.pop_back();
     Args args;
     rexxArgs(side, rexxArgs_, 1, args);
+    if (side.tc->CheckCondition()) return NULLOBJECT;   // raised by user code in the conversion (rexxToVal)
 
     Val result;
     PyError err;
@@ -3819,6 +3837,7 @@ RexxMethod3(RexxObjectPtr, PyObj_SetAttr, CSTRING, name, RexxObjectPtr, value, C
     Args holder;
     holder.positional.emplace_back();
     rexxToVal(side, value, holder.positional[0]);
+    if (side.tc->CheckCondition()) return NULLOBJECT;   // raised by user code in the conversion (rexxToVal)
     PyError err;
     {
         Gil gil;
@@ -3841,6 +3860,7 @@ RexxMethod2(RexxObjectPtr, PyObj_Invoke, ARGLIST, all, CSELF, self)
     std::string name = callSelf ? "" : textOf(context->threadContext, target);
     Args args;
     rexxArgs(side, all, 2, args);
+    if (side.tc->CheckCondition()) return NULLOBJECT;   // raised by user code in the conversion (rexxToVal)
     Val result;
     PyError err;
     {
@@ -3887,6 +3907,7 @@ RexxMethod2(RexxObjectPtr, PyObj_GetItem, ARGLIST, all, CSELF, self)
     StringsScope scope(side.strings);
     Args keys;
     rexxArgs(side, all, 1, keys);
+    if (side.tc->CheckCondition()) return NULLOBJECT;   // raised by user code in the conversion (rexxToVal)
     Val result;
     PyError err;
     {
@@ -3909,9 +3930,11 @@ RexxMethod2(RexxObjectPtr, PyObj_SetItem, ARGLIST, all, CSELF, self)
     Val result;
     Args keys;
     rexxArgs(side, all, 2, keys);
+    if (side.tc->CheckCondition()) return NULLOBJECT;   // raised by user code in the conversion (rexxToVal)
     keys.keywords.emplace_back();         // the value, kept for dropping
     Val &value = keys.keywords.back().second;
     rexxToVal(side, context->ArrayAt(all, 1), value);
+    if (side.tc->CheckCondition()) return NULLOBJECT;   // raised by user code in the conversion (rexxToVal)
     PyError err;
     {
         Gil gil;
@@ -4006,6 +4029,7 @@ RexxMethod3(RexxObjectPtr, PyObj_Operator, NAME, message, ARGLIST, all, CSELF, s
     std::string op = message;
     Args args;
     rexxArgs(side, all, 1, args);
+    if (side.tc->CheckCondition()) return NULLOBJECT;   // raised by user code in the conversion (rexxToVal)
     bool unary = args.positional.empty();
     const char *fname = operatorFunction(op, unary);
     Val result;
@@ -4130,6 +4154,7 @@ RexxMethod2(RexxObjectPtr, Py_Make, NAME, message, ARGLIST, all)
     std::string kind = lower(message);
     Args args;
     rexxArgs(side, all, 1, args);
+    if (side.tc->CheckCondition()) return NULLOBJECT;   // raised by user code in the conversion (rexxToVal)
     Val result;
     PyError err;
     {

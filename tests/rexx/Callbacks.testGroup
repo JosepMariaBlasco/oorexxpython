@@ -200,6 +200,32 @@ handler:
 noValue:
   self~fail("Error" condition("O")~code "instead of the value")
 
+-- user code the bridge runs while converting a value (a .String subclass's
+-- MAKESTRING): a SYNTAX it raises is the call's own, never a crash.  In a
+-- reply of Rexx code that Python calls it reaches Python as a RexxError and
+-- the Rexx caller as itself; in an argument for Python, the Rexx caller gets
+-- it and Python is not called
+::method test_reply_conversion_raises
+  call = .py~eval("lambda f: f()")
+  signal on syntax name viaReply
+  call~new(self~routine("badReply"))
+  self~fail("SYNTAX 93.900 must come back from the reply")
+viaReply:
+  self~assertSame("93.900", condition("O")~code, "the reply's SYNTAX")
+  self~assertSame("boom in MAKESTRING", condition("O")~additional[1], "its ADDITIONAL")
+  .py~exec(self~py("def caught(f):",                        -
+                   "    try: f()",                          -
+                   "    except Exception as e: return type(e).__name__ + ' ' + e.code"))
+  self~assertSame("RexxError 93.900", .py~main~caught(self~routine("badReply")), "Python catches it")
+  .py~exec(self~py("called = []",                           -
+                   "def note(x): called.append(x)"))
+  signal on syntax name viaArgument
+  .py~main~note(.BadString~new("abc"))
+  self~fail("SYNTAX 93.900 must come from the argument")
+viaArgument:
+  self~assertSame("93.900", condition("O")~code, "the argument's SYNTAX")
+  self~assertSame(0, .py~eval("len(called)"), "Python was not called")
+
 ::method conditionOf private
   use arg pyCallable, f
   signal on user x
@@ -244,6 +270,8 @@ x: notready:
 ::routine raisesWith
   use arg o
   raise user x return (o)
+::routine badReply
+  return .BadString~new("abc")
 ::routine halts
   raise halt description "h"
 ::routine haltsViaPython
@@ -261,3 +289,8 @@ x: notready:
     when c == "ERROR" then raise error 1
     when c == "FAILURE" then raise failure 1
   end
+
+-- a string whose MAKESTRING raises a SYNTAX (test_reply_conversion_raises)
+::class BadString subclass String
+::method makestring
+  raise syntax 93.900 array("boom in MAKESTRING")

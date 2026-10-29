@@ -422,6 +422,19 @@ string; the bridge reading a name or a value is not that
 (`Basics.testGroup`). Rexx itself using a `.PyObject` as a string (`say
 proxy`) does raise NOSTRING when it is trapped: a proxy is not a string.
 
+Converting a value can run user code: a subclass of `.String` is a string,
+and its text is what its `MAKESTRING` answers (a `STRING` method of a name,
+above). A condition that code raises and does not trap is SYNTAX, the
+only one that leaves it (an untrapped USER is ignored there, as in plain
+Rexx), and it belongs to the call whose value was being converted, as if
+the Rexx code had raised it: in an argument for Python, the Rexx caller gets
+it and Python is not called; in what Rexx code that Python called returns,
+it is that call's condition, a `RexxError` in Python, and the Rexx caller
+below gets it as itself if Python does not catch it. The conversion of a
+reply runs in the thread context the bridge attached for the call
+(`intoRexx`), so the condition never unwinds Python's frames
+(`test_reply_conversion_raises` in `Callbacks.testGroup`).
+
 ### Exceptions
 
 A Python exception becomes SYNTAX 98.900 "Python error: Type: message", with
