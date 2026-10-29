@@ -470,13 +470,21 @@ written in Python), which calls Rexx code that fails; if Python does not
 catch the `RexxError`, the Rexx caller gets the original condition, not
 98.900: SYNTAX with its code, `ADDITIONAL` (so its message), `DESCRIPTION`
 and `RESULT`, any other condition with its `DESCRIPTION`, `ADDITIONAL`,
-`RESULT` and, for an ERROR or a FAILURE, its `RC`. `raiseAgain` raises the
-kept condition object itself with `RaiseConditionObject` (RFE #883, r13329,
-the reason for the minimum), which raises a copy of it with everything it
-holds (`test_rexx_error_description` and `test_error_failure_rc` in
-`Callbacks.testGroup`). Before, the only API that raised a SYNTAX,
-`RaiseException(code, additional)`, took no description, and
-`RaiseCondition` no RC. A condition raised with
+`RESULT` and, for an ERROR or a FAILURE, its `RC`. For a condition other
+than SYNTAX, `raiseAgain` raises the kept condition object itself with
+`RaiseConditionObject` (RFE #883, r13329, the reason for the minimum), which
+raises a copy of it with everything it holds (`test_error_failure_rc` in
+`Callbacks.testGroup`; `RaiseCondition` takes no RC). A SYNTAX is raised
+with `RaiseException(code, additional)` instead: raised with
+`RaiseConditionObject`, `t72_returned_rexx_objects.py` crashed inside ooRexx
+one run in 15 to 40 on r13329, never in 160 the other way. `RaiseException`
+takes no description or result, so `raiseAgain` puts them into the pending
+condition object that `GetConditionInfo()` answers, which is the object
+ooRexx passes on to the caller (it rewrites its position, program and
+message, not those two). It relies on `GetConditionInfo()` answering the
+object itself, not a copy: if that changed, the description would be lost
+again and nothing worse (`test_rexx_error_description` in
+`Callbacks.testGroup` would show it). A condition raised with
 `RAISE ... RETURN v` (or `EXIT v`) keeps its value, through a workaround: in
 plain Rexx the caller gets `v` with the condition pending, so
 untrapped, or under `CALL ON`, the call is `v`; a native method that raises

@@ -1828,13 +1828,32 @@ static bool raiseAgain(RexxSide &side, PyError &err, bool *halted, RexxObjectPtr
             c->RaiseCondition("HALT", NULLOBJECT, NULLOBJECT, NULLOBJECT);
             return true;
         }
-        if (c->functions->interfaceVersion < THREAD_INTERFACE_VERSION_5_3_0)
+        // Not RaiseConditionObject (ooRexx, not reported; r13329): raising a
+        // SYNTAX with it, Python's t72_returned_rexx_objects.py (16 threads)
+        // crashed one run in 15-40, in HashContents::put under
+        // RexxActivation::trap while the error propagated; with
+        // RaiseException, never in 160.  Suspected: its copy is held only by
+        // this native activation, which the propagation pops before the
+        // caller's trap, where RaiseException keeps its condition object in
+        // the activity.
+        c->RaiseException((size_t)(major * 1000 + minor), args);
+        // Workaround (until RaiseConditionObject is safe for a SYNTAX):
+        // RaiseException takes no DESCRIPTION or RESULT.  GetConditionInfo()
+        // answers the pending condition object itself, the one ooRexx
+        // passes on to the caller (reraiseException rewrites its position,
+        // program and message, not these two), so put them there.
+        // Undocumented: if ooRexx ever answered a copy, the description
+        // would be lost again (Callbacks.testGroup,
+        // test_rexx_error_description, would show it).
+        RexxDirectoryObject now = c->GetConditionInfo();
+        if (now != NULLOBJECT)
         {
-            // an ooRexx older than the minimum: no RaiseConditionObject, and
-            // RaiseException loses the DESCRIPTION
-            c->RaiseException((size_t)(major * 1000 + minor), args);
-            return true;
+            RexxObjectPtr description = c->DirectoryAt(d, "DESCRIPTION");
+            RexxObjectPtr result = c->DirectoryAt(d, "RESULT");
+            if (description != NULLOBJECT) c->DirectoryPut(now, description, "DESCRIPTION");
+            if (result != NULLOBJECT) c->DirectoryPut(now, result, "RESULT");
         }
+        return true;
     }
     else if (c->functions->interfaceVersion < THREAD_INTERFACE_VERSION_5_3_0)
     {
@@ -1844,10 +1863,12 @@ static bool raiseAgain(RexxSide &side, PyError &err, bool *halted, RexxObjectPtr
         *value = val;
         return true;
     }
-    // the kept condition object itself (RaiseConditionObject raises a copy
-    // of it, RFE #883, r13329): a SYNTAX as that error with its DESCRIPTION
-    // and RESULT, any other condition with its DESCRIPTION, ADDITIONAL,
-    // RESULT and RC (an ERROR's or a FAILURE's)
+    // any other condition: the kept condition object itself
+    // (RaiseConditionObject, RFE #883, r13329, raises a copy of it), with
+    // its DESCRIPTION, ADDITIONAL, RESULT and RC (an ERROR's or a
+    // FAILURE's).  Its copy is safe here: the caller traps it while this
+    // native activation, which holds it, is still on the stack
+    // (NativeActivation::checkConditions).
     if (val != NULLOBJECT)
     {
         // Workaround (ooRexx #2130, filed; a fix in trunk later): Rexx code

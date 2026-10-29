@@ -91,12 +91,16 @@ Tickets filed for other reasons that also touch the bridge:
   (done in r13329): native code could not raise a SYNTAX condition again
   with its `DESCRIPTION` (`RaiseException(code, additional)` takes none, and
   `RaiseCondition("SYNTAX", ...)` crashed the process, an error 93.900 since
-  #2126), nor an ERROR or FAILURE with its `RC`. Until r13329 the bridge
-  raised a SYNTAX with `RaiseException` and put the description and the
-  result into the pending condition object; RFE #883's
-  `RaiseConditionObject` raises the kept condition object as it is, and the
-  workaround is gone (`test_rexx_error_description` and
-  `test_error_failure_rc` in `Callbacks.testGroup`).
+  #2126), nor an ERROR or FAILURE with its `RC`. RFE #883's
+  `RaiseConditionObject` raises the kept condition object as it is: the
+  bridge uses it for every condition but SYNTAX, so an ERROR or a FAILURE
+  keeps its RC (`test_error_failure_rc` in `Callbacks.testGroup`). For a
+  SYNTAX it made `tests/python/t72_returned_rexx_objects.py` crash inside
+  ooRexx one run in 15 to 40 on r13329 (not reported yet), so a SYNTAX is
+  still raised with `RaiseException`, and the bridge puts the description
+  and the result into the pending condition object that
+  `GetConditionInfo()` answers (`raiseAgain` in `bridge.cpp`, marked as a
+  workaround; `test_rexx_error_description`).
 - [#2130](https://sourceforge.net/p/oorexx/bugs/2130/) (filed, not fixed yet): a native method that raises a
   condition with no `RESULT` and returns a value gives its caller Error 91
   (or 44.1) instead of the value, where Rexx code doing `RAISE ... RETURN v`
