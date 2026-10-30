@@ -441,7 +441,12 @@ first one. The same for the text of a name or a box's value (`textOf`),
 whose `STRING` may answer such a string; and keyword arguments whose
 `NAMES` or `VALUES` (a subclass of `.PyKwArgs` may override them) are not
 Arrays are an error, SYNTAX 98.900
-(`test_conversion_stops_at_first_condition`).
+(`test_conversion_stops_at_first_condition`). A SYNTAX that such code leaves pending
+is raised again with `RaiseException` before the native method returns,
+with its description and result put into the new condition object
+(`pendingCondition`), not left to go back as it is: ooRexx bug #2132 can
+let a collection take a SYNTAX that a native method's callee left pending
+while it propagates.
 
 ### Exceptions
 

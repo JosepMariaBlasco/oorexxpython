@@ -96,11 +96,21 @@ Tickets filed for other reasons that also touch the bridge:
   bridge uses it for every condition but SYNTAX, so an ERROR or a FAILURE
   keeps its RC (`test_error_failure_rc` in `Callbacks.testGroup`). For a
   SYNTAX it made `tests/python/t72_returned_rexx_objects.py` crash inside
-  ooRexx one run in 15 to 40 on r13329 (not reported yet), so a SYNTAX is
+  ooRexx one run in 15 to 40 on r13329 (#2132, below), so a SYNTAX is
   still raised with `RaiseException`, and the bridge puts the description
   and the result into the pending condition object that
   `GetConditionInfo()` answers (`raiseAgain` in `bridge.cpp`, marked as a
   workaround; `test_rexx_error_description`).
+- [#2132](https://sourceforge.net/p/oorexx/bugs/2132/) (filed, not fixed
+  yet): when a SYNTAX goes back to Rexx from native code, the propagation
+  pops the native activation, which was the only thing holding the
+  condition object, before the Rexx caller's trap stores it, and a
+  collection there (other threads allocating) can take it. It happens
+  with `RaiseConditionObject` and with a SYNTAX that Rexx code a native
+  method called left pending; `RaiseException` keeps its object safe. The
+  bridge raises every SYNTAX with `RaiseException`: in `raiseAgain`, and
+  in `pendingCondition` for one that user code run by a conversion left
+  pending.
 - [#2130](https://sourceforge.net/p/oorexx/bugs/2130/) (filed, not fixed yet): a native method that raises a
   condition with no `RESULT` and returns a value gives its caller Error 91
   (or 44.1) instead of the value, where Rexx code doing `RAISE ... RETURN v`

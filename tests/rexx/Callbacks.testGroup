@@ -242,6 +242,7 @@ viaReply:
   self~fail("SYNTAX 93.900 must come from the argument")
 viaArgument:
   self~assertSame("93.900", condition("O")~code, "the argument's SYNTAX")
+  self~assertSame("the description", condition("D"), "the argument's SYNTAX, with its description")
   self~assertSame(0, .py~eval("len(called)"), "Python was not called")
   -- a USER raised in MAKESTRING itself reaches the caller, as in plain Rexx
   signal on user x name userReply
@@ -374,7 +375,7 @@ x: notready:
 -- a string whose MAKESTRING raises a SYNTAX (test_reply_conversion_raises)
 ::class BadString subclass String
 ::method makestring
-  raise syntax 93.900 array("boom in MAKESTRING")
+  raise syntax 93.900 array("boom in MAKESTRING") description "the description"
 ::class UserString subclass String
 ::method makestring
   raise user x description "in MAKESTRING"
