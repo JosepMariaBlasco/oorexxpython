@@ -84,11 +84,18 @@ signal on halt
 .py~exec("import time" || "0a"x || "def nap():" || "0a"x ||,
          "    for i in range(20): time.sleep(0.1)" || "0a"x || "    return 'python slept to the end'")
 say "ready"
-say .py~main~nap
+-- an assignment, not "say .py~main~nap": since r13334 a halt posted while
+-- a native call runs can fall inside the .output monitor's UNKNOWN that SAY
+-- goes through, where SIGNAL ON HALT does not apply (Error 4.1; plain Rexx
+-- too, with "say SysSleep(2)"; an ooRexx regression, reported)
+x = .py~main~nap
+say x
 call SysSleep 0.5
 say "no HALT"
 exit
-halt: say "HALT in Rexx"
+halt:
+if symbol("X") == "VAR" then say x   -- Python ran to its end: the assignment completed
+say "HALT in Rexx"
 ::requires "python.cls"
 '''
 
