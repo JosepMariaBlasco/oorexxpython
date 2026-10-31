@@ -698,43 +698,6 @@ static std::string textOf(RexxThreadContext *c, RexxObjectPtr o)
     return text;
 }
 
-// a native method returning with a condition that user code it ran left
-// pending (a conversion: a .String subclass's MAKESTRING, a STRING): a SYNTAX
-// is raised again with RaiseException, so that it does not go back to the
-// Rexx caller as it is.  Workaround (ooRexx #2132, filed; a fix in trunk
-// later): a SYNTAX left pending by Rexx code that a native method called is
-// propagated from an object that only the native activation holds, and the
-// propagation pops that activation before the caller's trap, so a
-// collection there (other threads allocating) can take it; RaiseException
-// keeps its object in the activity.  RaiseException takes no DESCRIPTION
-// or RESULT, so they go into the pending object (as in raiseAgain).  Any
-// other condition is left as it is (it is trapped with the activation
-// still on the stack).  NULLOBJECT, for the method to return.
-static RexxObjectPtr pendingCondition(RexxThreadContext *c)
-{
-    RexxDirectoryObject cond = c->GetConditionInfo();
-    if (cond == NULLOBJECT) return NULLOBJECT;
-    RexxCondition info;
-    c->DecodeConditionInfo(cond, &info);
-    if (info.conditionName == NULLOBJECT || strcmp(c->CString(info.conditionName), "SYNTAX") != 0) return NULLOBJECT;
-    RexxObjectPtr description = c->DirectoryAt(cond, "DESCRIPTION");
-    RexxObjectPtr result = c->DirectoryAt(cond, "RESULT");
-    RexxObjectPtr additional = c->DirectoryAt(cond, "ADDITIONAL");
-    RexxArrayObject args = additional != NULLOBJECT && c->IsArray(additional) ? (RexxArrayObject)additional
-                                                                              : c->NewArray(0);
-    // cond and its parts are local references of this native method, so
-    // they stay alive while the condition is cleared and raised again
-    c->ClearCondition();
-    c->RaiseException((size_t)info.code, args);
-    RexxDirectoryObject now = c->GetConditionInfo();
-    if (now != NULLOBJECT)
-    {
-        if (description != NULLOBJECT) c->DirectoryPut(now, description, "DESCRIPTION");
-        if (result != NULLOBJECT) c->DirectoryPut(now, result, "RESULT");
-    }
-    return NULLOBJECT;
-}
-
 // whether o is an instance of one of the bridge's classes (.PyObject,
 // .PyKwArgs, .LogicalWrapper)
 static bool instanceOf(RexxThreadContext *c, RexxObjectPtr o, RexxClassObject cls)
@@ -1865,67 +1828,33 @@ static bool raiseAgain(RexxSide &side, PyError &err, bool *halted, RexxObjectPtr
             c->RaiseCondition("HALT", NULLOBJECT, NULLOBJECT, NULLOBJECT);
             return true;
         }
-        // Not RaiseConditionObject (ooRexx #2132, filed; r13329): raising a
-        // SYNTAX with it, Python's t72_returned_rexx_objects.py (16 threads)
-        // crashed one run in 15-40, in HashContents::put under
-        // RexxActivation::trap while the error propagated; with
-        // RaiseException, never in 160.  The cause (#2132, confirmed): its
-        // copy is held only by this native activation, which the
-        // propagation pops before the caller's trap, where RaiseException
-        // keeps its condition object in the activity.  Back to
-        // RaiseConditionObject once #2132 is fixed.
-        c->RaiseException((size_t)(major * 1000 + minor), args);
-        // Workaround (until RaiseConditionObject is safe for a SYNTAX):
-        // RaiseException takes no DESCRIPTION or RESULT.  GetConditionInfo()
-        // answers the pending condition object itself, the one ooRexx
-        // passes on to the caller (reraiseException rewrites its position,
-        // program and message, not these two), so put them there.
-        // Undocumented: if ooRexx ever answered a copy, the description
-        // would be lost again (Callbacks.testGroup,
-        // test_rexx_error_description, would show it).
-        RexxDirectoryObject now = c->GetConditionInfo();
-        if (now != NULLOBJECT)
+        if (c->functions->interfaceVersion < THREAD_INTERFACE_VERSION_5_3_0)
         {
-            RexxObjectPtr description = c->DirectoryAt(d, "DESCRIPTION");
-            RexxObjectPtr result = c->DirectoryAt(d, "RESULT");
-            if (description != NULLOBJECT) c->DirectoryPut(now, description, "DESCRIPTION");
-            if (result != NULLOBJECT) c->DirectoryPut(now, result, "RESULT");
+            // an ooRexx older than the minimum: no RaiseConditionObject, and
+            // RaiseException loses the DESCRIPTION
+            c->RaiseException((size_t)(major * 1000 + minor), args);
+            return true;
         }
-        return true;
     }
     else if (c->functions->interfaceVersion < THREAD_INTERFACE_VERSION_5_3_0)
     {
         RexxObjectPtr description = c->DirectoryAt(d, "DESCRIPTION");
         c->RaiseCondition(name.c_str(), description != NULLOBJECT ? (RexxStringObject)description : NULLOBJECT,
-                          additional, val != NULLOBJECT ? val : c->DirectoryAt(d, "RESULT"));
+                          additional, c->DirectoryAt(d, "RESULT"));
         *value = val;
         return true;
     }
-    // any other condition: the kept condition object itself
-    // (RaiseConditionObject, RFE #883, r13329, raises a copy of it), with
-    // its DESCRIPTION, ADDITIONAL, RESULT and RC (an ERROR's or a
-    // FAILURE's).  Its copy is safe here: the caller traps it while this
-    // native activation, which holds it, is still on the stack
-    // (NativeActivation::checkConditions).
-    if (val != NULLOBJECT)
-    {
-        // Workaround (ooRexx #2130, filed; a fix in trunk later): Rexx code
-        // that does RAISE ... RETURN v (or EXIT v) gives its caller v with
-        // the condition pending.  A native method that raises a condition
-        // with no RESULT and returns a value gets Error 91 or 44.1 instead
-        // (checkConditions() puts the condition's RESULT, none here, in
-        // place of the method's own value).  So the value goes as RESULT
-        // too, in a copy (the kept object stays as it was), and the call
-        // returns it: untrapped and under CALL ON the caller gets v, as in
-        // plain Rexx; the one difference is that condition("O")~result is v
-        // where plain Rexx has none (Callbacks.testGroup,
-        // test_raise_return_value).
-        RexxObjectPtr copy = c->SendMessage0(d, "COPY");
-        if (copy == NULLOBJECT || c->CheckCondition() || !c->IsDirectory(copy)) return false;
-        d = (RexxDirectoryObject)copy;
-        c->DirectoryPut(d, val, "RESULT");
-        *value = val;
-    }
+    // the kept condition object itself (RaiseConditionObject, RFE #883,
+    // r13329, raises a copy of it): a SYNTAX as that error with its
+    // DESCRIPTION and RESULT, any other condition with its DESCRIPTION,
+    // ADDITIONAL, RESULT and RC (an ERROR's or a FAILURE's).  Safe for a
+    // SYNTAX since r13344 (#2132: the copy could be collected while the
+    // error propagated).  Rexx code that did RAISE ... RETURN v (or EXIT v)
+    // gave the call v with the condition pending: the call returns v too,
+    // and the caller gets it, untrapped and under CALL ON, as in plain Rexx
+    // (#2130, r13339: the method's own value is kept when the condition has
+    // no RESULT; Callbacks.testGroup, test_raise_return_value).
+    *value = val;
     c->RaiseConditionObject(d);
     return true;
 }
@@ -3566,7 +3495,7 @@ static PyObject *registerHandler(Inst *inst, PyObject *nameObj, PyObject *handle
             }
             if (core == NULLOBJECT || ours == NULLOBJECT)
             {
-                error = "add_command_environment: this ooRexx has no .CommandHandler (5.3.0 r13329 or later is needed)";
+                error = "add_command_environment: this ooRexx has no .CommandHandler (5.3.0 r13344 or later is needed)";
                 return NULLOBJECT;
             }
             RexxObjectPtr h = tc->SendMessage1(ours, "NEW", tc->ArrayAt(rargs, 2));
@@ -3609,7 +3538,7 @@ static PyObject *interpreterRemoveEnvironment(PyObject *self, PyObject *args)
             }
             if (core == NULLOBJECT)
             {
-                error = "remove_command_environment: this ooRexx has no .CommandHandler (5.3.0 r13329 or later is needed)";
+                error = "remove_command_environment: this ooRexx has no .CommandHandler (5.3.0 r13344 or later is needed)";
                 return NULLOBJECT;
             }
             return tc->SendMessage1(core, "DEREGISTER", tc->ArrayAt(rargs, 1));
@@ -3656,7 +3585,7 @@ RexxMethod3(RexxObjectPtr, PyPair_New, OSELF, self, RexxObjectPtr, pyclass, Rexx
     if (cls == NULL) return noPython(context);
     Args args;
     rexxArgs(side, rexxArgs_, 1, args);
-    if (side.tc->CheckCondition()) return pendingCondition(side.tc);   // raised by user code in the conversion (rexxToVal)
+    if (side.tc->CheckCondition()) return NULLOBJECT;   // raised by user code in the conversion (rexxToVal)
     unsigned long long id;
     {
         std::lock_guard<std::mutex> guard(pairsLock);
@@ -3712,7 +3641,7 @@ RexxMethod2(RexxObjectPtr, PyPair_Init, RexxArrayObject, rexxArgs_, CSELF, self)
     StringsScope scope(side.strings);
     Args args;
     rexxArgs(side, rexxArgs_, 1, args);
-    if (side.tc->CheckCondition()) return pendingCondition(side.tc);   // raised by user code in the conversion (rexxToVal)
+    if (side.tc->CheckCondition()) return NULLOBJECT;   // raised by user code in the conversion (rexxToVal)
     PyError err;
     Val none;
     {
@@ -3838,7 +3767,7 @@ RexxMethod3(RexxObjectPtr, PyObj_Unknown, CSTRING, message, RexxArrayObject, rex
     if (assign) name.pop_back();
     Args args;
     rexxArgs(side, rexxArgs_, 1, args);
-    if (side.tc->CheckCondition()) return pendingCondition(side.tc);   // raised by user code in the conversion (rexxToVal)
+    if (side.tc->CheckCondition()) return NULLOBJECT;   // raised by user code in the conversion (rexxToVal)
 
     Val result;
     PyError err;
@@ -3941,7 +3870,7 @@ RexxMethod3(RexxObjectPtr, PyObj_SetAttr, CSTRING, name, RexxObjectPtr, value, C
     Args holder;
     holder.positional.emplace_back();
     rexxToVal(side, value, holder.positional[0]);
-    if (side.tc->CheckCondition()) return pendingCondition(side.tc);   // raised by user code in the conversion (rexxToVal)
+    if (side.tc->CheckCondition()) return NULLOBJECT;   // raised by user code in the conversion (rexxToVal)
     PyError err;
     {
         Gil gil;
@@ -3962,10 +3891,10 @@ RexxMethod2(RexxObjectPtr, PyObj_Invoke, ARGLIST, all, CSELF, self)
     RexxObjectPtr target = context->ArraySize(all) >= 1 ? context->ArrayAt(all, 1) : NULLOBJECT;
     bool callSelf = target == NULLOBJECT || target == context->Nil();
     std::string name = callSelf ? "" : textOf(context->threadContext, target);
-    if (context->CheckCondition()) return pendingCondition(context->threadContext);   // raised by user code in the conversion (textOf)
+    if (context->CheckCondition()) return NULLOBJECT;   // raised by user code in the conversion (textOf)
     Args args;
     rexxArgs(side, all, 2, args);
-    if (side.tc->CheckCondition()) return pendingCondition(side.tc);   // raised by user code in the conversion (rexxToVal)
+    if (side.tc->CheckCondition()) return NULLOBJECT;   // raised by user code in the conversion (rexxToVal)
     Val result;
     PyError err;
     {
@@ -4012,7 +3941,7 @@ RexxMethod2(RexxObjectPtr, PyObj_GetItem, ARGLIST, all, CSELF, self)
     StringsScope scope(side.strings);
     Args keys;
     rexxArgs(side, all, 1, keys);
-    if (side.tc->CheckCondition()) return pendingCondition(side.tc);   // raised by user code in the conversion (rexxToVal)
+    if (side.tc->CheckCondition()) return NULLOBJECT;   // raised by user code in the conversion (rexxToVal)
     Val result;
     PyError err;
     {
@@ -4035,11 +3964,11 @@ RexxMethod2(RexxObjectPtr, PyObj_SetItem, ARGLIST, all, CSELF, self)
     Val result;
     Args keys;
     rexxArgs(side, all, 2, keys);
-    if (side.tc->CheckCondition()) return pendingCondition(side.tc);   // raised by user code in the conversion (rexxToVal)
+    if (side.tc->CheckCondition()) return NULLOBJECT;   // raised by user code in the conversion (rexxToVal)
     keys.keywords.emplace_back();         // the value, kept for dropping
     Val &value = keys.keywords.back().second;
     rexxToVal(side, context->ArrayAt(all, 1), value);
-    if (side.tc->CheckCondition()) return pendingCondition(side.tc);   // raised by user code in the conversion (rexxToVal)
+    if (side.tc->CheckCondition()) return NULLOBJECT;   // raised by user code in the conversion (rexxToVal)
     PyError err;
     {
         Gil gil;
@@ -4134,7 +4063,7 @@ RexxMethod3(RexxObjectPtr, PyObj_Operator, NAME, message, ARGLIST, all, CSELF, s
     std::string op = message;
     Args args;
     rexxArgs(side, all, 1, args);
-    if (side.tc->CheckCondition()) return pendingCondition(side.tc);   // raised by user code in the conversion (rexxToVal)
+    if (side.tc->CheckCondition()) return NULLOBJECT;   // raised by user code in the conversion (rexxToVal)
     bool unary = args.positional.empty();
     const char *fname = operatorFunction(op, unary);
     Val result;
@@ -4259,7 +4188,7 @@ RexxMethod2(RexxObjectPtr, Py_Make, NAME, message, ARGLIST, all)
     std::string kind = lower(message);
     Args args;
     rexxArgs(side, all, 1, args);
-    if (side.tc->CheckCondition()) return pendingCondition(side.tc);   // raised by user code in the conversion (rexxToVal)
+    if (side.tc->CheckCondition()) return NULLOBJECT;   // raised by user code in the conversion (rexxToVal)
     Val result;
     PyError err;
     {
@@ -4314,7 +4243,7 @@ RexxMethod2(RexxObjectPtr, Py_Box, RexxObjectPtr, type, RexxObjectPtr, value)   
     if (!findClasses(context, side)) return NULLOBJECT;
     StringsScope scope(side.strings);
     std::string text = textOf(context->threadContext, value);
-    if (context->CheckCondition()) return pendingCondition(context->threadContext);   // raised by user code in the conversion (textOf)
+    if (context->CheckCondition()) return NULLOBJECT;   // raised by user code in the conversion (textOf)
     std::string kind = "str";
     Args holder;                          // a Python callable given as the type
     if (type != NULLOBJECT)
@@ -4326,7 +4255,7 @@ RexxMethod2(RexxObjectPtr, Py_Box, RexxObjectPtr, type, RexxObjectPtr, value)   
             rexxToVal(side, type, holder.positional[0]);
         }
         else kind = lower(textOf(context->threadContext, type));
-        if (context->CheckCondition()) return pendingCondition(context->threadContext);   // as above
+        if (context->CheckCondition()) return NULLOBJECT;   // as above
     }
     Val result;
     PyError err;

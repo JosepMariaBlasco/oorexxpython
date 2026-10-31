@@ -93,7 +93,7 @@ go back to the Rexx caller, where <literal>SIGNAL ON</literal> or
 <literal>CALL ON</literal> traps them as if no Python were in between,
 an ERROR or FAILURE with its RC. When the Rexx code raised the condition with
 <literal>raise ... return value</literal>, the caller gets that value, as in
-plain Rexx, and the condition also has it as its result.</para>
+plain Rexx.</para>
 <para>A HALT is SYNTAX 4.1 by the time it leaves that Rexx code (Python sees
 <literal>Rexx error 4.1</literal>), and back in Rexx it is a HALT again,
 as if the Rexx code had raised it with no Python in between:

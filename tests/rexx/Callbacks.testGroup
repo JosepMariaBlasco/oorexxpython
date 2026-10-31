@@ -67,7 +67,8 @@ return testResult
 
 -- a SYNTAX with a description comes back with it, through a Python function
 -- and through an ADDRESS environment written in Python (raiseAgain raises
--- the kept condition object, RaiseConditionObject: RFE #883, r13329)
+-- the kept condition object, RaiseConditionObject: RFE #883, r13329; for a
+-- SYNTAX safe since r13344, #2132)
 ::method test_rexx_error_description
   co = self~syntaxOf(.py~eval("lambda f: f()"), "new", self~routine("described"))
   self~assertSame("40.1", co~code, "its code")
@@ -185,8 +186,8 @@ viaAddress:
 
 -- RAISE ... RETURN v in Rexx code called through Python: the Rexx caller
 -- gets v, untrapped and under CALL ON, as in plain Rexx (not Error 91 or
--- 44.1); SIGNAL ON traps it.  A workaround: condition("O")~result is v too,
--- where plain Rexx has none
+-- 44.1, as before #2130, r13339); SIGNAL ON traps it; the condition has no
+-- RESULT, as in plain Rexx
 ::method test_raise_return_value
   call = .py~eval("lambda f: f()")
   r = self~routine("userDescribed")
@@ -200,7 +201,7 @@ viaAddress:
   call off user x
   self~assertSame(7, x, "CALL ON: the value")
   self~assertSame(1, ran, "CALL ON: the handler ran")
-  self~assertSame(7, res, "CALL ON: the workaround's RESULT")
+  self~assertSame("none", res, "CALL ON: no RESULT, as in plain Rexx")
   self~assertSame("USER X", self~conditionOf(call, r)~condition, "SIGNAL ON traps it")
   -- an object comes back as itself, by reference
   o = .directory~new
@@ -209,7 +210,9 @@ viaAddress:
   .CommandHandler~register("PYRET", .py~commandHandler(.py~eval("lambda f: (lambda c, ctx: f())")~new(r)))
   address pyret "x"
   .CommandHandler~deregister("PYRET")
-  self~assertSame(7, rc, "through ADDRESS: the value as RC")
+  -- through ADDRESS the condition goes to the issuer as from a handler
+  -- written in Rexx (caller~raise), with no result: RC .nil
+  self~assertSame(.nil, rc, "through ADDRESS: no RESULT, so RC .nil")
   return
 handler:
   ran = ran + 1

@@ -20,7 +20,7 @@ depends on a fix being present. #2122 has none any more: the bridge needs
 its fix. The design notes behind them are in
 [`../docs/design.md`](../docs/design.md), *Lifetime*.
 
-The bridge needs ooRexx 5.3.0 r13329 or later (`logicalwrapper.cls`, since
+The bridge needs ooRexx 5.3.0 r13344 or later (`logicalwrapper.cls`, since
 r13278, #2122's fix, since r13286, #2123's, since r13320, the ooRexx bridges' revision), so the fixes above are all present. Before that, ooRexx 5.2.0 was the minimum for
 using an interpreter from one thread at a time: from several at once it
 crashed inside ooRexx (in its tables of activities, on `AttachThread` and
@@ -92,35 +92,26 @@ Tickets filed for other reasons that also touch the bridge:
   with its `DESCRIPTION` (`RaiseException(code, additional)` takes none, and
   `RaiseCondition("SYNTAX", ...)` crashed the process, an error 93.900 since
   #2126), nor an ERROR or FAILURE with its `RC`. RFE #883's
-  `RaiseConditionObject` raises the kept condition object as it is: the
-  bridge uses it for every condition but SYNTAX, so an ERROR or a FAILURE
-  keeps its RC (`test_error_failure_rc` in `Callbacks.testGroup`). For a
-  SYNTAX it made `tests/python/t72_returned_rexx_objects.py` crash inside
-  ooRexx one run in 15 to 40 on r13329 (#2132, below), so a SYNTAX is
-  still raised with `RaiseException`, and the bridge puts the description
-  and the result into the pending condition object that
-  `GetConditionInfo()` answers (`raiseAgain` in `bridge.cpp`, marked as a
-  workaround; `test_rexx_error_description`).
-- [#2132](https://sourceforge.net/p/oorexx/bugs/2132/) (filed, not fixed
-  yet): when a SYNTAX goes back to Rexx from native code, the propagation
-  pops the native activation, which was the only thing holding the
-  condition object, before the Rexx caller's trap stores it, and a
-  collection there (other threads allocating) can take it. It happens
-  with `RaiseConditionObject` and with a SYNTAX that Rexx code a native
-  method called left pending; `RaiseException` keeps its object safe. The
-  bridge raises every SYNTAX with `RaiseException`: in `raiseAgain`, and
-  in `pendingCondition` for one that user code run by a conversion left
-  pending.
-- [#2130](https://sourceforge.net/p/oorexx/bugs/2130/) (filed, not fixed yet): a native method that raises a
-  condition with no `RESULT` and returns a value gives its caller Error 91
-  (or 44.1) instead of the value, where Rexx code doing `RAISE ... RETURN v`
-  gives `v` with the condition pending (ooRexx's `checkConditions()` puts
-  the condition's `RESULT` in place of the method's value, even when there
-  is none). The bridge raises the condition again with the value as
-  `RESULT` and returns it (`raiseAgain` in `bridge.cpp`, marked as a
-  workaround), so the caller gets `v` as in plain Rexx; only
-  `condition("O")~result` differs (`test_raise_return_value` in
-  `Callbacks.testGroup`).
+  `RaiseConditionObject` raises the kept condition object as it is, and
+  `raiseAgain` uses it: a SYNTAX keeps its description, an ERROR or a
+  FAILURE its RC (`test_rexx_error_description`, `test_error_failure_rc`
+  in `Callbacks.testGroup`).
+- [#2132](https://sourceforge.net/p/oorexx/bugs/2132/) (fixed in r13344):
+  when a SYNTAX went back to Rexx from native code, raised with
+  `RaiseConditionObject` or left pending by Rexx code the native method
+  called, the propagation popped the native activation, the only thing
+  holding the condition object, before the Rexx caller's trap stored it,
+  and a collection there (other threads allocating) could take it:
+  `tests/python/t72_returned_rexx_objects.py` crashed one run in 15 to 40
+  on r13329 with `RaiseConditionObject` for a SYNTAX. Until r13344 the
+  bridge raised every SYNTAX with `RaiseException`; no workaround is left.
+- [#2130](https://sourceforge.net/p/oorexx/bugs/2130/) (fixed in r13339):
+  a native method that raised a condition with no `RESULT` and returned a
+  value gave its caller Error 91 (or 44.1) instead of the value, where Rexx
+  code doing `RAISE ... RETURN v` gives `v` with the condition pending.
+  Until r13339 the bridge raised the condition with the value as `RESULT`;
+  now it raises it as it is and returns the value, as plain Rexx
+  (`test_raise_return_value` in `Callbacks.testGroup`).
 
 Not a bug, but worth knowing when writing native code: `IsString` is false
 for strings the interpreter keeps in another form (internal integers, number

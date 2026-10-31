@@ -8,14 +8,16 @@ Source, documentation and design: https://github.com/JosepMariaBlasco/oorexxpyth
 
 ## What you need
 
-- **ooRexx 5.3.0, r13329 or later** (beta, from
+- **ooRexx 5.3.0, r13344 or later** (beta, from
   [SourceForge](https://sourceforge.net/projects/oorexx/files/oorexx/5.3.0beta/)),
   installed so that `rexx` runs. The bridge needs its `logicalwrapper.cls`
   (Python's `bool` in Rexx), new in r13278, and the fix for ooRexx bug
   #2122 (threads), in r13286, ooRexx's `.CommandHandler` (RFE #882), and
   the fix for #2123 (conditions other than SYNTAX reach the bridge), in
   r13320, and `RaiseConditionObject` (RFE #883, a condition raised again as
-  it is), in r13329; r13329 is the revision the ooRexx bridges are built and tested on. 5.2.0, the current release, has none of them.
+  it is), in r13329, and the fixes for #2130 and #2132 (a raised
+  condition keeps the call's value; no crash under threads), in r13344;
+  r13344 is the revision the ooRexx bridges are built and tested on. 5.2.0, the current release, has none of them.
 - **Python 3.9 or later**, any version: the bridge is one binary for all of
   them (Python's Stable ABI). It must have its shared library, as the
   installers from python.org (Windows, macOS), Homebrew, uv and most Linux
