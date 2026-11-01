@@ -115,15 +115,19 @@ trapped:
   self~assertSame("RexxError", b~main~catch(self~routine("fails")), "Python catches it")
 
 -- a HALT in Rexx code called by Python is a HALT again back in Rexx (ooRexx
--- gives Python SYNTAX 4.1, with the description gone), as plain Rexx gives
--- it: CALL ON HALT runs the handler and the call then has no value (91.999);
--- untrapped, 4.1
+-- gives Python SYNTAX 4.1, with the description and any RETURN value gone):
+-- CALL ON HALT runs the handler and the clause resumes, the call giving .nil
+-- (also after RAISE HALT ... RETURN v); untrapped, 4.1
 ::method test_halt_round_trip
   call = .py~eval("lambda f: f()")
   halts = self~routine("halts")
   self~assertSame("HALT", self~signalOnHalt(call, halts), "SIGNAL ON HALT")
-  self~assertSame(self~callOnHalt(.nil, halts), self~callOnHalt(call, halts), "CALL ON HALT: as in plain Rexx")
-  self~assertSame("HALT 91.999", self~callOnHalt(call, halts), "CALL ON HALT: the handler runs, then the call has no value")
+  self~assertSame("HALT value The NIL object", self~callOnHalt(call, halts), "CALL ON HALT: the handler runs, the call gives .nil")
+  self~assertSame("HALT value The NIL object", self~callOnHalt(call, self~routine("haltsWithValue")), -
+                  "CALL ON HALT after RAISE HALT ... RETURN: .nil, the value is lost")
+  -- a loop that calls Python, halted from Rexx code Python calls: the
+  -- handler sets a flag and the loop ends cleanly
+  self~assertSame("stopped after 3, last .nil", self~haltLoop(call), "CALL ON HALT: a flag stops a loop")
   self~assertSame("4.1", self~syntaxOf(call, "new", halts)~code, "SYNTAX 4.1 when only SYNTAX is trapped")
   self~assertSame("HALT", self~signalOnHalt(call, self~routine("haltsViaPython")), -
                   "Rexx -> Python -> Rexx -> Python -> Rexx")
@@ -135,6 +139,20 @@ trapped:
   return "no condition"
 halt:
   return condition("C")
+
+::method haltLoop private
+  use arg pyCallable
+  call on halt name halted
+  stop = .false
+  f = .context~package~findRoutine("haltsAt3")
+  .local~orxpy.haltCount = 0
+  do i = 1 until stop
+    x = pyCallable~new(f)
+  end
+  return "stopped after" i", last" x~string~changestr("The NIL object", ".nil")
+halted:
+  stop = .true
+  return
 
 ::method callOnHalt private
   use arg pyCallable, f
@@ -359,6 +377,12 @@ x: notready:
   raise failure (-3) description "f3"
 ::routine halts
   raise halt description "h"
+::routine haltsWithValue
+  raise halt description "h" return 5
+::routine haltsAt3
+  .local~orxpy.haltCount += 1
+  if .local~orxpy.haltCount == 3 then raise halt description "stop"
+  return .local~orxpy.haltCount
 ::routine haltsViaPython
   return .py~eval("lambda f: f()")~new(.context~package~findRoutine("halts"))
 ::routine viaPython

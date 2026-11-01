@@ -506,11 +506,13 @@ back to the Rexx caller as itself (`test_signal_not_through_python` and
 past Python" checks in `t10_interpreter.py`). A HALT the Rexx code does not
 trap is already SYNTAX 4.1 when it leaves it (its description, `ADDITIONAL`
 and result gone); back in Rexx it is a HALT again, raised with
-`RaiseCondition("HALT")` as Rexx code raises it, so the caller gets what
-plain Rexx gives: `SIGNAL ON HALT` traps it, `CALL ON HALT` runs its
-handler and then the call has no value (Error 91.999 around an assignment,
-as in plain Rexx), and untrapped it is SYNTAX 4.1 again
-(`test_halt_round_trip` compares with plain Rexx). Since r13317 (#2126)
+`RaiseCondition("HALT")` as Rexx code raises it: `SIGNAL ON HALT` traps
+it, untrapped it is SYNTAX 4.1 again, and `CALL ON HALT` runs its handler
+and the clause resumes with the call giving `.nil`. The 4.1 carries nothing
+of the HALT, so a `RAISE HALT ... RETURN v`, one with no value and a Ctrl-C
+look the same; with no value at all, a handler that only sets a flag to stop
+cleanly would end in Error 91.999 around the assignment
+(`test_halt_round_trip`). Since r13317 (#2126)
 ooRexx no longer ignores a HALT that native code raises and nobody traps;
 with an older thread interface the bridge falls back to `HaltThread`, a
 Ctrl-C on that thread, so that the HALT is not lost.

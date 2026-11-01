@@ -1758,8 +1758,8 @@ static PyObject *rexxErrorType = NULL;   // oorexx.RexxError
 // the condition object, raiseRexxError): raise that condition again, as
 // itself, with its code and ADDITIONAL (SYNTAX), or its DESCRIPTION,
 // ADDITIONAL and RESULT (any other), as Rexx would see it with no Python in
-// between.  Whether it did; *halted when it was a HALT (raised by halting the
-// thread, so the call still returns a value: see below).
+// between.  Whether it did; *halted when it was a HALT (the call then
+// returns .nil: see below).
 static bool raiseAgain(RexxSide &side, PyError &err, bool *halted, RexxObjectPtr *value)
 {
     *halted = false;
@@ -1810,10 +1810,12 @@ static bool raiseAgain(RexxSide &side, PyError &err, bool *halted, RexxObjectPtr
         // 4.1 "Program interrupted with %1 condition" is what ooRexx makes of
         // a HALT the Rexx code did not trap, before a native caller sees it:
         // the Rexx caller gets a HALT again (its DESCRIPTION, ADDITIONAL and
-        // RESULT are already gone), raised as Rexx code raises it, so the
-        // caller sees what plain Rexx gives: SIGNAL ON HALT traps it,
-        // CALL ON HALT runs its handler and then the call has no value (Error
-        // 91.999 around an assignment), and untrapped it is SYNTAX 4.1.
+        // RESULT are already gone), raised as Rexx code raises it: SIGNAL ON
+        // HALT traps it, untrapped it is SYNTAX 4.1, and CALL ON HALT runs
+        // its handler and the clause resumes with the call's value, .nil.
+        // The 4.1 cannot tell a RAISE HALT ... RETURN v from one with no
+        // value or from a Ctrl-C, and with no value a handler that only sets
+        // a flag would end in Error 91.999 around an assignment.
         // Since r13317 (#2126) a HALT native code raises and nobody traps is
         // no longer ignored; before (an older thread interface) HaltThread,
         // a Ctrl-C on this thread, so that the HALT is not lost.
@@ -1826,6 +1828,7 @@ static bool raiseAgain(RexxSide &side, PyError &err, bool *halted, RexxObjectPtr
                 return true;
             }
             c->RaiseCondition("HALT", NULLOBJECT, NULLOBJECT, NULLOBJECT);
+            *halted = true;
             return true;
         }
         if (c->functions->interfaceVersion < THREAD_INTERFACE_VERSION_5_3_0)

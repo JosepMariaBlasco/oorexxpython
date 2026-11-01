@@ -98,10 +98,12 @@ plain Rexx.</para>
 <literal>Rexx error 4.1</literal>), and back in Rexx it is a HALT again,
 as if the Rexx code had raised it with no Python in between:
 <literal>SIGNAL ON HALT</literal> traps it, <literal>CALL ON HALT</literal>
-runs its handler and then the call has no value (an assignment of it is
-Error 91.999, as in plain Rexx), and a caller that does not trap HALT gets
+runs its handler and the clause resumes with the call giving
+<literal>.nil</literal>, and a caller that does not trap HALT gets
 SYNTAX 4.1. Its description, <literal>ADDITIONAL</literal> and result are
-lost on the way: ooRexx drops them when it turns the HALT into 4.1.</para>
+lost on the way: ooRexx drops them when it turns the HALT into 4.1, so the
+call gives <literal>.nil</literal> even when the Rexx code raised the HALT
+with <literal>raise halt ... return value</literal>.</para>
 <para>Through an <literal>ADDRESS</literal> environment written in Python,
 which is a command handler like those written in Rexx
 (<xref linkend="clsPyCommandHandler" xrefstyle="select:title"/>), a condition
