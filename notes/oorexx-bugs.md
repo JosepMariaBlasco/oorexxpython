@@ -20,7 +20,7 @@ depends on a fix being present. #2122 has none any more: the bridge needs
 its fix. The design notes behind them are in
 [`../docs/design.md`](../docs/design.md), *Lifetime*.
 
-The bridge needs ooRexx 5.3.0 r13344 or later (`logicalwrapper.cls`, since
+The bridge needs ooRexx 5.3.0 r13346 or later (`logicalwrapper.cls`, since
 r13278, #2122's fix, since r13286, #2123's, since r13320, the ooRexx bridges' revision), so the fixes above are all present. Before that, ooRexx 5.2.0 was the minimum for
 using an interpreter from one thread at a time: from several at once it
 crashed inside ooRexx (in its tables of activities, on `AttachThread` and
@@ -105,6 +105,12 @@ Tickets filed for other reasons that also touch the bridge:
   `tests/python/t72_returned_rexx_objects.py` crashed one run in 15 to 40
   on r13329 with `RaiseConditionObject` for a SYNTAX. Until r13344 the
   bridge raised every SYNTAX with `RaiseException`; no workaround is left.
+- A regression of #2124 (r13334, fixed in r13346): a halt asked for while
+  native code ran could be taken by the next Rexx frame instead of by the
+  Rexx code that called the native code, so `signal on halt; say
+  SysSleep(2)` with a Ctrl-C ended in Error 4.1 from the `.output`
+  monitor (plain Rexx; found through `tests/python/t90_signals.py`, whose
+  Rexx host does the same with `say .py~main~nap`).
 - [#2130](https://sourceforge.net/p/oorexx/bugs/2130/) (fixed in r13339):
   a native method that raised a condition with no `RESULT` and returned a
   value gave its caller Error 91 (or 44.1) instead of the value, where Rexx

@@ -970,7 +970,7 @@ collection on another thread cannot free it before the GIL comes back
 interpreter stays attached until `close()`: detaching it makes `Terminate`
 wait forever (ooRexx bug #2107).
 
-**ooRexx versions.** The minimum is ooRexx 5.3.0 r13344, which CI also
+**ooRexx versions.** The minimum is ooRexx 5.3.0 r13346, which CI also
 runs: the revision the ooRexx bridges are built and tested on. The bridge
 needs ooRexx's `.CommandHandler` (RFE #882, the base of *ADDRESS in Python*)
 and, for conditions other than SYNTAX to go through Python as themselves,
