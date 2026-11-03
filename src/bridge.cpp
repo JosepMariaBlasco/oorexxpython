@@ -3235,9 +3235,9 @@ static PyObject *interpreterNew(PyTypeObject *type, PyObject *args, PyObject *kw
                 }
             }
         }
-        // the creating thread stays attached (its root activity): detaching
-        // it makes Terminate wait forever (ooRexx bug #2107, still there in
-        // r13271; notes/oorexx-bugs.md)
+        // the creating thread stays attached (its root activity): before
+        // r13348 detaching it made Terminate wait forever (ooRexx bug #2107;
+        // notes/oorexx-bugs.md).  Kept: it is right on every version
     }
     PyEval_RestoreThread(saved);
     self->inst = inst != NULL ? newHandle(inst) : NULL;
@@ -3498,7 +3498,7 @@ static PyObject *registerHandler(Inst *inst, PyObject *nameObj, PyObject *handle
             }
             if (core == NULLOBJECT || ours == NULLOBJECT)
             {
-                error = "add_command_environment: this ooRexx has no .CommandHandler (5.3.0 r13346 or later is needed)";
+                error = "add_command_environment: this ooRexx has no .CommandHandler (5.3.0 r13358 or later is needed)";
                 return NULLOBJECT;
             }
             RexxObjectPtr h = tc->SendMessage1(ours, "NEW", tc->ArrayAt(rargs, 2));
@@ -3541,7 +3541,7 @@ static PyObject *interpreterRemoveEnvironment(PyObject *self, PyObject *args)
             }
             if (core == NULLOBJECT)
             {
-                error = "remove_command_environment: this ooRexx has no .CommandHandler (5.3.0 r13346 or later is needed)";
+                error = "remove_command_environment: this ooRexx has no .CommandHandler (5.3.0 r13358 or later is needed)";
                 return NULLOBJECT;
             }
             return tc->SendMessage1(core, "DEREGISTER", tc->ArrayAt(rargs, 1));

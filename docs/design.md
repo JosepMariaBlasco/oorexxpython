@@ -969,10 +969,11 @@ the process within seconds; none since, 0 in 240,000 calls
 own reference before the thread detaches from the instance, so a garbage
 collection on another thread cannot free it before the GIL comes back
 (`tests/python/t20_returned_objects.py`). The thread that created an
-interpreter stays attached until `close()`: detaching it makes `Terminate`
-wait forever (ooRexx bug #2107).
+interpreter stays attached until `close()`: before r13348, detaching it
+made `Terminate` wait forever (ooRexx bug #2107); it is right on every
+version, so it stays.
 
-**ooRexx versions.** The minimum is ooRexx 5.3.0 r13346, which CI also
+**ooRexx versions.** The minimum is ooRexx 5.3.0 r13358, which CI also
 runs: the revision the ooRexx bridges are built and tested on. The bridge
 needs ooRexx's `.CommandHandler` (RFE #882, the base of *ADDRESS in Python*)
 and, for conditions other than SYNTAX to go through Python as themselves,
