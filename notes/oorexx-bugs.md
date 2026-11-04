@@ -20,7 +20,7 @@ depends on a fix being present. #2122 has none any more: the bridge needs
 its fix. The design notes behind them are in
 [`../docs/design.md`](../docs/design.md), *Lifetime*.
 
-The bridge needs ooRexx 5.3.0 r13358 or later (`logicalwrapper.cls`, since
+The bridge needs ooRexx 5.3.0 r13365 or later (`logicalwrapper.cls`, since
 r13278, #2122's fix, since r13286, #2123's, since r13320, the ooRexx bridges' revision), so the fixes above are all present. Before that, ooRexx 5.2.0 was the minimum for
 using an interpreter from one thread at a time: from several at once it
 crashed inside ooRexx (in its tables of activities, on `AttachThread` and
@@ -110,6 +110,15 @@ Tickets filed for other reasons that also touch the bridge:
   `SELF` (Error 97.2): it ran without the method's receiver. Plain Rexx;
   found while writing the bridge's condition tests, which do not depend
   on it.
+- [#2136](https://sourceforge.net/p/oorexx/bugs/2136/) (fixed in r13363):
+  built-in functions raised the String method's error (93.xxx) instead of
+  their own (40.xxx): `SUBSTR("x", 0)` is 40.14 since r13363, 93.924
+  before (`test_rexx_error_round_trip` in `Callbacks.testGroup`).
+- [#2084](https://sourceforge.net/p/oorexx/bugs/2084/) (fixed in r13365):
+  the same condition raised twice in one clause and trapped by `CALL ON`
+  crashed the interpreter, also when native code called `RaiseCondition`
+  twice. The bridge raises at most one condition per call (a conversion
+  stops at the first), so it never did that.
 - A regression of #2124 (r13334, fixed in r13346): a halt asked for while
   native code ran could be taken by the next Rexx frame instead of by the
   Rexx code that called the native code, so `signal on halt; say

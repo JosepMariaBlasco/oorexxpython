@@ -62,8 +62,8 @@ return testResult
 -- errors in Rexx code reach Python as RexxError, and Rexx again as themselves
 ::method test_rexx_error_round_trip
   co = self~syntaxOf(.py~eval("lambda f: f()"), "new", self~routine("fails"))
-  self~assertSame("93.924", co~code, "the Rexx error itself, not 98.900")
-  self~assertTrue(pos("Invalid position", co~message) > 0, "its message")
+  self~assertSame("40.14", co~code, "the Rexx error itself, not 98.900")
+  self~assertTrue(pos("SUBSTR argument 2 must be positive", co~message) > 0, "its message")
 
 -- a SYNTAX with a description comes back with it, through a Python function
 -- and through an ADDRESS environment written in Python (raiseAgain raises
