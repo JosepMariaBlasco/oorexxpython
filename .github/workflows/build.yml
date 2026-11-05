@@ -159,8 +159,20 @@ jobs:
         run: scripts/setup-oorexxunit.sh
       - name: Build
         run: scripts/build.sh
+      # The three thread stress tests take most of the time on Windows (about
+      # 3.5 minutes per Python, the rest of the suite about 40 s): on a push
+      # or a pull request they run with the oldest and the newest Python
+      # only, the rest of the suite with every Python; a tag or a manual run
+      # runs everything with every Python.
       - name: Tests
-        run: OUT=$RUNNER_TEMP/tests tests/run.sh
+        run: |
+          STRESS="Threads.testGroup t20_returned_objects.py t72_returned_rexx_objects.py"
+          if [ "$GITHUB_REF_TYPE" = tag ] || [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            OUT=$RUNNER_TEMP/tests tests/run.sh
+          else
+            OUT=$RUNNER_TEMP/tests SKIP="$STRESS" tests/run.sh
+            OUT=$RUNNER_TEMP/tests-stress PYTHONS="3.9 3.15" TESTS="$STRESS" tests/run.sh
+          fi
       - name: Heavy threads stress test (3.9 and 3.15)
         run: OUT=$RUNNER_TEMP/tests-heavy PYTHONS="3.9 3.15" TESTS=Threads.testGroup ORXPY_THREADS="16 16 2000" TIMEOUT=600 tests/run.sh
       - name: Package

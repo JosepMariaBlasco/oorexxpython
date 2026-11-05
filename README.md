@@ -49,7 +49,9 @@ included), on Linux x86_64, macOS (arm64 and x86_64) and Windows x64, with CPyth
 3.9–3.15, against ooRexx 5.3.0 (trunk, r13379, also the minimum:
 [`docs/design.md`](docs/design.md), *ooRexx versions*). Every push runs them
 all with every Python on all four (GitHub Actions:
-`.github/workflows/build.yml`). The design is still being discussed, and
+`.github/workflows/build.yml`), except that on Windows the three thread
+stress tests run with 3.9 and 3.15 only; a tag or a manual run runs them
+with every Python there too. The design is still being discussed, and
 parts of the API may change.
 
 ## Documentation
