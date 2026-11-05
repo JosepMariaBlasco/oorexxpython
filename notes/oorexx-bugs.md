@@ -20,7 +20,7 @@ depends on a fix being present. #2122 has none any more: the bridge needs
 its fix. The design notes behind them are in
 [`../docs/design.md`](../docs/design.md), *Lifetime*.
 
-The bridge needs ooRexx 5.3.0 r13365 or later (`logicalwrapper.cls`, since
+The bridge needs ooRexx 5.3.0 r13379 or later (`logicalwrapper.cls`, since
 r13278, #2122's fix, since r13286, #2123's, since r13320, the ooRexx bridges' revision), so the fixes above are all present. Before that, ooRexx 5.2.0 was the minimum for
 using an interpreter from one thread at a time: from several at once it
 crashed inside ooRexx (in its tables of activities, on `AttachThread` and
