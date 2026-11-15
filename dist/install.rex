@@ -104,7 +104,7 @@ install:
   say "  ooRexx" .RexxInfo~version "r".RexxInfo~revision "("rexxExe")"
   parse value .RexxInfo~version with major "." minor "."
   if major < 5 | (major = 5 & minor < 3) | (major = 5 & minor = 3 & .RexxInfo~revision < 13514) then
-    call fail "ooRexx 5.3.0 r13514 or later is needed (logicalwrapper.cls, the fixes for #2122 and #2123, .CommandHandler, RaiseConditionObject, the fixes for #2130 and #2132, the ooRexx bridges' revision)"
+    call fail "ooRexx 5.3.0 r13514 or later is needed (logicalwrapper.cls, the fixes for #2122 and #2123, .CommandHandler, RaiseConditionObject, the fixes for #2130 and #2132, CATCH, the ooRexx bridges' revision)"
   do f over loader, bridge, "python.cls"
     if \.File~new(join(from, f))~exists then
       call fail "no" f "next to install.rex: run it from the unzipped oorexxpython folder"

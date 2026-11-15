@@ -40,10 +40,12 @@ end
 return bad
 check: procedure
   use arg f
-  signal on syntax name s
-  f~new
+  do
+    f~new
+  catch c = syntax
+    return c~code \\== '40.1'
+  end
   return 1
-s: return condition('O')~code \\== '40.1'
 """)
 stop = False
 def collector():

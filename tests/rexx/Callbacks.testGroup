@@ -76,14 +76,14 @@ return testResult
   self~assertSame("the description", co~description, "its description")
   h = .py~eval("lambda f: (lambda c, ctx: f())")~new(self~routine("described"))
   .CommandHandler~register("pydesc", .py~commandHandler(h))
-  signal on syntax
-  address pydesc "x"
-  self~fail("SYNTAX 40.1 must come back through ADDRESS")
-syntax:
+  do
+    address pydesc "x"
+    self~fail("SYNTAX 40.1 must come back through ADDRESS")
+  catch co = syntax
+    self~assertSame("40.1", co~code, "its code, through ADDRESS")
+    self~assertSame("the description", co~description, "its description, through ADDRESS")
+  end
   .CommandHandler~deregister("pydesc")
-  co = condition("O")
-  self~assertSame("40.1", co~code, "its code, through ADDRESS")
-  self~assertSame("the description", co~description, "its description, through ADDRESS")
 
 -- an ERROR or a FAILURE raised by Rexx code that Python calls comes back
 -- with its RC, through a Python function, as in plain Rexx
@@ -98,13 +98,13 @@ syntax:
 
 ::method errorOf private
   use arg pyCallable, f
-  signal on error name trapped
-  signal on failure name trapped
-  if pyCallable == .nil then f~call
-  else pyCallable~new(f)
+  do
+    if pyCallable == .nil then f~call
+    else pyCallable~new(f)
+  catch c = error, failure
+    return c~condition rc c~rc c~description
+  end
   return "no condition"
-trapped:
-  return condition("C") rc condition("O")~rc condition("D")
 
 ::method test_python_catches_rexx_error
   b = .py
@@ -122,6 +122,7 @@ trapped:
   call = .py~eval("lambda f: f()")
   halts = self~routine("halts")
   self~assertSame("HALT", self~signalOnHalt(call, halts), "SIGNAL ON HALT")
+  self~assertSame("HALT", self~catchHalt(call, halts), "CATCH HALT")
   self~assertSame("HALT value The NIL object", self~callOnHalt(call, halts), "CALL ON HALT: the handler runs, the call gives .nil")
   self~assertSame("HALT value The NIL object", self~callOnHalt(call, self~routine("haltsWithValue")), -
                   "CALL ON HALT after RAISE HALT ... RETURN: .nil, the value is lost")
@@ -139,6 +140,15 @@ trapped:
   return "no condition"
 halt:
   return condition("C")
+
+::method catchHalt private
+  use arg pyCallable, f
+  do
+    pyCallable~new(f)
+  catch c = halt
+    return c~condition
+  end
+  return "no condition"
 
 ::method haltLoop private
   use arg pyCallable
@@ -158,25 +168,28 @@ halted:
   use arg pyCallable, f
   call on halt name halted
   trapped = "no condition"
-  signal on syntax name noValue
-  if pyCallable == .nil then x = f~call
-  else x = pyCallable~new(f)
+  do
+    if pyCallable == .nil then x = f~call
+    else x = pyCallable~new(f)
+  catch c = syntax
+    return trapped c~code
+  end
   return trapped "value" x
 halted:
   trapped = condition("C")
   return
-noValue:
-  return trapped condition("O")~code
 
 ::method test_signal_not_through_python
   send = .py~eval("lambda o: o.raiser()")
   do c over "USER", "NOTREADY", "ERROR", "FAILURE"
     self~assertSame(c, word(self~signalOnAny(send, .Raiser~new(c)), 1), c "from a method Python calls")
+    self~assertSame(c, word(self~catchAny(send, .Raiser~new(c)), 1), c "from a method Python calls, CATCH")
   end
   h = .py~eval("lambda o: (lambda c, ctx: o.raiser())")
   do c over "USER", "NOTREADY"
     .CommandHandler~register("PYRAISER", .py~commandHandler(h~new(.Raiser~new(c))))
     self~assertSame(c, word(self~signalOnAnyAddress, 1), c "from a method a Python handler calls")
+    self~assertSame(c, word(self~catchAnyAddress, 1), c "from a method a Python handler calls, CATCH")
     .CommandHandler~deregister("PYRAISER")
   end
 
@@ -190,13 +203,14 @@ noValue:
   self~assertSame("the description", d~description, "its description")
   self~assertSame("A", d~additional[1], "its ADDITIONAL")
   .CommandHandler~register("PYUSER", .py~commandHandler(.py~eval("lambda f: (lambda c, ctx: f())")~new(self~routine("userDescribed"))))
-  signal on user x name viaAddress
-  address pyuser "x"
-  self~fail("USER X must come back through ADDRESS")
-viaAddress:
+  do
+    address pyuser "x"
+    self~fail("USER X must come back through ADDRESS")
+  catch c = user x
+    self~assertSame("the description", c~description, "its description, through ADDRESS")
+    self~assertSame("A", c~additional[1], "its ADDITIONAL, through ADDRESS")
+  end
   .CommandHandler~deregister("PYUSER")
-  self~assertSame("the description", condition("D"), "its description, through ADDRESS")
-  self~assertSame("A", condition("O")~additional[1], "its ADDITIONAL, through ADDRESS")
   .py~exec(self~py("def caught(f):",                        -
                    "    try: f()",                          -
                    "    except Exception as e: return type(e).__name__ + ': ' + str(e)"))
@@ -209,9 +223,11 @@ viaAddress:
 ::method test_raise_return_value
   call = .py~eval("lambda f: f()")
   r = self~routine("userDescribed")
-  signal on syntax name noValue
-  x = call~new(r)
-  signal off syntax
+  do
+    x = call~new(r)
+  catch c = syntax
+    self~fail("Error" c~code "instead of the value")
+  end
   self~assertSame(7, x, "untrapped: the value")
   ran = 0; res = "none"
   call on user x name handler
@@ -236,8 +252,6 @@ handler:
   ran = ran + 1
   if condition("O")~hasIndex("RESULT") then res = condition("O")~result
   return
-noValue:
-  self~fail("Error" condition("O")~code "instead of the value")
 
 -- user code the bridge runs while converting a value (a .String subclass's
 -- MAKESTRING): a SYNTAX it raises is the call's own, never a crash.  In a
@@ -246,31 +260,34 @@ noValue:
 -- it and Python is not called
 ::method test_reply_conversion_raises
   call = .py~eval("lambda f: f()")
-  signal on syntax name viaReply
-  call~new(self~routine("badReply"))
-  self~fail("SYNTAX 93.900 must come back from the reply")
-viaReply:
-  self~assertSame("93.900", condition("O")~code, "the reply's SYNTAX")
-  self~assertSame("boom in MAKESTRING", condition("O")~additional[1], "its ADDITIONAL")
+  do
+    call~new(self~routine("badReply"))
+    self~fail("SYNTAX 93.900 must come back from the reply")
+  catch c = syntax
+    self~assertSame("93.900", c~code, "the reply's SYNTAX")
+    self~assertSame("boom in MAKESTRING", c~additional[1], "its ADDITIONAL")
+  end
   .py~exec(self~py("def caught(f):",                        -
                    "    try: f()",                          -
                    "    except Exception as e: return type(e).__name__ + ' ' + e.code"))
   self~assertSame("RexxError 93.900", .py~main~caught(self~routine("badReply")), "Python catches it")
   .py~exec(self~py("called = []",                           -
                    "def note(x): called.append(x)"))
-  signal on syntax name viaArgument
-  .py~main~note(.BadString~new("abc"))
-  self~fail("SYNTAX 93.900 must come from the argument")
-viaArgument:
-  self~assertSame("93.900", condition("O")~code, "the argument's SYNTAX")
-  self~assertSame("the description", condition("D"), "the argument's SYNTAX, with its description")
+  do
+    .py~main~note(.BadString~new("abc"))
+    self~fail("SYNTAX 93.900 must come from the argument")
+  catch c = syntax
+    self~assertSame("93.900", c~code, "the argument's SYNTAX")
+    self~assertSame("the description", c~description, "the argument's SYNTAX, with its description")
+  end
   self~assertSame(0, .py~eval("len(called)"), "Python was not called")
   -- a USER raised in MAKESTRING itself reaches the caller, as in plain Rexx
-  signal on user x name userReply
-  call~new(self~routine("userReply"))
-  self~fail("USER X must come back from the reply")
-userReply:
-  self~assertSame("in MAKESTRING", condition("D"), "the reply's USER")
+  do
+    call~new(self~routine("userReply"))
+    self~fail("USER X must come back from the reply")
+  catch c = user x
+    self~assertSame("in MAKESTRING", c~description, "the reply's USER")
+  end
 
 -- a native routine that uses its caller's variables (rexxutil's SysFileTree
 -- with a stem name) called from Python: there is no Rexx caller, so it is
@@ -283,11 +300,12 @@ userReply:
   s = .stem~new
   self~assertSame(0, f~new(sft, pattern, s, "FO"), "SysFileTree with a stem object")
   self~assertSame(direct.0, s[0], "the stem object filled")
-  signal on syntax name noCaller
-  f~new(sft, pattern, "T.", "FO")
-  self~fail("SYNTAX 40.925 must come back")
-noCaller:
-  self~assertSame("40.925", condition("O")~code, "a stem name: no Rexx caller")
+  do
+    f~new(sft, pattern, "T.", "FO")
+    self~fail("SYNTAX 40.925 must come back")
+  catch c = syntax
+    self~assertSame("40.925", c~code, "a stem name: no Rexx caller")
+  end
 
 -- a conversion stops at the first condition user code raises (as Rexx
 -- stops at the first error): an Array or arguments whose second item would
@@ -302,33 +320,37 @@ noCaller:
   self~assertSame("93.900 boom 1", self~syntaxText(.py~eval("lambda x, y: 0"), .CountingBad~new("a"), .CountingBad~new("b")), "arguments")
   self~assertSame(1, .local~orxpy.calls, "arguments: one MAKESTRING")
   .local~orxpy.calls = 0
-  signal on syntax name boxed
-  .py~box("str", .AnswersBad~new)
-  self~fail("SYNTAX 93.900 must come from box")
-boxed:
-  self~assertSame("93.900", condition("O")~code, "box: STRING answering a failing string")
-  signal on syntax name keywords
-  .py~eval("lambda **k: len(k)")~new(.OddKw~new(.array~of("a", 1)))
-  self~fail("an error must come from the keyword arguments")
-keywords:
-  self~assertSame("98.900", condition("O")~code, "keyword arguments: NAMES no Array")
+  do
+    .py~box("str", .AnswersBad~new)
+    self~fail("SYNTAX 93.900 must come from box")
+  catch c = syntax
+    self~assertSame("93.900", c~code, "box: STRING answering a failing string")
+  end
+  do
+    .py~eval("lambda **k: len(k)")~new(.OddKw~new(.array~of("a", 1)))
+    self~fail("an error must come from the keyword arguments")
+  catch c = syntax
+    self~assertSame("98.900", c~code, "keyword arguments: NAMES no Array")
+  end
 
 ::method syntaxText private
   use arg pyCallable, a1, a2
-  signal on syntax
-  if arg() = 2 then pyCallable~new(a1)
-  else pyCallable~new(a1, a2)
+  do
+    if arg() = 2 then pyCallable~new(a1)
+    else pyCallable~new(a1, a2)
+  catch c = syntax
+    return c~code c~additional[1]
+  end
   return "no condition"
-syntax:
-  return condition("O")~code condition("O")~additional[1]
 
 ::method conditionOf private
   use arg pyCallable, f
-  signal on user x
-  pyCallable~new(f)
-  self~fail("USER X must come back")
-x:
-  return condition("O")
+  do
+    pyCallable~new(f)
+    self~fail("USER X must come back")
+  catch c = user x
+    return c
+  end
 
 ::method signalOnAny private
   use arg pyCallable, o
@@ -344,6 +366,23 @@ x: notready: error: failure:
   return "no condition"
 x: notready:
   return condition("C")
+
+::method catchAny private
+  use arg pyCallable, o
+  do
+    pyCallable~new(o)
+  catch c = user x, notready, error, failure
+    return c~condition
+  end
+  return "no condition"
+
+::method catchAnyAddress private
+  do
+    address pyraiser "x"
+  catch c = user x, notready
+    return c~condition
+  end
+  return "no condition"
 
 -- Rexx -> Python -> Rexx -> Python
 ::method test_nested

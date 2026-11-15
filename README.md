@@ -79,7 +79,7 @@ no environment variables to set.
    `logicalwrapper.cls` (Python's `bool` in Rexx), new in r13278, and the fix
    for ooRexx bug #2122 (threads), in r13286, and ooRexx's `.CommandHandler`
    (RFE #882), and the fix for #2123 (conditions other than SYNTAX reach the
-   bridge), in r13320, and `RaiseConditionObject` (RFE #883, a condition raised again as it is), in r13329, and the fixes for #2130 and #2132 (a raised condition keeps the call's value; no crash under threads), in r13344; r13514 is the revision the ooRexx bridges are built and tested on. 5.2.0, the current release, has none of them.
+   bridge), in r13320, and `RaiseConditionObject` (RFE #883, a condition raised again as it is), in r13329, and the fixes for #2130 and #2132 (a raised condition keeps the call's value; no crash under threads), in r13344, and CATCH clauses (RFE #31), which `python.cls` uses, in r13514; r13514 is the revision the ooRexx bridges are built and tested on. 5.2.0, the current release, has none of them.
 2. **Python 3.9 or later**, any version: the bridge is one binary for all of
    them. If you want the samples that use numpy, matplotlib and pandas,
    install them too: `pip install numpy matplotlib pandas`.

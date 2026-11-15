@@ -85,12 +85,15 @@
       pyuninit = self~instanceMethod("UNINIT")
       if pyuninit == .PyObject~method("UNINIT") then pyuninit = .nil
       self~setMethod("UNINIT", "nop")
-      signal on syntax
-      made = self~"PY.PAIRNEW"(pyclass, arg(1, "A"))  -- the Python object (__new__)
-      cself = made[1]
-      pypair = made[2]
-      self~"PY.ARM"
-      self~"PY.PAIRINIT"(arg(1, "A"))                  -- the base's __init__
+      do
+        made = self~"PY.PAIRNEW"(pyclass, arg(1, "A"))  -- the Python object (__new__)
+        cself = made[1]
+        pypair = made[2]
+        self~"PY.ARM"
+        self~"PY.PAIRINIT"(arg(1, "A"))                  -- the base's __init__
+      catch syntax
+        raise propagate                -- the error is the caller's ~new
+      end
       return
     end
     if \self~isA(.Python) then
@@ -100,7 +103,6 @@
   -- as "string" (.py~import(name, "string")), whose calls get strings as str
   use strict arg cself, pystrings = .false
   return
-syntax: raise propagate
 ::method "PY.PAIRNEW" private unguarded external "LIBRARY rexxpython PyPair_New"
 ::method "PY.PAIRINIT" private unguarded external "LIBRARY rexxpython PyPair_Init"
 -- a new sentinel for a pair's Rexx object, while Rexx holds it: its UNINIT
@@ -116,14 +118,13 @@ syntax: raise propagate
   if var("PYUNINIT") then if pyuninit \== .nil then do
     u = pyuninit
     drop pyuninit
-    signal on syntax name final
     -- UNINIT sent with the class that defines it as the scope: it runs in
     -- its own scope (its variables), also when a superclass defines it, and
     -- skips the object's NOP (not setMethod(..., "OBJECT"), whose scope is
     -- the object's class; not self~run(u), whose scope is none of them)
     .Message~new(self, .array~of("UNINIT", u~scope))~send
+  catch syntax                         -- an error in an UNINIT is ignored
   end
-final: return
 -- the Python class that this class (or its nearest superclass) extends
 -- (.py~extend), or .nil: for Python code that makes the objects itself
 -- (json.dumps(x, cls=.MyEncoder~pyClass))
@@ -936,10 +937,8 @@ def make(bases, name, specs, rexx_class, new_for):
 ::method command unguarded
   expose handler
   use strict arg command, caller
-  signal on any name relay
-  rc = handler~invoke("__call__", .py~str(command), caller)   -- the command always a str
-  if rc == .nil then return 0
-  return rc
+  do
+    rc = handler~invoke("__call__", .py~str(command), caller)   -- the command always a str
   -- a condition Python raised again (an oorexx.RexxError) reaches the issuer
   -- as a Rexx handler's would: SYNTAX itself; any other through the
   -- context, its DESCRIPTION and ADDITIONAL kept (its RESULT is lost, as
@@ -948,11 +947,13 @@ def make(bases, name, specs, rexx_class, new_for):
   -- in between, and the bridge raises it again, so it falls here
   -- (SIGNAL ON HALT traps it, CALL ON HALT resumes with RC 0, untrapped it
   -- ends as SYNTAX 4.1, as caller~raise("HALT", 0) from a Rexx handler)
-relay:
-  co = condition("O")
-  if co~condition == "SYNTAX" then raise propagate
-  if co~condition == "HALT" then return caller~raise("HALT", 0)
-  return caller~raise(co~condition, co~result, co~description, co~additional)
+  catch co = any
+    if co~condition == "SYNTAX" then raise propagate
+    if co~condition == "HALT" then return caller~raise("HALT", 0)
+    return caller~raise(co~condition, co~result, co~description, co~additional)
+  end
+  if rc == .nil then return 0
+  return rc
 -- the interpreter instance is closing (Interpreter.close): the callable is
 -- let go now, not when a collection runs the uninits
 ::method "PY.RELEASE" unguarded

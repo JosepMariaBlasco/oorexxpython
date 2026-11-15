@@ -39,11 +39,11 @@ say left(".array~of(x, x)", 32) k~new(.array~of(x, x)) .py~eval("lambda x: x[0] 
 t = 0; do 1000; t = .array~of(t); end
 say left("Arrays nested 1000 deep", 32) .py~eval("lambda x: 'ok'")~new(t)
 t = .array~of(t)
-signal on syntax name tooDeep
-say left("Arrays nested 1001 deep", 32) .py~eval("lambda x: 'ok'")~new(t)
-tooDeep:
-signal off syntax
-if symbol("RC") == "VAR" then say left("Arrays nested 1001 deep", 32) "SYNTAX" condition("o")~code condition("o")~message
+do
+  say left("Arrays nested 1001 deep", 32) .py~eval("lambda x: 'ok'")~new(t)
+catch c = syntax
+  say left("Arrays nested 1001 deep", 32) "SYNTAX" c~code c~message
+end
 s.1 = "a"; s.0 = 1
 say left("stem s.", 32) k~new(s.)
 say left(".directory~new", 32) k~new(.directory~new)
@@ -87,17 +87,19 @@ exit
 
 explicit: procedure                 -- an explicit float, or the error
   parse arg expr, s
-  signal on syntax
-  interpret "r = .py~repr("expr")"
+  do
+    interpret "r = .py~repr("expr")"
+  catch c = syntax
+    return "SYNTAX" c~code c~message
+  end
   return r
-syntax:
-  return "SYNTAX" condition("o")~code condition("o")~message
 
 asFloat: procedure expose asfloat   -- what float() makes of the Rexx string
-  signal on syntax
-  return asfloat~new(.py~box("str", arg(1)))
-syntax:
-  return condition("o")~message
+  do
+    return asfloat~new(.py~box("str", arg(1)))
+  catch c = syntax
+    return c~message
+  end
 ::requires "python.cls"
 ::requires "logicalwrapper.cls"
 ::requires "json.cls"

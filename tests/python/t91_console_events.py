@@ -41,8 +41,7 @@ try:
         import oorexx
     if mode not in ("plain", "import"):
         r = oorexx.Interpreter()
-        loop = r.routine("signal on halt; do 500; call SysSleep 0.01; end; return 'no HALT'\n"
-                         "halt: return 'HALT'")
+        loop = r.routine("do 500; call SysSleep 0.01; catch halt; return 'HALT'; end; return 'no HALT'")
     if mode in ("plain", "import", "python"):
         print("ready", flush=True)
         for i in range(50): time.sleep(0.1)

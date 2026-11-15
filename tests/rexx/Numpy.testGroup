@@ -74,18 +74,18 @@ return testResult
   cw = warnings~catch_warnings~new
   cw~invoke("__enter__")
   warnings~simplefilter("error")         -- a warning fails the test
-  signal on syntax
-  df = pd~DataFrame(.py~dict(.py~kw("a", (1, 2, 3), "b", (4.0, .py~None, 6.0))))
-  df["c"] = df["a"] * 2
-  df~loc[0, "a"] = 10
-  df~fillna(0, .py~kw("inplace", .true))        -- annotated bool: goes as True
-  s = pd~Series((1, 2, 3))
-  s[0] = 5
+  do
+    df = pd~DataFrame(.py~dict(.py~kw("a", (1, 2, 3), "b", (4.0, .py~None, 6.0))))
+    df["c"] = df["a"] * 2
+    df~loc[0, "a"] = 10
+    df~fillna(0, .py~kw("inplace", .true))        -- annotated bool: goes as True
+    s = pd~Series((1, 2, 3))
+    s[0] = 5
+  catch c = syntax
+    cw~invoke("__exit__", .nil, .nil, .nil)
+    self~fail(c~message)
+  end
   cw~invoke("__exit__", .nil, .nil, .nil)
   self~assertSame("{'a': [10, 2, 3], 'b': [4.0, 0.0, 6.0], 'c': [2, 4, 6]}", -
     df~to_dict("list")~string, "df changed in place")
   self~assertSame("[5, 2, 3]", s~tolist~string, "series changed in place")
-  return
-syntax:
-  cw~invoke("__exit__", .nil, .nil, .nil)
-  self~fail(condition("o")~message)

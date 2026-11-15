@@ -18,12 +18,12 @@
 ::method syntaxOf
   use strict arg receiver, name, ...
   args = arg(3, "A")
-  signal on syntax
-  .message~new(receiver, name, "A", args)~send
-  signal off syntax
+  do
+    .message~new(receiver, name, "A", args)~send
+  catch c = syntax
+    return c
+  end
   self~fail("no SYNTAX condition raised by message" name)
-syntax:
-  return condition("O")
 
 /** py(lines...)
  * Joins its arguments with line feeds: Python source for .py~exec.

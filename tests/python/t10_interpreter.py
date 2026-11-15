@@ -155,17 +155,16 @@ check("WITH INPUT/OUTPUT stems", r.routine(
 check("caller's variables",    r.routine(
     "question = 'what?'; address calc 'setvar'; return rc answer")(), "what? 42")
 check("raiseError -> ERROR",   r.routine(
-    "signal on error; address calc 'fail'; return 'no'\nerror: return 'ERROR' rc")(), "ERROR 7")
+    "do; address calc 'fail'; catch error; return 'ERROR' rc; end; return 'no'")(), "ERROR 7")
 check("raise_ is RAISE: FAILURE", r.routine(
-    "signal on failure; address calc 'failure'; return 'no'\nfailure: return 'FAILURE' rc")(), "FAILURE -2")
+    "do; address calc 'failure'; catch failure; return 'FAILURE' rc; end; return 'no'")(), "FAILURE -2")
 check("Python exception -> SYNTAX", r.routine(
-    "signal on syntax; address calc 'boom'; return 'no'\n"
-    "syntax: c = condition('O'); return c~code .py~type(c~additional[2])~getattr('__name__')")(),
+    "do; address calc 'boom'; catch c = syntax; return c~code .py~type(c~additional[2])~getattr('__name__'); end\n"
+    "return 'no'")(),
     "98.900 ValueError")
 check("... and back as itself", raises(lambda: r.routine("address calc 'boom'")()).startswith("ValueError:"), True)
 check("RC whatever its sign, no condition", r.routine(
-    "signal on error; signal on failure; address calc '-3'; return rc\n"
-    "error: failure: return condition('C')")(), -3)
+    "do; address calc '-3'; catch c = error, failure; return c~condition; end; return rc")(), -3)
 check("the core sees a .PyCommandHandler", r.eval(".CommandHandler~handler('CALC')~class~id"), "PYCOMMANDHANDLER")
 
 # stacking, as the core's register: the new handler covers the old one
@@ -177,8 +176,7 @@ check("... remove gives back the one removed", removed.handler()("xyz", None), 3
 check("... the covered one is back", r.routine("address calc '2+3'; return rc")(), 5)
 
 # removing an environment: unknown again, as ooRexx's own (FAILURE, RC 30)
-unknown_env = ("signal on failure; address calc '1'; return 'no'\n"
-               "failure: return condition('C') rc")
+unknown_env = "do; address calc '1'; catch c = failure; return c~condition rc; end; return 'no'"
 check("remove_command_environment", r.remove_command_environment("calc").handler() is calc, True)
 check("... then FAILURE RC 30",     r.routine(unknown_env)(), "FAILURE 30")
 check("... removing again: the core's SYNTAX 93.900", raises(lambda: r.remove_command_environment("CALC")),
@@ -198,8 +196,7 @@ check("... a Python function from Python, registered by Rexx", r.routine(
     lambda c, ctx: 2 * len(c)), 6)
 for what, handler in ((".nil", ".nil"), ("a string", "'abc'")):
     check(f"... {what} as the handler: SYNTAX 93.900", r.routine(
-        f"signal on syntax; .py~commandHandler({handler}); return 'no'\n"
-        "syntax: return 'SYNTAX' condition('O')~code")(),
+        f"do; .py~commandHandler({handler}); catch c = syntax; return 'SYNTAX' c~code; end; return 'no'")(),
         "SYNTAX 93.900")
 check("... not callable from Python: TypeError", raises(lambda: r.add_command_environment("BAD", None)).startswith("TypeError"), True)
 check("remove_command_environment(non-str)", raises(lambda: r.remove_command_environment(1)).startswith("TypeError"), True)
@@ -222,13 +219,14 @@ def raiser(command, ctx):
 r.add_command_environment("RAISER", raiser)
 trapper = """
 use arg what
-signal on syntax name trapped; signal on halt name trapped; signal on user x name trapped
-address raiser what
+do
+  address raiser what
+catch c = syntax, halt, user x
+  a = c~additional
+  if a~isA(.array) then a = a~makeString('l', ',')
+  return c~condition '|' c~code '|' a '|' c~description '|' c~result
+end
 return 'no condition'
-trapped:
-c = condition('O'); a = c~additional
-if a~isA(.array) then a = a~makeString('l', ',')
-return c~condition '|' c~code '|' a '|' c~description '|' c~result
 """
 check("through a handler: SYNTAX itself", r.routine(trapper)("syntax"), "SYNTAX | 40.1 | x |  | The NIL object")
 # a HALT is SYNTAX 4.1 when it leaves the Rexx code (ooRexx's, description
@@ -239,16 +237,15 @@ check("through a handler: SYNTAX itself", r.routine(trapper)("syntax"), "SYNTAX 
 check("... HALT: a HALT again", r.routine(trapper)("halt"),
       "HALT | The NIL object | The NIL object | halt | The NIL object")
 check("... HALT, only SYNTAX trapped: SYNTAX 4.1", r.routine(
-    "signal on syntax; address raiser 'halt'; return 'no'\n"
-    "syntax: return 'SYNTAX' condition('O')~code condition('O')~additional[1]")(), "SYNTAX 4.1 HALT")
+    "do; address raiser 'halt'; catch c = syntax; return 'SYNTAX' c~code c~additional[1]; end\n"
+    "return 'no'")(), "SYNTAX 4.1 HALT")
 check("... HALT, untrapped: RexxError 4.1 in Python", raises(lambda: r.routine("address raiser 'halt'; return 'no'")()),
       "RexxError: Rexx error 4.1: Program interrupted with HALT condition.")
 check("... HALT, CALL ON HALT: trapped, the command's RC 0", r.routine(
     "call on halt name h; trapped = 'no'; address raiser 'halt'; nop; return trapped '|' rc\n"
     "h: trapped = condition('C'); return")(), "HALT | 0")
 check("through a Python function: SYNTAX itself", r.routine(
-    "use arg o; signal on syntax; o~go; return 'no'\n"
-    "syntax: return 'SYNTAX' condition('O')~code condition('O')~additional[1]")(
+    "use arg o; do; o~go; catch c = syntax; return 'SYNTAX' c~code c~additional[1]; end; return 'no'")(
     __import__("types").SimpleNamespace(go=lambda: raising["syntax"]())), "SYNTAX 40.1 x")
 # any other condition keeps its description, ADDITIONAL and RESULT (here a
 # condition object made by hand; real ones below, past Python)
@@ -290,6 +287,21 @@ for label, how, f, value in (("function, routine", "function", ns(go=lambda: pas
                              ("handler, routine", "handler", "routine", "rc 7"),
                              ("handler, method", "handler", "method", "rc 7")):
     check(f"SIGNAL ON past Python ({label})", past(how, f), "trapped USER X d")
+past_catch = r.routine("""
+use arg how, f
+do
+  if how == 'function' then return 'result' f~go
+  address past f
+catch c = user x
+  return 'trapped' c~condition c~description
+end
+return 'rc' rc
+""")
+for label, how, f, value in (("function, routine", "function", ns(go=lambda: past_routine()), "result 7"),
+                             ("function, method", "function", ns(go=lambda: past_object.go()), "result 7"),
+                             ("handler, routine", "handler", "routine", "rc 7"),
+                             ("handler, method", "handler", "method", "rc 7")):
+    check(f"CATCH past Python ({label})", past_catch(how, f), "trapped USER X d")
 
 # closing an interpreter releases its environments' handlers at once, also
 # while other instances live (r here)

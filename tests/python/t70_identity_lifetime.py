@@ -157,14 +157,16 @@ o = Target()
 base = sys.getrefcount(o)
 fail = r.routine("""
     use arg o, f
-    signal on syntax
-    x = f~new(o, o, o)                  -- a TypeError: too many arguments
-    exit 1
-  syntax:
-    signal on syntax name again
-    x = o~noSuchAttribute               -- an AttributeError
-    exit 2
-  again:
+    do
+      x = f~new(o, o, o)                -- a TypeError: too many arguments
+      exit 1
+    catch syntax
+    end
+    do
+      x = o~noSuchAttribute             -- an AttributeError
+      exit 2
+    catch syntax
+    end
     return 0
 """)
 f = lambda x: x

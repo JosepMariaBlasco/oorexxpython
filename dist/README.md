@@ -16,7 +16,8 @@ Source, documentation and design: https://github.com/JosepMariaBlasco/oorexxpyth
   the fix for #2123 (conditions other than SYNTAX reach the bridge), in
   r13320, and `RaiseConditionObject` (RFE #883, a condition raised again as
   it is), in r13329, and the fixes for #2130 and #2132 (a raised
-  condition keeps the call's value; no crash under threads), in r13344;
+  condition keeps the call's value; no crash under threads), in r13344,
+  and CATCH clauses (RFE #31), which `python.cls` uses, in r13514;
   r13514 is the revision the ooRexx bridges are built and tested on. 5.2.0, the current release, has none of them.
 - **Python 3.9 or later**, any version: the bridge is one binary for all of
   them (Python's Stable ABI). It must have its shared library, as the

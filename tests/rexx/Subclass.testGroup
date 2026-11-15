@@ -124,11 +124,12 @@ return testResult
   self~assertSame(4, p[1])
 
 ::method test_object_takes_no_arguments
-  signal on syntax
-  .SubPlain~new(1)
-  self~fail("no error")
-syntax:
-  self~assertTrue(condition("O")~message~pos("takes no arguments") > 0)
+  do
+    .SubPlain~new(1)
+    self~fail("no error")
+  catch c = syntax
+    self~assertTrue(c~message~pos("takes no arguments") > 0)
+  end
 
 ::method test_names
   -- a base method in mixed case is found; another one is given by ::ANNOTATE

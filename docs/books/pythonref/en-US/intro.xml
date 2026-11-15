@@ -74,7 +74,8 @@ r13278 (<xref linkend="valuesBoolean"/>), a fix for threads, new in
 r13286, ooRexx's <literal>.CommandHandler</literal> (RFE #882), and a fix
 that lets conditions other than SYNTAX reach the bridge, new in r13320,
 and an API that raises a condition again as it is, new in r13329, with two fixes for it in r13344
-(<xref linkend="condRoundTrip"/>); it is built and tested on r13514.</para>
+(<xref linkend="condRoundTrip"/>), and CATCH clauses (RFE #31), new in r13514, which
+<filename>python.cls</filename> uses; it is built and tested on r13514.</para>
 <para>The bridge runs on Linux, macOS and Windows.</para>
 </section>
 

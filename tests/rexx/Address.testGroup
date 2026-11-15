@@ -29,9 +29,10 @@ return testResult
   self~assertSame(.nil, .CommandHandler~register("calc", .py~commandHandler(.py~main~getattr("calc"))), "nothing covered")
 
 ::method tearDown
-  signal on syntax                        -- a test may have removed it
-  do forever; .CommandHandler~deregister("calc"); end
-syntax:
+  loop                                    -- until none is left (a test may
+    .CommandHandler~deregister("calc")    -- have removed it): then SYNTAX
+  catch syntax
+  end
 
 ::method test_register_and_rc
   address calc '2 + 3'
@@ -74,11 +75,12 @@ syntax:
   self~assertSame(2, rc, "registered again")
 
 ::method failureOf private
-  signal on failure
-  address calc '1'
+  do
+    address calc '1'
+  catch c = failure
+    return c~condition rc
+  end
   return "no failure"
-failure:
-  return condition("C") rc
 
 ::method test_not_callable
   do handler over .nil, "abc", 42
@@ -87,13 +89,13 @@ failure:
   end
 
 ::method test_python_error_is_syntax
-  signal on syntax
-  address calc 'boom'
-  self~fail("a Python exception in the handler must raise SYNTAX")
-syntax:
-  co = condition("O")
-  self~assertSame("98.900", co~code, "SYNTAX 98.900")
-  self~assertSame("ValueError", .py~type(co~additional[2])~getattr("__name__"), "the exception")
+  do
+    address calc 'boom'
+    self~fail("a Python exception in the handler must raise SYNTAX")
+  catch co = syntax
+    self~assertSame("98.900", co~code, "SYNTAX 98.900")
+    self~assertSame("ValueError", .py~type(co~additional[2])~getattr("__name__"), "the exception")
+  end
 
 -- the context is ooRexx's .CommandContext, with its own names
 ::method test_context
@@ -133,22 +135,23 @@ syntax:
 
 ::method conditionOf private
   use arg env, command
-  signal on error
-  signal on failure name error
-  interpret "address" env "command"
+  do
+    interpret "address" env "command"
+  catch c = error, failure
+    return c~condition rc
+  end
   return "none"
-error:
-  return condition("C") rc
 
 -- a condition the handler asks for is itself, any condition
 ::method test_user_condition
   .CommandHandler~register("u", .py~commandHandler(.py~eval("lambda c, ctx: ctx.raise_('USER BAD', 9, 'what went wrong')")))
-  signal on user bad
-  address u 'x'
-  self~fail("USER BAD must be raised")
-bad:
-  self~assertSame("what went wrong", condition("D"), "its description")
-  self~assertSame(9, rc, "its RC")
+  do
+    address u 'x'
+    self~fail("USER BAD must be raised")
+  catch c = user bad
+    self~assertSame("what went wrong", c~description, "its description")
+    self~assertSame(9, rc, "its RC")
+  end
   .CommandHandler~deregister("u")
 
 -- without WITH, the core's output() is an error (ooRexx's rule); print()
@@ -170,8 +173,9 @@ bad:
 
 ::method syntaxOfCommand private
   use arg env
-  signal on syntax
-  interpret "address" env "'x'"
+  do
+    interpret "address" env "'x'"
+  catch c = syntax
+    return c
+  end
   return .nil
-syntax:
-  return condition("O")

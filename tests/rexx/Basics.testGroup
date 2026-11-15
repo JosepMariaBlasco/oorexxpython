@@ -80,11 +80,12 @@ return testResult
   self~assertSame("dir/2026", .py~import("posixpath", "string")~join("dir", 2026), "posixpath.join")
   double = .context~package~findRoutine("DOUBLE")
   self~assertSame("[2, 4]", .py~repr(s~list(s~map(double, (1, 2)))), "Rexx results keep the rule")
-  signal on syntax
-  .py~import("os", "text")
-  self~fail("an unknown type must fail")
-syntax:
-  self~assertTrue(condition("O")~message~pos('"number" or "string"') > 0, "the message names the types")
+  do
+    .py~import("os", "text")
+    self~fail("an unknown type must fail")
+  catch c = syntax
+    self~assertTrue(c~message~pos('"number" or "string"') > 0, "the message names the types")
+  end
 
 ::method test_names
   b = .py
@@ -181,15 +182,25 @@ syntax:
 nostring:
   self~fail("NOSTRING raised:" condition("D"))
 
+-- the same, the caller trapping NOSTRING with CATCH
+::method test_text_of_an_object_no_nostring_catch
+  do
+    o = .object~new
+    self~assertSame("an Object", .py~box("str", o)~string, "box's value")
+    self~assertSame("['an Object']", .py~repr(.py~eval("lambda **k: sorted(k)")~new(.py~kw(o, 1))), "a keyword's name")
+  catch c = nostring
+    self~fail("NOSTRING raised:" c~description)
+  end
+
 ::method trapsOf private          -- the condition a message raises, NOSTRING trapped too
   use arg receiver, name, ...
-  signal on nostring; signal on syntax
-  receiver~sendWith(name, arg(3, "A"))
+  do
+    receiver~sendWith(name, arg(3, "A"))
+  catch c = nostring, syntax
+    if c~condition == "NOSTRING" then return "NOSTRING"
+    return "SYNTAX" c~code
+  end
   return "no condition"
-nostring:
-  return "NOSTRING"
-syntax:
-  return "SYNTAX" condition("O")~code
 
 -- a Rexx "1" or "0" passed to a parameter annotated bool goes as True or
 -- False; everything else follows the Values rule

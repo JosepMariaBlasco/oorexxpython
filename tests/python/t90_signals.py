@@ -45,8 +45,7 @@ r = oorexx.Interpreter()
 if mode.startswith("second-"):
     r = oorexx.Interpreter()
 print("caught:", before, "->", caught(), flush=True)
-loop = r.routine("signal on halt; do 500; call SysSleep 0.01; end; return 'no HALT'\n"
-                 "halt: return 'HALT'")
+loop = r.routine("do 500; call SysSleep 0.01; catch halt; return 'HALT'; end; return 'no HALT'")
 try:
     if mode.endswith("python"):
         print("ready", flush=True)
@@ -80,15 +79,17 @@ except KeyboardInterrupt:
 print("exits", flush=True)
 '''
 REXX_HOST = r'''
-signal on halt
-.py~exec("import time" || "0a"x || "def nap():" || "0a"x ||,
-         "    for i in range(20): time.sleep(0.1)" || "0a"x || "    return 'python slept to the end'")
-say "ready"
-say .py~main~nap
-call SysSleep 0.5
-say "no HALT"
+do
+  .py~exec("import time" || "0a"x || "def nap():" || "0a"x ||,
+           "    for i in range(20): time.sleep(0.1)" || "0a"x || "    return 'python slept to the end'")
+  say "ready"
+  say .py~main~nap
+  call SysSleep 0.5
+  say "no HALT"
+catch halt
+  say "HALT in Rexx"
+end
 exit
-halt: say "HALT in Rexx"
 ::requires "python.cls"
 '''
 

@@ -974,7 +974,9 @@ made `Terminate` wait forever (ooRexx bug #2107); it is right on every
 version, so it stays.
 
 **ooRexx versions.** The minimum is ooRexx 5.3.0 r13514, which CI also
-runs: the revision the ooRexx bridges are built and tested on. The bridge
+runs: the revision the ooRexx bridges are built and tested on. `python.cls`
+traps errors with CATCH clauses (RFE #31, r13514, language level 6.07), so
+an older ooRexx cannot even translate it. The bridge
 needs ooRexx's `.CommandHandler` (RFE #882, the base of *ADDRESS in Python*)
 and, for conditions other than SYNTAX to go through Python as themselves,
 ooRexx's fix for #2123 (r13320; see *Exceptions*);
