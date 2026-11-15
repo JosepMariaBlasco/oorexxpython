@@ -27,7 +27,7 @@ recipes, on one page.</para>
 <row><entry><computeroutput>a + b</computeroutput>, <computeroutput>a &gt; 2</computeroutput>, <computeroutput>a % b</computeroutput></entry><entry><computeroutput>a + b</computeroutput>, <computeroutput>a &gt; 2</computeroutput>, <computeroutput>a // b</computeroutput> (the meaning is kept)</entry></row>
 <row><entry><computeroutput>(1, 2)</computeroutput></entry><entry><computeroutput>[1, 2]</computeroutput>: a Rexx Array goes as a list</entry></row>
 <row><entry><computeroutput>.py~str(2026)</computeroutput>, <computeroutput>py.box("float", 1)</computeroutput></entry><entry><computeroutput>"2026"</computeroutput>, <computeroutput>1.0</computeroutput></entry></row>
-<row><entry><computeroutput>signal on syntax</computeroutput></entry><entry><computeroutput>except</computeroutput>: SYNTAX 98.900</entry></row>
+<row><entry><computeroutput>do ... catch c = syntax ... end</computeroutput> (legacy: <computeroutput>signal on syntax</computeroutput>)</entry><entry><computeroutput>try ... except</computeroutput>: SYNTAX 98.900</entry></row>
 <row><entry><computeroutput>::class C subclass PyObject</computeroutput> and <computeroutput>.py~extend(self, base)</computeroutput></entry><entry><computeroutput>class C(base)</computeroutput></entry></row>
 </tbody>
 </tgroup>

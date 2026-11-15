@@ -296,10 +296,11 @@ would get the text <literal>"0"</literal>), and must be given one with
 <programlisting language="rexx">os = .py~import("posixpath", "string")
 say os~join("archive", "2026")
 plain = .py~import("posixpath")
-signal on syntax
-say plain~join("archive", "2026")       -- 2026 goes as an int
-exit
-syntax: say condition("O")~message
+do
+  say plain~join("archive", "2026")     -- 2026 goes as an int
+catch c = syntax
+  say c~message
+end
 
 ::requires "python.cls"</programlisting>
 <screen>archive/2026

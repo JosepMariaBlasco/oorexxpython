@@ -27,21 +27,21 @@ which has none yet).</para></listitem></varlistentry>
 </variablelist>
 <para>This is the layout of BSF4ooRexx, whose
 <literal>additional[2]</literal> is the Java exception.</para>
-<para>Rexx code traps it as any SYNTAX condition, with
-<computeroutput>signal on syntax</computeroutput> or
+<para>Rexx code traps it as any SYNTAX condition: with a
+<computeroutput>catch</computeroutput> clause, the preferred way, or the
+legacy way, <computeroutput>signal on syntax</computeroutput> or
 <computeroutput>call on syntax</computeroutput>.</para>
 
 <example id="ex.conditions-trap">
 <title>A Python exception, trapped in Rexx</title>
-<programlisting language="rexx">signal on syntax
-say .py~int("seven")
-exit
-syntax:
-  c = condition("O")
+<programlisting language="rexx">do
+  say .py~int("seven")
+catch c = syntax
   say c~code
   say c~message
   e = c~additional[2]                   -- the exception
   say .py~type(e)~getattr("__name__") e~args
+end
 
 ::requires "python.cls"</programlisting>
 <screen>98.900
@@ -57,11 +57,12 @@ called with the remaining arguments. In Rexx it is the same SYNTAX 98.900 as
 when Python raises it.</para>
 <example id="ex.conditions-raise">
 <title>.py~raise</title>
-<programlisting language="rexx">signal on syntax
-.py~raise(.py~KeyError, "missing")
-syntax:
-  say condition("O")~message
-  say .py~isinstance(condition("O")~additional[2], .py~KeyError)
+<programlisting language="rexx">do
+  .py~raise(.py~KeyError, "missing")
+catch c = syntax
+  say c~message
+  say .py~isinstance(c~additional[2], .py~KeyError)
+end
 
 ::requires "python.cls"</programlisting>
 <screen>Python error: KeyError: 'missing'.
@@ -89,15 +90,16 @@ error with its code and message, any other condition with its description,
 This holds for any condition the Rexx code raises and does not trap: USER,
 NOTREADY, ERROR, FAILURE, LOSTDIGITS and the rest reach Python as a
 <literal>RexxError</literal> that Python can catch, and, if it does not,
-go back to the Rexx caller, where <literal>SIGNAL ON</literal> or
-<literal>CALL ON</literal> traps them as if no Python were in between,
+go back to the Rexx caller, where a <literal>CATCH</literal> clause,
+<literal>SIGNAL ON</literal> or <literal>CALL ON</literal> traps them as if no Python were in between,
 an ERROR or FAILURE with its RC. When the Rexx code raised the condition with
 <literal>raise ... return value</literal>, the caller gets that value, as in
 plain Rexx.</para>
 <para>A HALT is SYNTAX 4.1 by the time it leaves that Rexx code (Python sees
 <literal>Rexx error 4.1</literal>), and back in Rexx it is a HALT again,
-as if the Rexx code had raised it with no Python in between:
-<literal>SIGNAL ON HALT</literal> traps it, <literal>CALL ON HALT</literal>
+as if the Rexx code had raised it with no Python in between: a
+<literal>CATCH HALT</literal> clause or <literal>SIGNAL ON HALT</literal>
+traps it, <literal>CALL ON HALT</literal>
 runs its handler and the clause resumes with the call giving
 <literal>.nil</literal>, and a caller that does not trap HALT gets
 SYNTAX 4.1. Its description, <literal>ADDITIONAL</literal> and result are
@@ -109,8 +111,8 @@ which is a command handler like those written in Rexx
 (<xref linkend="clsPyCommandHandler" xrefstyle="select:title"/>), a condition
 goes back as from a handler written in Rexx: SYNTAX as itself, any other
 condition with its description and <literal>ADDITIONAL</literal> but not its
-result. A HALT is a HALT again there too: <literal>SIGNAL ON HALT</literal>
-traps it, <literal>CALL ON HALT</literal> resumes the command with RC 0, and
+result. A HALT is a HALT again there too: a <literal>CATCH HALT</literal>
+clause or <literal>SIGNAL ON HALT</literal> traps it, <literal>CALL ON HALT</literal> resumes the command with RC 0, and
 untrapped it ends as SYNTAX 4.1.</para>
 </section>
 

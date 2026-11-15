@@ -24,11 +24,11 @@ address calc
 
 .CommandHandler~deregister("calc")
 trace off                                 -- no trace line for the failure
-signal on failure
-'1 + 1'
-exit
-failure:
-  say condition("C") "RC" rc
+do
+  '1 + 1'
+catch c = failure
+  say c~condition "RC" rc
+end
 
 ::requires "python.cls"
 /* Output:

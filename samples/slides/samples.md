@@ -230,26 +230,26 @@ Cy 45
 
 # Python exceptions as SYNTAX 98.900: the exception, its traceback {#ex06-errors kicker="06-errors.rex"}
 
-A Python exception is a Rexx SYNTAX condition (98.900).
-
 ```rexx
-signal on syntax
-say .py~int("abc")
-say "not reached"
-exit
-
-syntax:
-  co = condition("O")
+do
+  say .py~int("abc")
+  say "not reached"
+catch co = syntax                         -- Python's except
   say "caught" co~code":" co~message
   -- the exception itself is in additional[2], its traceback (text) in [3]
   say "the exception:" .py~type(co~additional[2])~getattr("__name__")
   say "Python says:" co~additional[3]~strip("T", "0a"x)
+end
+-- (the legacy way, SIGNAL ON SYNTAX and a label, with condition("O"),
+-- traps it too)
 
 ::requires "python.cls"
 ```
 
-::: row
-::: col-3
+# Python exceptions as SYNTAX 98.900: the exception, its traceback {#ex06-errors-2 kicker="06-errors.rex"}
+
+A Python exception is a Rexx SYNTAX condition (98.900). Rexx's DO ... CATCH is Python's try ... except.
+
 [Python]{.label}
 
 ```python
@@ -259,8 +259,6 @@ except ValueError as e:
     print("caught:", e)
 ```
 
-:::
-::: col-9
 [Output]{.label}
 
 ```output
@@ -269,8 +267,6 @@ the exception: ValueError
 Python says: ValueError: invalid literal for int() with base 10: 'abc'
 ```
 
-:::
-:::
 
 # Rexx routines and objects called from Python {#ex07-callbacks kicker="07-callbacks.rex"}
 
@@ -469,11 +465,11 @@ address calc
 
 .CommandHandler~deregister("calc")
 trace off                                 -- no trace line for the failure
-signal on failure
-'1 + 1'
-exit
-failure:
-  say condition("C") "RC" rc
+do
+  '1 + 1'
+catch c = failure
+  say c~condition "RC" rc
+end
 
 ::requires "python.cls"
 ```
