@@ -941,8 +941,9 @@ def make(bases, name, specs, rexx_class, new_for):
     rc = handler~invoke("__call__", .py~str(command), caller)   -- the command always a str
   -- a condition Python raised again (an oorexx.RexxError) reaches the issuer
   -- as a Rexx handler's would: SYNTAX itself; any other through the
-  -- context, its DESCRIPTION and ADDITIONAL kept (its RESULT is lost, as
-  -- with a Rexx handler).  A HALT that Rexx code the handler called left
+  -- context, its DESCRIPTION and ADDITIONAL kept (its RESULT, the v of a
+  -- RAISE ... RETURN v, is the command's RC, as the value a Rexx handler
+  -- returns).  A HALT that Rexx code the handler called left
   -- untrapped is a HALT for the issuer, not SYNTAX 4.1: there is Python code
   -- in between, and the bridge raises it again, so it falls here
   -- (SIGNAL ON HALT traps it, CALL ON HALT resumes with RC 0, untrapped it

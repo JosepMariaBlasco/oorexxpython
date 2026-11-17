@@ -76,15 +76,21 @@ return testResult
   -- self~request is Python's (Object's REQUEST needs an argument)
   s = .py~import("socketserver")
   srv = s~TCPServer~new(.py~tuple(("127.0.0.1", 0)), .SubEcho~pyClass)
-  port = srv~server_address[1]
-  t = .py~import("threading")~Thread~new(.py~kw("target", srv~getattr("handle_request")))
-  t~start
-  sock = .py~import("socket")~create_connection(.py~tuple(("127.0.0.1", port)))
-  sock~sendall(.py~box("bytes", "hello"))
-  self~assertSame("echo: hello", sock~recv(100))
-  sock~close
-  t~join
-  srv~server_close
+  do
+    port = srv~server_address[1]
+    t = .py~import("threading")~Thread~new(.py~kw("target", srv~getattr("handle_request")))
+    t~start
+    sock = .py~import("socket")~create_connection(.py~tuple(("127.0.0.1", port)))
+    do
+      sock~sendall(.py~box("bytes", "hello"))
+      self~assertSame("echo: hello", sock~recv(100))
+    finally
+      sock~close
+    end
+    t~join
+  finally                               -- Python's with, twice
+    srv~server_close
+  end
 
 ::method test_sequence_mixins
   -- only __getitem__ and __len__ in Rexx; IndexError (.py~raise) ends it

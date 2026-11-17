@@ -359,7 +359,7 @@ print(0.1 + 0.2, Decimal("0.1") + Decimal("0.2"))
 :::
 :::
 
-# Rexx threads and a Python thread pool, together {#ex09-threads kicker="09-threads.rex"}
+# Rexx threads and a Python thread pool, together; `DO ... FINALLY` for Python's `with` {#ex09-threads kicker="09-threads.rex"}
 
 ```rexx
 workers = .array~new
@@ -372,11 +372,15 @@ do w over workers
 end
 say total
 
--- and Python's thread pool calling a Rexx routine
+-- and Python's thread pool calling a Rexx routine; Rexx's DO ... FINALLY is
+-- Python's with: the pool is shut down however the block ends
 cf = .py~import("concurrent.futures")
 ex = cf~ThreadPoolExecutor(4)
-say .py~sum(ex~map(.context~package~findRoutine("sumTo"), (10, 100, 1000, 10000)))
-ex~shutdown
+do
+  say .py~sum(ex~map(.context~package~findRoutine("sumTo"), (10, 100, 1000, 10000)))
+finally
+  ex~shutdown
+end
 
 ::class Summer
 ::method sumTo
@@ -388,7 +392,7 @@ ex~shutdown
 ::requires "python.cls"
 ```
 
-# Rexx threads and a Python thread pool, together {#ex09-threads-2 kicker="09-threads.rex"}
+# Rexx threads and a Python thread pool, together; `DO ... FINALLY` for Python's `with` {#ex09-threads-2 kicker="09-threads.rex"}
 
 Rexx threads and Python threads, together. Each Rexx thread (START) calls Python; the bridge takes Python's GIL for the call, and releases it while Python runs Rexx code.
 
@@ -620,25 +624,28 @@ print(st.mean(data), st.median(data), st.mode(data), st.pstdev(data))
 
 # `sqlite3`: an in-memory SQL database {#ex13-sqlite3 kicker="13-sqlite3.rex"}
 
-An SQL database with Python's sqlite3 module.
-
 ```rexx
 sqlite3 = .py~import("sqlite3")
 db = sqlite3~connect(":memory:")
-db~execute("create table langs (name text, year int)")
-rows = ("Rexx", 1979), ("Python", 1991), ("ooRexx", 2004)
-db~executemany("insert into langs values (?, ?)", rows)
-do row over db~execute("select name, year from langs order by year")
-  say row[0]~left(8) row[1]
+do
+  db~execute("create table langs (name text, year int)")
+  rows = ("Rexx", 1979), ("Python", 1991), ("ooRexx", 2004)
+  db~executemany("insert into langs values (?, ?)", rows)
+  do row over db~execute("select name, year from langs order by year")
+    say row[0]~left(8) row[1]
+  end
+  say db~execute("select count(*) from langs")~fetchone[0] "rows"
+finally                                   -- closed however the block ends
+  db~close
 end
-say db~execute("select count(*) from langs")~fetchone[0] "rows"
-db~close
 
 ::requires "python.cls"
 ```
 
-::: row
-::: col-9
+# `sqlite3`: an in-memory SQL database {#ex13-sqlite3-2 kicker="13-sqlite3.rex"}
+
+An SQL database with Python's sqlite3 module.
+
 [Python]{.label}
 
 ```python
@@ -648,10 +655,9 @@ db.execute("create table langs (name text, year int)")
 db.executemany("insert into langs values (?, ?)", [("Rexx", 1979), ("Python", 1991)])
 for name, year in db.execute("select name, year from langs order by year"):
     print(name, year)
+db.close()
 ```
 
-:::
-::: col-3
 [Output]{.label}
 
 ```output
@@ -661,8 +667,6 @@ ooRexx   2004
 3 rows
 ```
 
-:::
-:::
 
 # `datetime`: dates, timedelta, date arithmetic {#ex14-datetime kicker="14-datetime.rex"}
 

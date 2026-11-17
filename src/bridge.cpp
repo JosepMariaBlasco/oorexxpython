@@ -1855,8 +1855,9 @@ static bool raiseAgain(RexxSide &side, PyError &err, bool *halted, RexxObjectPtr
     // error propagated).  Rexx code that did RAISE ... RETURN v (or EXIT v)
     // gave the call v with the condition pending: the call returns v too,
     // and the caller gets it, untrapped and under CALL ON, as in plain Rexx
-    // (#2130, r13339: the method's own value is kept when the condition has
-    // no RESULT; Callbacks.testGroup, test_raise_return_value).
+    // (#2130, r13339: the method's own value is kept; since r13522, #2174,
+    // v is also the condition's RESULT, for every condition;
+    // Callbacks.testGroup, test_raise_return_value).
     *value = val;
     c->RaiseConditionObject(d);
     return true;
@@ -3498,7 +3499,7 @@ static PyObject *registerHandler(Inst *inst, PyObject *nameObj, PyObject *handle
             }
             if (core == NULLOBJECT || ours == NULLOBJECT)
             {
-                error = "add_command_environment: this ooRexx has no .CommandHandler (5.3.0 r13517 or later is needed)";
+                error = "add_command_environment: this ooRexx has no .CommandHandler (5.3.0 r13535 or later is needed)";
                 return NULLOBJECT;
             }
             RexxObjectPtr h = tc->SendMessage1(ours, "NEW", tc->ArrayAt(rargs, 2));
@@ -3541,7 +3542,7 @@ static PyObject *interpreterRemoveEnvironment(PyObject *self, PyObject *args)
             }
             if (core == NULLOBJECT)
             {
-                error = "remove_command_environment: this ooRexx has no .CommandHandler (5.3.0 r13517 or later is needed)";
+                error = "remove_command_environment: this ooRexx has no .CommandHandler (5.3.0 r13535 or later is needed)";
                 return NULLOBJECT;
             }
             return tc->SendMessage1(core, "DEREGISTER", tc->ArrayAt(rargs, 1));

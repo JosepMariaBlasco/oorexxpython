@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="generator" content="md2slides v399">
+<meta name="generator" content="md2slides v403">
 <title>ooRexx/Python in a nutshell</title>
 <!-- IBM Plex (SIL OFL, open source): the family Rony's ODP decks are authored
      in. Loaded from Google Fonts so the deck-dominant font vote (font-prose /
@@ -1347,6 +1347,24 @@ div.sourceCode > pre { font-size: calc(var(--skin-code-size) * var(--contents-sc
   min-width: 0;
 }
 .slide .tree-folders .tree-node.spot-mark { padding: 0 .15em; }
+/* In columns (v403; Rony, 15-Nov: the folder tree "for class hierarchies",  */
+/* his 051 #3): the root's children in flow=N columns, or from each .break,  */
+/* side by side at their own width, --skin-tree-folder-gap (2em) apart, a   */
+/* little below the root, for the rail that joins their trunks to its own.  */
+.slide .tree-folders .tree-cols {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--skin-tree-folder-gap, 2em);
+  margin-top: calc(var(--tree-folder-row) + .45em);
+}
+.slide .tree-folders .tree-col { display: block; min-width: 0; }
+/* A name in a hatched region keeps the ground of a node under it, as a box */
+/* does in the other layouts (see-through as theirs, Rony 07-Oct): the     */
+/* strokes go round it, not through it.                                    */
+.slide .tree-folders .tree-node.spot-in-hatch {
+  --tree-node-ground: color-mix(in srgb, var(--skin-tree-node-bg, var(--skin-bg))
+                      calc(var(--skin-tree-node-opacity, .85) * 100%), transparent);
+}
 /* icons (v378): a folder or a page before the name, in the accent. A     */
 /* mask, so it takes the colour of the skin (and a mark's ink over it).   */
 .tree-folders.icons .tree-folder::before,
@@ -3362,15 +3380,19 @@ html.sk-on #ed-bar .ed-panel { max-height: calc(100vh - 80px); overflow-y: auto;
   display: none;
 }
 html.ed-on.ms-on #ms-layer { display: block; }
-#ms-layer .ms-box { fill: rgba(43, 125, 225, 0.06); stroke: #2a7de1; stroke-width: 1; stroke-dasharray: 5 4; }
+/* (v402; Rony, 15/11) every outline dotted, over a white line so that it  */
+/* shows on any ground; its shade, by depth, is set on it by master.js.     */
+#ms-layer .ms-halo { fill: none; stroke: #fff; stroke-width: 3; opacity: 0.85; }
+#ms-layer .ms-box { fill: none; stroke: #000; stroke-width: 1.5; stroke-dasharray: 1.5 3; stroke-linecap: round; }
 #ms-layer .ms-sel .ms-box { fill: rgba(238, 102, 0, 0.10); stroke: #e60; stroke-width: 2; stroke-dasharray: none; }
-#ms-layer .ms-label {
-  font: 12px ui-monospace, monospace;
-  fill: #fff;
-  paint-order: stroke;
-  stroke: #222;
-  stroke-width: 3px;
+/* The names: black on white, monospace, with no outline of their own. */
+#ms-layer text.ms-label {
+  font: 12px ui-monospace, "DejaVu Sans Mono", Menlo, Consolas, monospace !important;
+  fill: #000 !important;
+  stroke: none !important;
+  paint-order: normal;
 }
+#ms-layer .ms-label-bg { fill: #fff; stroke: #000; stroke-width: 0.75; }
 #ms-layer .ms-handle { fill: #fff; stroke: #e60; stroke-width: 2; }
 @media print {
   #ms-layer { display: none !important; }
@@ -5005,11 +5027,11 @@ HELLO!
      <div class="chrome"></div>
   </section>
 
-  <section class="slide logo-oorexx" id="ex09-threads" data-title="Rexx threads and a Python thread pool, together">
+  <section class="slide logo-oorexx" id="ex09-threads" data-title="Rexx threads and a Python thread pool, together; DO ... FINALLY for Python's with">
     <p class="kicker">09-threads.rex</p>
 
 <div class="title">
-<p>Rexx threads and a Python thread pool, together</p>
+<p>Rexx threads and a Python thread pool, together; <code>DO ... FINALLY</code> for Python's <code>with</code></p>
 </div>
 <div id="rx9" class="code highlight-rexx-tokio-day rx-blockwrap">
 <pre><code><span id="rx9-1"><a href="#rx9-1" aria-hidden="true" tabindex="-1"></a><span class="rx-var">workers</span><span class="rx-ws"> </span><span class="rx-asg">=</span><span class="rx-ws"> </span><span class="rx-env">.array</span><span class="rx-op">~</span><span class="rx-const rx-method">new</span></span>
@@ -5022,20 +5044,24 @@ HELLO!
 <span id="rx9-8"><a href="#rx9-8" aria-hidden="true" tabindex="-1"></a><span class="rx-kw">end</span></span>
 <span id="rx9-9"><a href="#rx9-9" aria-hidden="true" tabindex="-1"></a><span class="rx-kw">say</span><span class="rx-ws"> </span><span class="rx-var">total</span></span>
 <span id="rx9-10"><a href="#rx9-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="rx9-11"><a href="#rx9-11" aria-hidden="true" tabindex="-1"></a><span class="rx-lncm">-- and Python's thread pool calling a Rexx routine</span></span>
-<span id="rx9-12"><a href="#rx9-12" aria-hidden="true" tabindex="-1"></a><span class="rx-var">cf</span><span class="rx-ws"> </span><span class="rx-asg">=</span><span class="rx-ws"> </span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">import</span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">concurrent.futures</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">)</span></span>
-<span id="rx9-13"><a href="#rx9-13" aria-hidden="true" tabindex="-1"></a><span class="rx-var">ex</span><span class="rx-ws"> </span><span class="rx-asg">=</span><span class="rx-ws"> </span><span class="rx-var">cf</span><span class="rx-op">~</span><span class="rx-const rx-method">ThreadPoolExecutor</span><span class="rx-spe">(</span><span class="rx-int rx-ipart">4</span><span class="rx-spe">)</span></span>
-<span id="rx9-14"><a href="#rx9-14" aria-hidden="true" tabindex="-1"></a><span class="rx-kw">say</span><span class="rx-ws"> </span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">sum</span><span class="rx-spe">(</span><span class="rx-var">ex</span><span class="rx-op">~</span><span class="rx-const rx-method">map</span><span class="rx-spe">(</span><span class="rx-env">.context</span><span class="rx-op">~</span><span class="rx-const rx-method">package</span><span class="rx-op">~</span><span class="rx-const rx-method">findRoutine</span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">sumTo</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">)</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-spe">(</span><span class="rx-int rx-ipart">10</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-int rx-ipart">100</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-int rx-ipart">1000</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-int rx-ipart">10000</span><span class="rx-spe">)</span><span class="rx-spe">)</span><span class="rx-spe">)</span></span>
-<span id="rx9-15"><a href="#rx9-15" aria-hidden="true" tabindex="-1"></a><span class="rx-var">ex</span><span class="rx-op">~</span><span class="rx-const rx-method">shutdown</span></span>
-<span id="rx9-16"><a href="#rx9-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="rx9-17"><a href="#rx9-17" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">class</span><span class="rx-ws"> </span><span class="rx-const rx-class">Summer</span></span>
-<span id="rx9-18"><a href="#rx9-18" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">method</span><span class="rx-ws"> </span><span class="rx-const rx-method">sumTo</span></span>
-<span id="rx9-19"><a href="#rx9-19" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">return</span><span class="rx-ws"> </span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">sum</span><span class="rx-spe">(</span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">range</span><span class="rx-spe">(</span><span class="rx-const rx-bif-func">arg</span><span class="rx-spe">(</span><span class="rx-int rx-ipart">1</span><span class="rx-spe">)</span><span class="rx-spe">)</span><span class="rx-spe">)</span></span>
+<span id="rx9-11"><a href="#rx9-11" aria-hidden="true" tabindex="-1"></a><span class="rx-lncm">-- and Python's thread pool calling a Rexx routine; Rexx's DO ... FINALLY is</span></span>
+<span id="rx9-12"><a href="#rx9-12" aria-hidden="true" tabindex="-1"></a><span class="rx-lncm">-- Python's with: the pool is shut down however the block ends</span></span>
+<span id="rx9-13"><a href="#rx9-13" aria-hidden="true" tabindex="-1"></a><span class="rx-var">cf</span><span class="rx-ws"> </span><span class="rx-asg">=</span><span class="rx-ws"> </span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">import</span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">concurrent.futures</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">)</span></span>
+<span id="rx9-14"><a href="#rx9-14" aria-hidden="true" tabindex="-1"></a><span class="rx-var">ex</span><span class="rx-ws"> </span><span class="rx-asg">=</span><span class="rx-ws"> </span><span class="rx-var">cf</span><span class="rx-op">~</span><span class="rx-const rx-method">ThreadPoolExecutor</span><span class="rx-spe">(</span><span class="rx-int rx-ipart">4</span><span class="rx-spe">)</span></span>
+<span id="rx9-15"><a href="#rx9-15" aria-hidden="true" tabindex="-1"></a><span class="rx-kw">do</span></span>
+<span id="rx9-16"><a href="#rx9-16" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">say</span><span class="rx-ws"> </span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">sum</span><span class="rx-spe">(</span><span class="rx-var">ex</span><span class="rx-op">~</span><span class="rx-const rx-method">map</span><span class="rx-spe">(</span><span class="rx-env">.context</span><span class="rx-op">~</span><span class="rx-const rx-method">package</span><span class="rx-op">~</span><span class="rx-const rx-method">findRoutine</span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">sumTo</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">)</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-spe">(</span><span class="rx-int rx-ipart">10</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-int rx-ipart">100</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-int rx-ipart">1000</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-int rx-ipart">10000</span><span class="rx-spe">)</span><span class="rx-spe">)</span><span class="rx-spe">)</span></span>
+<span id="rx9-17"><a href="#rx9-17" aria-hidden="true" tabindex="-1"></a><span class="rx-kw">finally</span></span>
+<span id="rx9-18"><a href="#rx9-18" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-var">ex</span><span class="rx-op">~</span><span class="rx-const rx-method">shutdown</span></span>
+<span id="rx9-19"><a href="#rx9-19" aria-hidden="true" tabindex="-1"></a><span class="rx-kw">end</span></span>
 <span id="rx9-20"><a href="#rx9-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="rx9-21"><a href="#rx9-21" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">routine</span><span class="rx-ws"> </span><span class="rx-const rx-routine">sumTo</span></span>
-<span id="rx9-22"><a href="#rx9-22" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">return</span><span class="rx-ws"> </span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">sum</span><span class="rx-spe">(</span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">range</span><span class="rx-spe">(</span><span class="rx-const rx-bif-func">arg</span><span class="rx-spe">(</span><span class="rx-int rx-ipart">1</span><span class="rx-spe">)</span><span class="rx-spe">)</span><span class="rx-spe">)</span></span>
-<span id="rx9-23"><a href="#rx9-23" aria-hidden="true" tabindex="-1"></a></span>
-<span id="rx9-24"><a href="#rx9-24" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">requires</span><span class="rx-ws"> </span><span class="rx-const rx-requires rx-oquo">"</span><span class="rx-const rx-requires">python.cls</span><span class="rx-const rx-requires rx-cquo">"</span></span></code></pre>
+<span id="rx9-21"><a href="#rx9-21" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">class</span><span class="rx-ws"> </span><span class="rx-const rx-class">Summer</span></span>
+<span id="rx9-22"><a href="#rx9-22" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">method</span><span class="rx-ws"> </span><span class="rx-const rx-method">sumTo</span></span>
+<span id="rx9-23"><a href="#rx9-23" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">return</span><span class="rx-ws"> </span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">sum</span><span class="rx-spe">(</span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">range</span><span class="rx-spe">(</span><span class="rx-const rx-bif-func">arg</span><span class="rx-spe">(</span><span class="rx-int rx-ipart">1</span><span class="rx-spe">)</span><span class="rx-spe">)</span><span class="rx-spe">)</span></span>
+<span id="rx9-24"><a href="#rx9-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="rx9-25"><a href="#rx9-25" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">routine</span><span class="rx-ws"> </span><span class="rx-const rx-routine">sumTo</span></span>
+<span id="rx9-26"><a href="#rx9-26" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">return</span><span class="rx-ws"> </span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">sum</span><span class="rx-spe">(</span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">range</span><span class="rx-spe">(</span><span class="rx-const rx-bif-func">arg</span><span class="rx-spe">(</span><span class="rx-int rx-ipart">1</span><span class="rx-spe">)</span><span class="rx-spe">)</span><span class="rx-spe">)</span></span>
+<span id="rx9-27"><a href="#rx9-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="rx9-28"><a href="#rx9-28" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">requires</span><span class="rx-ws"> </span><span class="rx-const rx-requires rx-oquo">"</span><span class="rx-const rx-requires">python.cls</span><span class="rx-const rx-requires rx-cquo">"</span></span></code></pre>
 </div>
     <div class="margin header">
       <div class="m-left"></div>
@@ -5050,11 +5076,11 @@ HELLO!
      <div class="chrome"></div>
   </section>
 
-  <section class="slide logo-oorexx" id="ex09-threads-2" data-title="Rexx threads and a Python thread pool, together">
+  <section class="slide logo-oorexx" id="ex09-threads-2" data-title="Rexx threads and a Python thread pool, together; DO ... FINALLY for Python's with">
     <p class="kicker">09-threads.rex</p>
 
 <div class="title">
-<p>Rexx threads and a Python thread pool, together</p>
+<p>Rexx threads and a Python thread pool, together; <code>DO ... FINALLY</code> for Python's <code>with</code></p>
 </div>
 <div class="body">
 <p>Rexx threads and Python threads, together. Each Rexx thread (START) calls Python; the bridge takes Python's GIL for the call, and releases it while Python runs Rexx code.</p>
@@ -5402,41 +5428,58 @@ total,175</code></pre>
 <div class="title">
 <p><code>sqlite3</code>: an in-memory SQL database</p>
 </div>
-<div class="body">
-<p>An SQL database with Python's sqlite3 module.</p>
-</div>
 <div id="rx15" class="code highlight-rexx-tokio-day rx-blockwrap">
 <pre><code><span id="rx15-1"><a href="#rx15-1" aria-hidden="true" tabindex="-1"></a><span class="rx-var">sqlite3</span><span class="rx-ws"> </span><span class="rx-asg">=</span><span class="rx-ws"> </span><span class="rx-env">.py</span><span class="rx-op">~</span><span class="rx-const rx-method">import</span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">sqlite3</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">)</span></span>
 <span id="rx15-2"><a href="#rx15-2" aria-hidden="true" tabindex="-1"></a><span class="rx-var">db</span><span class="rx-ws"> </span><span class="rx-asg">=</span><span class="rx-ws"> </span><span class="rx-var">sqlite3</span><span class="rx-op">~</span><span class="rx-const rx-method">connect</span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">:memory:</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">)</span></span>
-<span id="rx15-3"><a href="#rx15-3" aria-hidden="true" tabindex="-1"></a><span class="rx-var">db</span><span class="rx-op">~</span><span class="rx-const rx-method">execute</span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">create table langs (name text, year int)</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">)</span></span>
-<span id="rx15-4"><a href="#rx15-4" aria-hidden="true" tabindex="-1"></a><span class="rx-var">rows</span><span class="rx-ws"> </span><span class="rx-asg">=</span><span class="rx-ws"> </span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">Rexx</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-int rx-ipart">1979</span><span class="rx-spe">)</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">Python</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-int rx-ipart">1991</span><span class="rx-spe">)</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">ooRexx</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-int rx-ipart">2004</span><span class="rx-spe">)</span></span>
-<span id="rx15-5"><a href="#rx15-5" aria-hidden="true" tabindex="-1"></a><span class="rx-var">db</span><span class="rx-op">~</span><span class="rx-const rx-method">executemany</span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">insert into langs values (?, ?)</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-var">rows</span><span class="rx-spe">)</span></span>
-<span id="rx15-6"><a href="#rx15-6" aria-hidden="true" tabindex="-1"></a><span class="rx-kw">do</span><span class="rx-ws"> </span><span class="rx-var">row</span><span class="rx-ws"> </span><span class="rx-skw">over</span><span class="rx-ws"> </span><span class="rx-var">db</span><span class="rx-op">~</span><span class="rx-const rx-method">execute</span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">select name, year from langs order by year</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">)</span></span>
-<span id="rx15-7"><a href="#rx15-7" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">say</span><span class="rx-ws"> </span><span class="rx-var">row</span><span class="rx-spe">[</span><span class="rx-int rx-ipart">0</span><span class="rx-spe">]</span><span class="rx-op">~</span><span class="rx-const rx-method">left</span><span class="rx-spe">(</span><span class="rx-int rx-ipart">8</span><span class="rx-spe">)</span><span class="rx-op"> </span><span class="rx-var">row</span><span class="rx-spe">[</span><span class="rx-int rx-ipart">1</span><span class="rx-spe">]</span></span>
-<span id="rx15-8"><a href="#rx15-8" aria-hidden="true" tabindex="-1"></a><span class="rx-kw">end</span></span>
-<span id="rx15-9"><a href="#rx15-9" aria-hidden="true" tabindex="-1"></a><span class="rx-kw">say</span><span class="rx-ws"> </span><span class="rx-var">db</span><span class="rx-op">~</span><span class="rx-const rx-method">execute</span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">select count(*) from langs</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">)</span><span class="rx-op">~</span><span class="rx-const rx-method">fetchone</span><span class="rx-spe">[</span><span class="rx-int rx-ipart">0</span><span class="rx-spe">]</span><span class="rx-op"> </span><span class="rx-str rx-oquo">"</span><span class="rx-str">rows</span><span class="rx-str rx-cquo">"</span></span>
-<span id="rx15-10"><a href="#rx15-10" aria-hidden="true" tabindex="-1"></a><span class="rx-var">db</span><span class="rx-op">~</span><span class="rx-const rx-method">close</span></span>
-<span id="rx15-11"><a href="#rx15-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="rx15-12"><a href="#rx15-12" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">requires</span><span class="rx-ws"> </span><span class="rx-const rx-requires rx-oquo">"</span><span class="rx-const rx-requires">python.cls</span><span class="rx-const rx-requires rx-cquo">"</span></span></code></pre>
+<span id="rx15-3"><a href="#rx15-3" aria-hidden="true" tabindex="-1"></a><span class="rx-kw">do</span></span>
+<span id="rx15-4"><a href="#rx15-4" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-var">db</span><span class="rx-op">~</span><span class="rx-const rx-method">execute</span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">create table langs (name text, year int)</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">)</span></span>
+<span id="rx15-5"><a href="#rx15-5" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-var">rows</span><span class="rx-ws"> </span><span class="rx-asg">=</span><span class="rx-ws"> </span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">Rexx</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-int rx-ipart">1979</span><span class="rx-spe">)</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">Python</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-int rx-ipart">1991</span><span class="rx-spe">)</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">ooRexx</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-int rx-ipart">2004</span><span class="rx-spe">)</span></span>
+<span id="rx15-6"><a href="#rx15-6" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-var">db</span><span class="rx-op">~</span><span class="rx-const rx-method">executemany</span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">insert into langs values (?, ?)</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">,</span><span class="rx-ws"> </span><span class="rx-var">rows</span><span class="rx-spe">)</span></span>
+<span id="rx15-7"><a href="#rx15-7" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">do</span><span class="rx-ws"> </span><span class="rx-var">row</span><span class="rx-ws"> </span><span class="rx-skw">over</span><span class="rx-ws"> </span><span class="rx-var">db</span><span class="rx-op">~</span><span class="rx-const rx-method">execute</span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">select name, year from langs order by year</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">)</span></span>
+<span id="rx15-8"><a href="#rx15-8" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">    </span><span class="rx-kw">say</span><span class="rx-ws"> </span><span class="rx-var">row</span><span class="rx-spe">[</span><span class="rx-int rx-ipart">0</span><span class="rx-spe">]</span><span class="rx-op">~</span><span class="rx-const rx-method">left</span><span class="rx-spe">(</span><span class="rx-int rx-ipart">8</span><span class="rx-spe">)</span><span class="rx-op"> </span><span class="rx-var">row</span><span class="rx-spe">[</span><span class="rx-int rx-ipart">1</span><span class="rx-spe">]</span></span>
+<span id="rx15-9"><a href="#rx15-9" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">end</span></span>
+<span id="rx15-10"><a href="#rx15-10" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-kw">say</span><span class="rx-ws"> </span><span class="rx-var">db</span><span class="rx-op">~</span><span class="rx-const rx-method">execute</span><span class="rx-spe">(</span><span class="rx-str rx-oquo">"</span><span class="rx-str">select count(*) from langs</span><span class="rx-str rx-cquo">"</span><span class="rx-spe">)</span><span class="rx-op">~</span><span class="rx-const rx-method">fetchone</span><span class="rx-spe">[</span><span class="rx-int rx-ipart">0</span><span class="rx-spe">]</span><span class="rx-op"> </span><span class="rx-str rx-oquo">"</span><span class="rx-str">rows</span><span class="rx-str rx-cquo">"</span></span>
+<span id="rx15-11"><a href="#rx15-11" aria-hidden="true" tabindex="-1"></a><span class="rx-kw">finally</span><span class="rx-ws">                                   </span><span class="rx-lncm">-- closed however the block ends</span></span>
+<span id="rx15-12"><a href="#rx15-12" aria-hidden="true" tabindex="-1"></a><span class="rx-ws">  </span><span class="rx-var">db</span><span class="rx-op">~</span><span class="rx-const rx-method">close</span></span>
+<span id="rx15-13"><a href="#rx15-13" aria-hidden="true" tabindex="-1"></a><span class="rx-kw">end</span></span>
+<span id="rx15-14"><a href="#rx15-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="rx15-15"><a href="#rx15-15" aria-hidden="true" tabindex="-1"></a><span class="rx-dir">::</span><span class="rx-dkw">requires</span><span class="rx-ws"> </span><span class="rx-const rx-requires rx-oquo">"</span><span class="rx-const rx-requires">python.cls</span><span class="rx-const rx-requires rx-cquo">"</span></span></code></pre>
 </div>
-<div class="row">
-<div class="col-9">
+    <div class="margin header">
+      <div class="m-left"></div>
+      <div class="m-center"></div>
+      <div class="m-right"></div>
+    </div>
+    <div class="margin footer">
+      <div class="m-left">{page}</div>
+      <div class="m-center"></div>
+      <div class="m-right"></div>
+    </div>
+     <div class="chrome"></div>
+  </section>
+
+  <section class="slide logo-oorexx" id="ex13-sqlite3-2" data-title="sqlite3: an in-memory SQL database">
+    <p class="kicker">13-sqlite3.rex</p>
+
+<div class="title">
+<p><code>sqlite3</code>: an in-memory SQL database</p>
+</div>
+<div class="body">
+<p>An SQL database with Python's sqlite3 module.</p>
+</div>
 <p class="label">Python</p>
 <div class="sourceCode" id="cb29"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> sqlite3</span>
 <span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>db <span class="op">=</span> sqlite3.<span class="ex">connect</span>(<span class="st">&quot;:memory:&quot;</span>)</span>
 <span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a>db.execute(<span class="st">&quot;create table langs (name text, year int)&quot;</span>)</span>
 <span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a>db.executemany(<span class="st">&quot;insert into langs values (?, ?)&quot;</span>, [(<span class="st">&quot;Rexx&quot;</span>, <span class="dv">1979</span>), (<span class="st">&quot;Python&quot;</span>, <span class="dv">1991</span>)])</span>
 <span id="cb29-5"><a href="#cb29-5" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> name, year <span class="kw">in</span> db.execute(<span class="st">&quot;select name, year from langs order by year&quot;</span>):</span>
-<span id="cb29-6"><a href="#cb29-6" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(name, year)</span></code></pre></div>
-</div>
-<div class="col-3">
+<span id="cb29-6"><a href="#cb29-6" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(name, year)</span>
+<span id="cb29-7"><a href="#cb29-7" aria-hidden="true" tabindex="-1"></a>db.close()</span></code></pre></div>
 <p class="label">Output</p>
 <pre class="output"><code>Rexx     1979
 Python   1991
 ooRexx   2004
 3 rows</code></pre>
-</div>
-</div>
     <div class="margin header">
       <div class="m-left"></div>
       <div class="m-center"></div>
@@ -6655,7 +6698,7 @@ ooRexx 1</code></pre>
   <div id="progress"></div>
 </div>
 <script type="application/json" id="build-warnings">[]</script>
-<script type="application/json" id="deck-about">{"print":false,"groups":{"deck":true,"system":true,"command":true,"links":true,"timing":true,"path":false},"deck":{"file":"samples.md","size":"38146","modified":"2026-11-15 16:57:18","built":"2026-11-15 16:57:50","seconds":"4.0","skin":"skin-default.css","masters":"master-default.css"},"system":{"os":"Linux 6.18.44-fc-v470 x86_64","oorexx":"REXX-ooRexx_5.3.0(MT)_64-bit 6.07 15 Nov 2026","pandoc":"pandoc 3.1.3","parser":"v399 (Rexx Parser beta 0.7, refresh 20261115)"},"command":"md2slides samples.md","links":[["ooRexx","https://www.oorexx.org/"],["ooRexx on Wikipedia","https://en.wikipedia.org/wiki/Object_REXX"],["ooRexx sources","https://sourceforge.net/projects/oorexx/"],["Pandoc","https://pandoc.org/"],["The Rexx Parser (md2slides is part of it)","https://rexx.epbcn.com/rexx-parser/"],["The md2slides manual","https://rexx.epbcn.com/rexx-parser/doc/utilities/md2slides/"]]}</script>
+<script type="application/json" id="deck-about">{"print":false,"groups":{"deck":true,"system":true,"command":true,"links":true,"timing":true,"path":false},"deck":{"file":"samples.md","size":"38481","modified":"2026-11-17 13:06:03","built":"2026-11-17 13:06:22","seconds":"3.9","skin":"skin-default.css","masters":"master-default.css"},"system":{"os":"Linux 6.18.44-fc-v553 x86_64","oorexx":"REXX-ooRexx_5.3.0(MT)_64-bit 6.07 17 Nov 2026","pandoc":"pandoc 3.1.3","parser":"v403 (Rexx Parser beta 0.7, refresh 20261117)"},"command":"md2slides samples.md","links":[["ooRexx","https://www.oorexx.org/"],["ooRexx on Wikipedia","https://en.wikipedia.org/wiki/Object_REXX"],["ooRexx sources","https://sourceforge.net/projects/oorexx/"],["Pandoc","https://pandoc.org/"],["The Rexx Parser (md2slides is part of it)","https://rexx.epbcn.com/rexx-parser/"],["The md2slides manual","https://rexx.epbcn.com/rexx-parser/doc/utilities/md2slides/"]]}</script>
 <script type="application/json" id="deck-timer">{"total":null,"warn":[300,60],"interval":10,"where":"footer","seconds":180,"sound":false,"record":false,"pauseMessage":"","countdownMessage":""}</script>
 <script type="application/json" id="deck-edit">null</script>
 <script type="application/json" id="deck-source-lines">null</script>
@@ -7153,6 +7196,8 @@ ooRexx 1</code></pre>
       if (label) hull.spotLabel = label;
       nodes.forEach(function (n) {
         hull.spotNodes.push(n);
+        /* (v403) a name in a hatched region keeps a ground (layout=folders) */
+        if (hull.getAttribute("data-spot-style") === "hatch") n.classList.add("spot-in-hatch");
         var rest = n.getAttribute("data-spot-beat").split(/\s+/).filter(function (b) {
           return b && b !== beat;
         });
@@ -12292,42 +12337,115 @@ ooRexx 1</code></pre>
              r: Math.min(r.r, sr.right - m), b: Math.min(r.b, sr.bottom - m) };
   }
 
+  /* Stacked outlines (v402; Rony, 15/11: "if elements are stacked, show  */
+  /* the front in black and the ones underneath them in ever slighter grey */
+  /* depending on the depth"). What is under what is not known for a part  */
+  /* the master paints with a pseudo-element, so the rule is the one the   */
+  /* eye uses: of two outlines that overlap, the smaller is in front. The  */
+  /* depth of an outline is how many smaller ones overlap it.               */
+  var SHADES = ["#000", "#555", "#888", "#aaa", "#c4c4c4"];
+  function depths(rs) {
+    var area = rs.map(function (r) { return (r.r - r.l) * (r.b - r.t); });
+    return rs.map(function (r, i) {
+      var d = 0;
+      rs.forEach(function (o, j) {
+        if (j === i || !(o.l < r.r && r.l < o.r && o.t < r.b && r.t < o.b)) return;
+        if (area[j] < area[i] || (area[j] === area[i] && j > i)) d++;
+      });
+      return d;
+    });
+  }
+  /* An outline: dotted, in its shade, over a white line, so that it shows */
+  /* on any ground (Rony, 15/11: "a dotted border on all editable elements */
+  /* ... either in simple or expert mode, such that the user can see what  */
+  /* she can edit").                                                        */
+  function outline(g, r, depth, chosen) {
+    var a = { x: r.l, y: r.t, width: Math.max(1, r.r - r.l), height: Math.max(1, r.b - r.t) };
+    el("rect", a, g).setAttribute("class", "ms-halo");
+    var b = el("rect", a, g);
+    b.setAttribute("class", "ms-box");
+    if (!chosen) b.style.stroke = SHADES[Math.min(depth, SHADES.length - 1)];
+  }
+  /* A name, in black on white (Rony, 15/11: the outlined letters "cannot  */
+  /* be read ... maybe use a monotype font ... black on white").           */
+  function label(g, x, y, text) {
+    var t = el("text", { x: x, y: y, "class": "ms-label" }, g);
+    t.textContent = text;
+    var bb = null;
+    try { bb = t.getBBox(); } catch (e) { bb = null; }
+    if (bb && bb.width) g.insertBefore(el("rect", { x: bb.x - 3, y: bb.y - 1, width: bb.width + 6,
+      height: bb.height + 2, rx: 2, "class": "ms-label-bg" }), t);
+    return t;
+  }
+  /* What expert mode can edit: the elements of the slide, the slide too,  */
+  /* that a rule of the master applies to. At most MAXBOXES of them.       */
+  var MAXBOXES = 200;
+  function editables() {
+    var s = api.slide(), out = [];
+    if (!s) return out;
+    var all = [s].concat(Array.prototype.slice.call(s.querySelectorAll("*")));
+    for (var i = 0; i < all.length && out.length < MAXBOXES; i++) {
+      var e = all[i];
+      if (e.closest && e.closest("svg") && e.tagName.toLowerCase() !== "svg") continue;
+      var b = e.getBoundingClientRect();
+      if (b.width < 2 || b.height < 2) continue;
+      if (!rulesFor(e).length) continue;
+      out.push({ e: e, r: inside({ l: b.left, t: b.top, r: b.right, b: b.bottom }) });
+    }
+    return out;
+  }
+
   function render() {
     if (!layer) return;
     while (layer.firstChild) layer.removeChild(layer.firstChild);
     if (!on) return;
     if (expert) {
+      var ed = editables(), dx = depths(ed.map(function (x) { return x.r; }));
+      ed.map(function (x, i) { return { x: x, d: dx[i] }; })
+        .sort(function (a, b) { return b.d - a.d; })
+        .forEach(function (o) {
+          if (o.x.e === target) return;
+          outline(el("g", { "class": "ms-part" }, layer), o.x.r, o.d, false);
+        });
       if (!target) return;
       var b0 = target.getBoundingClientRect(), tg = el("g", { "class": "ms-part ms-sel" }, layer);
       var ti = inside({ l: b0.left, t: b0.top, r: b0.right, b: b0.bottom });
-      var tr = { left: ti.l, top: ti.t, width: ti.r - ti.l, height: ti.b - ti.t };
-      el("rect", { x: tr.left, y: tr.top, width: Math.max(1, tr.width), height: Math.max(1, tr.height),
-                   "class": "ms-box" }, tg);
-      var tt = el("text", { x: tr.left + 3, y: tr.top > 16 ? tr.top - 4 : tr.top + 13, "class": "ms-label" }, tg);
-      tt.textContent = describe(target);
+      outline(tg, ti, 0, true);
+      label(tg, ti.l + 3, ti.t > 16 ? ti.t - 4 : ti.t + 13, describe(target));
       return;
     }
-    var labels = [];                   /* where the names went: none on another */
+    var shown = [];
     partsHere().forEach(function (p) {
       var mine = p.id === sel;
       if (p.list && !(p.whole && mine)) return;
       var r = rectOf(p);
       if (!r) return;
-      r = inside(r);
+      shown.push({ p: p, r: inside(r), mine: mine });
+    });
+    var dp = depths(shown.map(function (x) { return x.r; }));
+    shown.forEach(function (x, i) { x.d = dp[i]; });
+    /* the deepest first, the chosen one last: the front is drawn on top */
+    var order = shown.slice().sort(function (a, b) { return (a.mine - b.mine) || (b.d - a.d); });
+    var labels = [], names = [];       /* where the names went: none on another */
+    order.forEach(function (x) {
+      var p = x.p, r = x.r, mine = x.mine;
       var g = el("g", { "class": "ms-part" + (mine ? " ms-sel" : "") }, layer);
-      el("rect", { x: r.l, y: r.t, width: Math.max(1, r.r - r.l), height: Math.max(1, r.b - r.t),
-                   "class": "ms-box" }, g);
-      var lx = r.l + 3, ly = r.t > 16 ? r.t - 4 : r.t + 13, lw = p.name.length * 7.3 + 4;
+      outline(g, r, x.d, mine);
+      var lx = r.l + 3, ly = r.t > 16 ? r.t - 4 : r.t + 13, lw = p.name.length * 7.3 + 10;
       if (p.whole) { lx = r.l + 6; ly = r.b - 8; }            /* the corners have parts */
       for (var i = 0; i < labels.length; i++) {
         var o = labels[i];
-        if (lx < o.x + o.w && o.x < lx + lw && Math.abs(ly - o.y) < 14) { lx = o.x + o.w + 6; i = -1; }
+        if (lx < o.x + o.w && o.x < lx + lw && Math.abs(ly - o.y) < 16) { lx = o.x + o.w + 6; i = -1; }
       }
       labels.push({ x: lx, y: ly, w: lw });
-      var t = el("text", { x: lx, y: ly, "class": "ms-label" }, g);
-      t.textContent = p.name;
+      names.push({ x: lx, y: ly, t: p.name, sel: mine });
       var hd = mine ? handleOf(p, r) : null;
       if (hd) el("rect", { x: hd.x - 5, y: hd.y - 5, width: 10, height: 10, "class": "ms-handle" }, g);
+    });
+    /* The names last, over every outline: one in front must not cross out */
+    /* the name of one under it.                                           */
+    names.forEach(function (n) {
+      label(el("g", { "class": "ms-part" + (n.sel ? " ms-sel" : "") }, layer), n.x, n.y, n.t);
     });
   }
 
@@ -15738,28 +15856,39 @@ ooRexx 1</code></pre>
       /* is smaller                                                        */
       var fs = parseFloat(getComputedStyle(tree).fontSize) || 16;
       var gap = (parseFloat(getComputedStyle(tree).getPropertyValue("--tree-note-gap")) || 1.2) * fs;
-      var rows = [], maxR = -Infinity;
+      /* (v403) in columns, each column has its own column of notes: the  */
+      /* widest line of the root and of that column decide where it is.   */
+      var rows = [], maxR = {}, groups = [];
+      var colOf = function (n) { return n.closest(".tree-col") || tree; };
+      var keyOf = function (c) {
+        var i = groups.indexOf(c);
+        if (i < 0) { groups.push(c); i = groups.length - 1; maxR[i] = -Infinity; }
+        return i;
+      };
       notes.forEach(function (n) {
         var b = layoutBox(n.previousElementSibling, slide);
         if (!b) return;
-        rows.push([n, b.r]);
-        maxR = Math.max(maxR, b.r);
+        var k = keyOf(colOf(n));
+        rows.push([n, b.r, k]);
+        maxR[k] = Math.max(maxR[k], b.r);
       });
       tree.querySelectorAll(".tree-node").forEach(function (n) {
-        var b = layoutBox(n, slide);
-        if (b) maxR = Math.max(maxR, b.r);
+        var b = layoutBox(n, slide), c = colOf(n);
+        if (!b) return;
+        if (c === tree) groups.forEach(function (g, i) { maxR[i] = Math.max(maxR[i], b.r); });
+        else { var k = keyOf(c); maxR[k] = Math.max(maxR[k], b.r); }
       });
       /* (v379; Rony, 03-Nov: the label "touches the notes") A hull grows   */
       /* past its nodes by its margin, and a label= may stand on end in a   */
       /* strip on its right (1.5 times the label's size, as spotlight.js    */
       /* draws it): the column starts clear of both, half a gap further.    */
       Array.prototype.forEach.call(tree.querySelectorAll(":scope > .spot-hull"), function (h) {
-        var hr = -Infinity;
+        var hr = {};
         (h.spotNodes || []).forEach(function (n) {
-          var b = layoutBox(n, slide);
-          if (b) hr = Math.max(hr, b.r);
+          var b = layoutBox(n, slide), k = keyOf(colOf(n));
+          if (b) hr[k] = Math.max(hr[k] === undefined ? -Infinity : hr[k], b.r);
         });
-        if (hr === -Infinity) return;
+        if (!Object.keys(hr).length) return;
         var hcs = getComputedStyle(h);
         var edge = parseFloat(hcs.getPropertyValue("--spot-hull-margin")) || 6;
         if (h.spotLabel) {
@@ -15768,11 +15897,11 @@ ooRexx 1</code></pre>
                     (parseFloat(v) || 0.8) * (parseFloat(hcs.fontSize) || fs);
           edge += 1.5 * lpx;
         }
-        maxR = Math.max(maxR, hr + edge - gap / 2);
+        Object.keys(hr).forEach(function (k) { maxR[k] = Math.max(maxR[k], hr[k] + edge - gap / 2); });
       });
       rows.forEach(function (x) {
         var nfs = parseFloat(getComputedStyle(x[0]).fontSize) || fs;
-        x[0].style.marginLeft = ((maxR - x[1] + gap) / nfs).toFixed(3) + "em";
+        x[0].style.marginLeft = ((maxR[x[2]] - x[1] + gap) / nfs).toFixed(3) + "em";
       });
     });
   }
@@ -15813,12 +15942,14 @@ ooRexx 1</code></pre>
         }
         /* - [String]{.break}: this item starts a column (layout=columns).  */
         /* Rony's columns are groups of their own, not a balance of heights.*/
+        /* (v403; Rony, 15-Nov: the folder tree "for class hierarchies")    */
+        /* layout=folders takes columns too.                                */
         var brk = node.querySelector(".break") || (li.classList.contains("break") ? li : null);
         if (brk) {
           var col = li.parentElement.parentElement.parentElement === top;
-          if (col && layout === "columns") li.treeBreak = true;
+          if (col && layout !== "down") li.treeBreak = true;
           else problems.push('.break on "' + node.textContent.trim() + '": only a child of the root' +
-                             ' starts a column, and only in layout=columns');
+                             ' starts a column, and only in layout=columns or layout=folders');
         }
         /* - [CircularQueue]{.under}: in layout=columns, a node straight    */
         /* under its parent, not one step in, joined by a vertical line     */
@@ -15826,7 +15957,9 @@ ooRexx 1</code></pre>
         if (node.querySelector(".under") || li.classList.contains("under")) {
           var deep = li.parentElement.closest("li");
           if (layout === "columns" && deep && deep.parentElement !== top) li.classList.add("tree-under");
-          else problems.push('.under on "' + node.textContent.trim() + '": only a node below a child of' +
+          /* (v403) in folders every node hangs under its parent already:   */
+          /* a columns tree turned into folders keeps its .under, unsaid.    */
+          else if (layout !== "folders") problems.push('.under on "' + node.textContent.trim() + '": only a node below a child of' +
                              ' the root goes straight under its parent, and only in layout=columns');
         }
         if (!node.textContent.trim() && !node.querySelector("img, svg")) {
@@ -15841,6 +15974,12 @@ ooRexx 1</code></pre>
         }
       });
       if (layout === "columns") treeColumns(tree, top);
+      /* folders in columns (v403): only when asked for, by .break or by   */
+      /* flow=N; one column stays the plain list it always was.            */
+      if (layout === "folders" &&
+          (top.querySelector("li.break, .tree-node .break") ||
+           (parseInt(getComputedStyle(tree).getPropertyValue("--flow"), 10) || 1) > 1))
+        treeColumns(tree, top);
     });
   }
 
@@ -15903,15 +16042,22 @@ ooRexx 1</code></pre>
   /*            reach that far right, from half its step left of it), and  */
   /*            in the same way.                                           */
   /*   .under:  straight down from the middle of P to the middle of C.    */
-  function treePath(layout, P, C, list, top, step, under) {
+  function treePath(layout, P, C, list, top, step, under, indent) {
     var f = function (n) { return Math.round(n * 100) / 100; };
     var px = (P.l + P.r) / 2;
     /* folders (v378): a trunk down from under the start of the parent's   */
     /* name -- its icon, when it has one -- to the middle of the child's    */
     /* line, and across to just before it: |- and L, as a file manager.    */
+    /* In columns (v403) a child of the root has the trunk of its column,  */
+    /* where the trunk of the first one stands; a rail across, half way   */
+    /* down to the columns, joins them all to the root's.                  */
     if (layout === "folders") {
       var tx = P.l + step, cy0 = (C.t + C.b) / 2;
-      return "M" + f(tx) + " " + f(P.b) + "V" + f(cy0) + "H" + f(C.l - 1);
+      var bx = top ? C.l - (indent - step) : tx;
+      if (Math.abs(bx - tx) < .5)
+        return "M" + f(tx) + " " + f(P.b) + "V" + f(cy0) + "H" + f(C.l - 1);
+      var yr = P.b + ((list ? list.t : C.t) - P.b) / 2;
+      return "M" + f(tx) + " " + f(P.b) + "V" + f(yr) + "H" + f(bx) + "V" + f(cy0) + "H" + f(C.l - 1);
     }
     if (layout === "down") {
       var cx = (C.l + C.r) / 2;
@@ -16002,10 +16148,13 @@ ooRexx 1</code></pre>
         svg.removeAttribute("viewBox");
         var path = document.createElementNS(SVGNS, "path");
         var top = parent.parentElement.classList.contains("tree-top") &&
-                  layout === "columns";
+                  (layout === "columns" || li.parentElement.classList.contains("tree-col"));
         var step = layout === "folders" ? trunk :
                    top ? parseFloat(getComputedStyle(li).paddingLeft) || 0 : 0;
-        path.setAttribute("d", treePath(layout, P, C, L, top, step, li.classList.contains("tree-under")));
+        /* folders in columns: how far in the columns' list stands */
+        var indent = layout === "folders" && top ?
+          parseFloat(getComputedStyle(li.parentElement.parentElement).marginLeft) || 0 : 0;
+        path.setAttribute("d", treePath(layout, P, C, L, top, step, li.classList.contains("tree-under"), indent));
         svg.appendChild(path);
       });
     });
@@ -16885,14 +17034,17 @@ ooRexx 1</code></pre>
   }
 
   /* A logo the master has no picture for (no --master-logo-NAME) shows as   */
-  /* nothing: d says so, on the first slide that names it.                 */
+  /* nothing: d says so, on the first slide that names it. The value is read */
+  /* on the logo itself, as the browser resolves it: a master may set it in  */
+  /* .slide, or in a rule for some slides only, not in :root (Rony, 15/11:   */
+  /* d said 'rexx' was missing while it was on the slide).                   */
   function logoProblems(slide, seen) {
-    var out = [], root = getComputedStyle(document.documentElement);
+    var out = [];
     slide.querySelectorAll(":scope > .chrome .logos .logo").forEach(function (l) {
       var n = l.getAttribute("data-logo");
       if (seen[n]) return;
       seen[n] = true;
-      if (!root.getPropertyValue("--master-logo-" + n).trim())
+      if (!getComputedStyle(l).getPropertyValue("--master-logo-" + n).trim())
         out.push("the logo '" + n + "' is not one the master has (--master-logo-" + n + "): it is not shown");
     });
     return out;
@@ -17080,7 +17232,7 @@ ooRexx 1</code></pre>
     ["&larr; &uarr; PageUp Backspace", "Back",
      [["&larr; Back", "ArrowLeft"]]],
     ["f / Shift+F", "Full screen; Shift+F: there, and the presenter's window here (Chrome, Edge)", [["f", "f"], ["Shift+F", "Shift+F"]]],
-    ["n", "The presenter's window: this slide and the next, notes, time", [["n", "n"]]],
+    ["n", "The presenter's window: this slide and the next, notes, time (n there closes it)", [["n", "n"]]],
     ["b / w", "Black / white screen", [["b", "b"], ["w", "w"]]],
     ["Esc", "Clear a blank screen, or close what is open", [["Esc", "Escape"]]],
     ["t", "Timer: where the talk stands; change its plan for today", [["t", "t"]]],
@@ -18285,9 +18437,33 @@ ooRexx 1</code></pre>
     else showToast(text, "info");
   }
   /* The window a key was pressed in: the presenter's, or the deck's. */
-  function keyWindow(e) {
+  function keyOrigin(e) {
     var t = e && e.target, d = t && (t.nodeType === 9 ? t : t.ownerDocument);
     return d && d !== document && notesAlive() && d === notesWin.document ? notesWin : window;
+  }
+  /* The window a key answers in. It is the one the key was pressed in,     */
+  /* except when the deck is full screen on the audience's screen and the   */
+  /* presenter's window is on another (v402; Rony, 15-Nov, two screens:    */
+  /* "'d' and 'a' display on the full-screen, not the presenter's screen"). */
+  /* A click on the deck, to send it full screen there, leaves the keyboard */
+  /* in the deck's window; what a key opens then goes to the presenter all */
+  /* the same, and the audience does not see it.                            */
+  function keyWindow(e) {
+    var w = keyOrigin(e);
+    return w === window && deckOnOtherScreen() ? notesWin : w;
+  }
+  /* The deck full screen, and the presenter's window on another screen:   */
+  /* its middle is outside the deck's window, which full screen has made   */
+  /* as big as the deck's screen. On one screen it is inside, behind the   */
+  /* deck, and the deck keeps what its keys open.                           */
+  function deckOnOtherScreen() {
+    if (!document.fullscreenElement || !notesAlive()) return false;
+    try {
+      var x = notesWin.screenX + notesWin.outerWidth / 2,
+          y = notesWin.screenY + notesWin.outerHeight / 2;
+      return x < window.screenX || x >= window.screenX + window.outerWidth ||
+             y < window.screenY || y >= window.screenY + window.outerHeight;
+    } catch (err) { return false; }
   }
 
   /* ---------------------------------------------------------------------- */
@@ -19678,6 +19854,15 @@ ooRexx 1</code></pre>
     return parts.join("");
   }
   function notesAlive() { return notesWin && !notesWin.closed; }
+  /* n pressed in the presenter's window (v402): the window goes, and its  */
+  /* popups come back to the deck, as when it is closed by hand.           */
+  function closeNotes() {
+    if (!notesAlive()) return;
+    homeAll();
+    notesWin.close();
+    notesWin = null;
+    try { window.focus(); } catch (err) { /* the browser may not let it */ }
+  }
   function mirrorURL() {
     var u = window.location.href.split("#")[0];
     return u + (u.indexOf("?") < 0 ? "?" : "&") + MIRROR_PARAM;
@@ -19750,7 +19935,6 @@ ooRexx 1</code></pre>
           '<div id="np-keys" title="Keys pressed here, and these buttons, go to the deck">' +
             '<button type="button" data-key="PageUp" title="PgUp">\u25c0 Back</button>' +
             '<button type="button" data-key="PageDown" title="PgDn, space">Next \u25b6</button>' +
-            '<button type="button" data-key="f" title="f">Full screen</button>' +
             '<button type="button" data-key="Escape" title="Esc: out of full screen, no black or white screen">Esc</button>' +
             '<button type="button" data-key="F1" title="F1">Keys</button></div></div>' +
           '<div id="np-time"></div>' +
@@ -20303,7 +20487,14 @@ ooRexx 1</code></pre>
         openStyleOverlay(); e.preventDefault(); break;
 
       case "d": case "D":
-        toggleDiagnose(); e.preventDefault(); break;
+        /* (v402; Rony, 15-Nov) d marks up the slide itself, in the deck's  */
+        /* window: with the deck full screen on the audience's screen, it    */
+        /* would show them the marks and the tools. It says so instead.      */
+        if (!diagnoseOn && deckOnOtherScreen())
+          notesHint("d works on the slide itself, which the audience sees now: take the deck out of " +
+                    "full screen first (Esc), then press d.");
+        else toggleDiagnose();
+        e.preventDefault(); break;
 
       case "a": case "A":
         openAbout(); e.preventDefault(); break;
@@ -20313,7 +20504,9 @@ ooRexx 1</code></pre>
         e.preventDefault(); break;
 
       case "n": case "N":
-        openNotes(); e.preventDefault(); break;
+        /* (v402; Rony, 15-Nov) n in the presenter's window closes it. */
+        if (keyOrigin(e) !== window) closeNotes(); else openNotes();
+        e.preventDefault(); break;
 
       case "b": case "B":
         setBlank(isBlank() ? null : "#000"); e.preventDefault(); break;

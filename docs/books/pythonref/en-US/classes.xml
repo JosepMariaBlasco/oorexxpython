@@ -1032,8 +1032,9 @@ command, as a <literal>str</literal>, and ooRexx's
 again (an <xref linkend="clsRexxError" xrefstyle="select:title"/> from Rexx
 code it called) reaches the code that issued the command as with a handler
 written in Rexx: SYNTAX as itself; any other condition with its description
-and <literal>ADDITIONAL</literal> (its <literal>RESULT</literal> is lost, as
-with a Rexx handler). A HALT that the Rexx code did not trap is a HALT again,
+and <literal>ADDITIONAL</literal> (its <literal>RESULT</literal>, the value
+of a <literal>raise ... return value</literal>, is the command's RC, as the
+value a handler written in Rexx returns). A HALT that the Rexx code did not trap is a HALT again,
 since there is Python code in between: a <literal>CATCH HALT</literal>
 clause or <literal>SIGNAL ON HALT</literal> traps it, <literal>CALL ON
 HALT</literal> resumes with RC 0, and untrapped it

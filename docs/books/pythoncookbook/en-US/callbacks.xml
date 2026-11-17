@@ -41,7 +41,12 @@ Rexx works, other Python threads run. So four Rexx threads
 Python's pool can call the same Rexx routine at once.</para>
 <para><computeroutput>cf~ThreadPoolExecutor(4)</computeroutput> calls the
 class with an argument, which makes an instance, as
-<computeroutput>~new(4)</computeroutput> would.</para>
+<computeroutput>~new(4)</computeroutput> would. Python's
+<computeroutput>with</computeroutput> shuts the pool down when its block
+ends, however it ends; in Rexx that is a block with a
+<computeroutput>finally</computeroutput> clause, whose instructions run
+whenever control leaves the block: its end, a
+<literal>RETURN</literal>, a condition.</para>
 <para><emphasis role="bold">See also</emphasis> <citetitle>Reference</citetitle>,
 <emphasis>Threads</emphasis>.</para>
 </section>

@@ -283,20 +283,26 @@ nostring:
   buf = io~StringIO~new
   ebuf = io~StringIO~new
   monitors = .array~of(.input, .output, .error, .debugInput, .traceOutput)
-  call py.redirectTo
-  sys~stdout = buf                      -- looked up at every write
-  sys~stderr = ebuf
-  say "hello"
-  .output~charout("a" || "0a"x || "b")
-  .output~lineout("c")
-  .error~lineout("oops")
-  .traceOutput~lineout("t")
-  .py~redirectTo("P", , , , , , .false)
-  say "plain"
-  sys~stdout = out
-  sys~stderr = err
-  do 2
-    do m over monitors; m~destination; end   -- pop what was pushed
+  pushed = 0
+  do
+    call py.redirectTo
+    pushed += 1
+    sys~stdout = buf                    -- looked up at every write
+    sys~stderr = ebuf
+    say "hello"
+    .output~charout("a" || "0a"x || "b")
+    .output~lineout("c")
+    .error~lineout("oops")
+    .traceOutput~lineout("t")
+    .py~redirectTo("P", , , , , , .false)
+    pushed += 1
+    say "plain"
+  finally                               -- Python's and Rexx's streams back,
+    sys~stdout = out                    -- however this ends
+    sys~stderr = err
+    do pushed
+      do m over monitors; m~destination; end   -- pop what was pushed
+    end
   end
   self~assertSame("REXXout>hello|REXXout>a|REXXout>bc|plain|", buf~getvalue~changeStr("0a"x, "|"), "stdout")
   self~assertSame("REXXerr>oops|REXXtrc>t|", ebuf~getvalue~changeStr("0a"x, "|"), "stderr")

@@ -483,14 +483,17 @@ ooRexx bug #2132 let a collection take the copy while the error propagated
 the bridge raised a SYNTAX with `RaiseException` instead. A condition raised
 with `RAISE ... RETURN v` (or `EXIT v`) keeps its value, as in plain Rexx:
 the caller gets `v` with the condition pending, so untrapped, or under
-`CALL ON`, the call is `v`, and the condition has no `RESULT`. The bridge
+`CALL ON`, the call is `v`; `v` is also the condition's `RESULT` (since
+r13522, ooRexx bug #2174, for every condition and not only SYNTAX). The bridge
 keeps the value the Rexx call returned with the condition (`_rexx_value`, by
 reference) and returns it after raising the condition (before r13339,
 ooRexx bug #2130, a native method that raised a condition with no `RESULT`
 lost its own value: Error 91 or 44.1). `SIGNAL ON` traps the condition.
 Through an ADDRESS environment written in Python the condition goes to the
-issuer as from a handler written in Rexx (*ADDRESS in Python*), with no
-result: RC is `.nil` (`test_raise_return_value` in `Callbacks.testGroup`). The
+issuer as from a handler written in Rexx (*ADDRESS in Python*), its
+`RESULT` as the command's RC: RC is `v`, as when a handler written in Rexx
+returns what such a routine gives (`test_raise_return_value` in
+`Callbacks.testGroup`). The
 `RexxError` keeps the condition object for this (`_rexx_condition`, set by
 `raiseRexxError`; `raiseAgain` in `bridge.cpp`), within the same
 interpreter instance. What reaches Python is what ooRexx's API gives a
@@ -790,8 +793,9 @@ Rexx code it called) would be raised by the bridge in `command`, a Rexx
 activation that does not trap it, where ooRexx ignores a condition other than
 SYNTAX. So `command` traps any condition and gives it to the issuer as a
 handler written in Rexx would: SYNTAX as itself (`raise propagate`), any
-other through `caller~raise`, with its `DESCRIPTION` and `ADDITIONAL`; its
-`RESULT` is lost, as with a Rexx handler (`raise` has none). A HALT that the
+other through `caller~raise`, with its `DESCRIPTION` and `ADDITIONAL`, and
+its `RESULT` (the `v` of a `RAISE ... RETURN v`; `.nil` when it has none) as
+the command's RC. A HALT that the
 Rexx code left untrapped is a HALT for the issuer, not the SYNTAX 4.1 a
 routine called by a handler written in Rexx would give: there is Python code
 in between, so the rule for Rexx code that Python calls applies. The bridge
@@ -974,12 +978,19 @@ interpreter stays attached until `close()`: before r13348, detaching it
 made `Terminate` wait forever (ooRexx bug #2107); it is right on every
 version, so it stays.
 
-**ooRexx versions.** The minimum is ooRexx 5.3.0 r13517, which CI also
-runs, past the ooRexx bridges' r13514. `python.cls` traps errors with CATCH
+**ooRexx versions.** The minimum is ooRexx 5.3.0 r13535, which CI also
+runs. `python.cls` traps errors with CATCH
 clauses (RFE #31, r13514, language level 6.07), so an older ooRexx cannot
 even translate it; before r13517 a CATCH clause's condition object could be
 collected before the clause got it (a crash, seen in
-`tests/python/t72_returned_rexx_objects.py` under load). The bridge
+`tests/python/t72_returned_rexx_objects.py` under load). The tests and the
+samples use FINALLY clauses (the second half of RFE #31, r13524) for what
+must run however a block ends (Python's `with` and `try ... finally`:
+closing a connection, shutting a thread pool down, a context manager's
+`__exit__`, removing a command environment), within the rules FINALLY has
+since r13535; and since r13522 (ooRexx bug #2174) the value of a `RAISE ...
+RETURN v` is the condition's `RESULT` for every condition, which the
+tests expect (see *Exceptions*). The bridge
 needs ooRexx's `.CommandHandler` (RFE #882, the base of *ADDRESS in Python*)
 and, for conditions other than SYNTAX to go through Python as themselves,
 ooRexx's fix for #2123 (r13320; see *Exceptions*);

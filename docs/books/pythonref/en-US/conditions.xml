@@ -94,7 +94,8 @@ go back to the Rexx caller, where a <literal>CATCH</literal> clause,
 <literal>SIGNAL ON</literal> or <literal>CALL ON</literal> traps them as if no Python were in between,
 an ERROR or FAILURE with its RC. When the Rexx code raised the condition with
 <literal>raise ... return value</literal>, the caller gets that value, as in
-plain Rexx.</para>
+plain Rexx, and the condition object's <literal>RESULT</literal> is that
+value too.</para>
 <para>A HALT is SYNTAX 4.1 by the time it leaves that Rexx code (Python sees
 <literal>Rexx error 4.1</literal>), and back in Rexx it is a HALT again,
 as if the Rexx code had raised it with no Python in between: a
@@ -110,8 +111,8 @@ with <literal>raise halt ... return value</literal>.</para>
 which is a command handler like those written in Rexx
 (<xref linkend="clsPyCommandHandler" xrefstyle="select:title"/>), a condition
 goes back as from a handler written in Rexx: SYNTAX as itself, any other
-condition with its description and <literal>ADDITIONAL</literal> but not its
-result. A HALT is a HALT again there too: a <literal>CATCH HALT</literal>
+condition with its description and <literal>ADDITIONAL</literal>, its
+result, if it has one, as the command's RC. A HALT is a HALT again there too: a <literal>CATCH HALT</literal>
 clause or <literal>SIGNAL ON HALT</literal> traps it, <literal>CALL ON HALT</literal> resumes the command with RC 0, and
 untrapped it ends as SYNTAX 4.1.</para>
 </section>

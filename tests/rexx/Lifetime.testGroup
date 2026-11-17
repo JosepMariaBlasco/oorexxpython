@@ -63,10 +63,14 @@ return testResult
     rss = word(out~makeString("L", " "), 1)
     return (datatype(rss, "W"))~?(rss, 0)
   end
-  do 100                              -- /proc files report no size: read on
-    line = linein(f)
-    if stream(f, "s") \= "READY" then leave
-    parse var line key ":" value
-    if key = "VmRSS" then do; call stream f, "c", "close"; return word(value, 1); end
+  do
+    do 100                            -- /proc files report no size: read on
+      line = linein(f)
+      if stream(f, "s") \= "READY" then leave
+      parse var line key ":" value
+      if key = "VmRSS" then return word(value, 1)
+    end
+  finally                             -- found or not
+    call stream f, "c", "close"
   end
   return 0

@@ -18,11 +18,15 @@ do w over workers
 end
 say total
 
--- and Python's thread pool calling a Rexx routine
+-- and Python's thread pool calling a Rexx routine; Rexx's DO ... FINALLY is
+-- Python's with: the pool is shut down however the block ends
 cf = .py~import("concurrent.futures")
 ex = cf~ThreadPoolExecutor(4)
-say .py~sum(ex~map(.context~package~findRoutine("sumTo"), (10, 100, 1000, 10000)))
-ex~shutdown
+do
+  say .py~sum(ex~map(.context~package~findRoutine("sumTo"), (10, 100, 1000, 10000)))
+finally
+  ex~shutdown
+end
 
 ::class Summer
 ::method sumTo

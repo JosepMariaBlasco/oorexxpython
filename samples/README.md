@@ -40,7 +40,7 @@ by `scripts/samples-deck.rex` (edit those, not the deck), and the skin
 | `06-errors.rex` | Python exceptions as SYNTAX 98.900: the exception, its traceback |
 | `07-callbacks.rex` | Rexx routines and objects called from Python |
 | `08-box.rex` | `py.box(type, value)`: choosing the Python type (float, bytes, fraction, decimal) |
-| `09-threads.rex` | Rexx threads and a Python thread pool, together |
+| `09-threads.rex` | Rexx threads and a Python thread pool, together; `DO ... FINALLY` for Python's `with` |
 | `27-string-module.rex` | number-looking text: `.py~str(x)`, or a module imported as `"string"` |
 | `28-address.rex` | an ADDRESS environment written in Python, registered and removed from Rexx as ooRexx's own: `.CommandHandler~register(name, .py~commandHandler(f))`, `~deregister` |
 

@@ -82,8 +82,9 @@ return testResult
   catch co = syntax
     self~assertSame("40.1", co~code, "its code, through ADDRESS")
     self~assertSame("the description", co~description, "its description, through ADDRESS")
+  finally
+    .CommandHandler~deregister("pydesc")
   end
-  .CommandHandler~deregister("pydesc")
 
 -- an ERROR or a FAILURE raised by Rexx code that Python calls comes back
 -- with its RC, through a Python function, as in plain Rexx
@@ -188,9 +189,12 @@ halted:
   h = .py~eval("lambda o: (lambda c, ctx: o.raiser())")
   do c over "USER", "NOTREADY"
     .CommandHandler~register("PYRAISER", .py~commandHandler(h~new(.Raiser~new(c))))
-    self~assertSame(c, word(self~signalOnAnyAddress, 1), c "from a method a Python handler calls")
-    self~assertSame(c, word(self~catchAnyAddress, 1), c "from a method a Python handler calls, CATCH")
-    .CommandHandler~deregister("PYRAISER")
+    do                                    -- a block of its own: a loop's FINALLY
+      self~assertSame(c, word(self~signalOnAnyAddress, 1), c "from a method a Python handler calls")
+      self~assertSame(c, word(self~catchAnyAddress, 1), c "from a method a Python handler calls, CATCH")
+    finally                               -- runs once, when the loop ends
+      .CommandHandler~deregister("PYRAISER")
+    end
   end
 
 -- rule 1 for a condition other than SYNTAX: back in Rexx with its
@@ -209,8 +213,9 @@ halted:
   catch c = user x
     self~assertSame("the description", c~description, "its description, through ADDRESS")
     self~assertSame("A", c~additional[1], "its ADDITIONAL, through ADDRESS")
+  finally
+    .CommandHandler~deregister("PYUSER")
   end
-  .CommandHandler~deregister("PYUSER")
   .py~exec(self~py("def caught(f):",                        -
                    "    try: f()",                          -
                    "    except Exception as e: return type(e).__name__ + ': ' + str(e)"))
@@ -218,8 +223,9 @@ halted:
 
 -- RAISE ... RETURN v in Rexx code called through Python: the Rexx caller
 -- gets v, untrapped and under CALL ON, as in plain Rexx (not Error 91 or
--- 44.1, as before #2130, r13339); SIGNAL ON traps it; the condition has no
--- RESULT, as in plain Rexx
+-- 44.1, as before #2130, r13339); SIGNAL ON traps it; the condition's
+-- RESULT is v, as in plain Rexx (#2174, r13522: for every condition, not
+-- only SYNTAX)
 ::method test_raise_return_value
   call = .py~eval("lambda f: f()")
   r = self~routine("userDescribed")
@@ -235,19 +241,35 @@ halted:
   call off user x
   self~assertSame(7, x, "CALL ON: the value")
   self~assertSame(1, ran, "CALL ON: the handler ran")
-  self~assertSame("none", res, "CALL ON: no RESULT, as in plain Rexx")
+  self~assertSame(7, res, "CALL ON: the condition's RESULT is the value, as in plain Rexx")
+  self~assertSame("1 7 7", self~plainCallOn(r), "plain Rexx: the handler ran, RESULT and the value")
   self~assertSame("USER X", self~conditionOf(call, r)~condition, "SIGNAL ON traps it")
   -- an object comes back as itself, by reference
   o = .directory~new
   x = .py~eval("lambda f, x: f(x)")~new(self~routine("raisesWith"), o)
   self~assertSame(o, x, "an object: itself")
   .CommandHandler~register("PYRET", .py~commandHandler(.py~eval("lambda f: (lambda c, ctx: f())")~new(r)))
-  address pyret "x"
-  .CommandHandler~deregister("PYRET")
+  do
+    address pyret "x"
+  finally
+    .CommandHandler~deregister("PYRET")
+  end
   -- through ADDRESS the condition goes to the issuer as from a handler
-  -- written in Rexx (caller~raise), with no result: RC .nil
-  self~assertSame(.nil, rc, "through ADDRESS: no RESULT, so RC .nil")
+  -- written in Rexx (caller~raise), its RESULT as the command's RC: the RC
+  -- of a handler written in Rexx that returns what the routine gives
+  self~assertSame(7, rc, "through ADDRESS: the value is RC")
   return
+handler:
+  ran = ran + 1
+  if condition("O")~hasIndex("RESULT") then res = condition("O")~result
+  return
+
+::method plainCallOn private
+  use arg r
+  ran = 0; res = "none"
+  call on user x name handler
+  x = r~call
+  return ran res x
 handler:
   ran = ran + 1
   if condition("O")~hasIndex("RESULT") then res = condition("O")~result

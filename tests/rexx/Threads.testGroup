@@ -73,15 +73,18 @@ return testResult
   main~producer(double)
 
   -- N Rexx threads calling Python, which calls Rexx back
-  workers = .array~new
-  do i = 1 to n
-    workers~append(.Worker~new~start("loop", k, double))
+  do
+    workers = .array~new
+    do i = 1 to n
+      workers~append(.Worker~new~start("loop", k, double))
+    end
+    sum = 0
+    do w over workers
+      sum += w~result
+    end
+  finally                               -- no Python thread outlives the test
+    main~join(pyThreads)
   end
-  sum = 0
-  do w over workers
-    sum += w~result
-  end
-  main~join(pyThreads)
 
   self~assertSame(n * (k * (k - 1)), sum, "Rexx threads results")
   self~assertSame(m, b~len(main~done), "Python threads done")
@@ -98,8 +101,11 @@ return testResult
   ex = cf~ThreadPoolExecutor(4)
   -- .py~sum runs here, on .py, while the pool's threads call sumTo, which
   -- uses .py too
-  total = .py~sum(ex~map(sumTo, .array~of(10, 100, 1000, 10000)))
-  ex~shutdown
+  do
+    total = .py~sum(ex~map(sumTo, .array~of(10, 100, 1000, 10000)))
+  finally                               -- Python's with ThreadPoolExecutor(4)
+    ex~shutdown
+  end
   self~assertSame(50499495, total, "pool threads calling Rexx that uses .py")
 
 -- two Rexx threads inside the same proxy at the same time
@@ -125,15 +131,18 @@ return testResult
                    "    while time.time() < end: sum(range(1000))",          -
                    "spinners = [threading.Thread(target=spin, args=(3,)) for _ in range(2)]", -
                    "for t in spinners: t.start()"))
-  workers = .array~new
-  do i = 1 to 8
-    workers~append(.Worker~new~start("churn", 20000))
+  do
+    workers = .array~new
+    do i = 1 to 8
+      workers~append(.Worker~new~start("churn", 20000))
+    end
+    total = 0
+    do w over workers
+      total += w~result
+    end
+  finally
+    .py~exec("for t in spinners: t.join()")
   end
-  total = 0
-  do w over workers
-    total += w~result
-  end
-  .py~exec("for t in spinners: t.join()")
   self~assertSame(8 * 20000, total, "8 Rexx threads x 20000 proxies made and dropped")
 
 ::class Worker

@@ -68,7 +68,11 @@ server.</para>
 is a database that lives while the connection does. The rows to insert are a
 Rexx Array of Arrays, a list of lists to Python, which fills the
 <literal>?</literal> placeholders. The rows a query returns are tuples:
-<computeroutput>row[0]</computeroutput> is the first column.</para>
+<computeroutput>row[0]</computeroutput> is the first column. The
+<computeroutput>finally</computeroutput> clause closes the connection
+however the block ends, also when a statement fails: Rexx's
+<computeroutput>do ... finally ... end</computeroutput> is Python's
+<computeroutput>try ... finally</computeroutput>.</para>
 </section>
 
 <section id="ckDatetime"><title>Dates</title>

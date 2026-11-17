@@ -113,25 +113,28 @@ return testResult
                    "    if command == 'error': return ctx.raiseError(5)", -
                    "    if command == 'failure': return ctx.raise_('FAILURE', -2)"))
   .CommandHandler~register("ctx", .py~commandHandler(.py~main~getattr("ctxh")))
-  x = 20
-  address ctx 'var'
-  self~assertSame(40, rc, "getVar and []")
-  address ctx 'set'
-  self~assertSame("from Python", y, "setVar")
-  address ctx 'has'
-  self~assertSame(0, rc, "hasVar")
-  out = .array~new
-  address ctx 'out' with output using (out)
-  self~assertSame("one|two", out~toString(, "|"), "output() with WITH OUTPUT")
-  address ctx 'redirected' with output using (out)
-  self~assertSame(1, rc, "isRedirected, redirected")
-  address ctx 'redirected'
-  self~assertSame(0, rc, "isRedirected, not redirected")
-  address ctx 'in' with input using (.array~of("a", "b", "c"))
-  self~assertSame(3, rc, "input() with WITH INPUT")
-  self~assertSame("ERROR 5", self~conditionOf("ctx", "error"), "raiseError")
-  self~assertSame("FAILURE -2", self~conditionOf("ctx", "failure"), "raise_ is RAISE")
-  .CommandHandler~deregister("ctx")
+  do
+    x = 20
+    address ctx 'var'
+    self~assertSame(40, rc, "getVar and []")
+    address ctx 'set'
+    self~assertSame("from Python", y, "setVar")
+    address ctx 'has'
+    self~assertSame(0, rc, "hasVar")
+    out = .array~new
+    address ctx 'out' with output using (out)
+    self~assertSame("one|two", out~toString(, "|"), "output() with WITH OUTPUT")
+    address ctx 'redirected' with output using (out)
+    self~assertSame(1, rc, "isRedirected, redirected")
+    address ctx 'redirected'
+    self~assertSame(0, rc, "isRedirected, not redirected")
+    address ctx 'in' with input using (.array~of("a", "b", "c"))
+    self~assertSame(3, rc, "input() with WITH INPUT")
+    self~assertSame("ERROR 5", self~conditionOf("ctx", "error"), "raiseError")
+    self~assertSame("FAILURE -2", self~conditionOf("ctx", "failure"), "raise_ is RAISE")
+  finally                                 -- registered here, removed here
+    .CommandHandler~deregister("ctx")
+  end
 
 ::method conditionOf private
   use arg env, command
@@ -151,25 +154,35 @@ return testResult
   catch c = user bad
     self~assertSame("what went wrong", c~description, "its description")
     self~assertSame(9, rc, "its RC")
+  finally
+    .CommandHandler~deregister("u")
   end
-  .CommandHandler~deregister("u")
 
 -- without WITH, the core's output() is an error (ooRexx's rule); print()
 -- goes to Python's sys.stdout: the console
 ::method test_output_without_with
   .CommandHandler~register("o", .py~commandHandler(.py~eval("lambda c, ctx: ctx.output()")))
-  co = self~syntaxOfCommand("o")
-  self~assertSame("98.900", co~code, "output() without WITH OUTPUT")
-  .CommandHandler~deregister("o")
-  .py~exec(self~py("import io, sys", -
-                   "saved = sys.stdout", -
-                   "sys.stdout = io.StringIO()"))
+  do
+    co = self~syntaxOfCommand("o")
+    self~assertSame("98.900", co~code, "output() without WITH OUTPUT")
+  finally
+    .CommandHandler~deregister("o")
+  end
   .CommandHandler~register("o", .py~commandHandler(.py~eval("lambda c, ctx: print('said')")))
-  address o 'x'
-  .py~exec(self~py("out = sys.stdout.getvalue()", "sys.stdout = saved"))
-  self~assertSame(0, rc, "rc")
-  self~assertSame("said" || "0a"x, .py~main~out, "print()")
-  .CommandHandler~deregister("o")
+  do
+    .py~exec(self~py("import io, sys", -
+                     "saved = sys.stdout", -
+                     "sys.stdout = io.StringIO()"))
+    do
+      address o 'x'
+    finally                               -- Python's stdout back, whatever the command did
+      .py~exec(self~py("out = sys.stdout.getvalue()", "sys.stdout = saved"))
+    end
+    self~assertSame(0, rc, "rc")
+    self~assertSame("said" || "0a"x, .py~main~out, "print()")
+  finally
+    .CommandHandler~deregister("o")
+  end
 
 ::method syntaxOfCommand private
   use arg env

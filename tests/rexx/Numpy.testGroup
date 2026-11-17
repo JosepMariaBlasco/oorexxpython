@@ -60,11 +60,14 @@ return testResult
   plt~plot(x, np~sin(x), .py~kw("color", "red", "linewidth", 2))
   plt~title("sin(x) from ooRexx")
   file = "sin.png"
-  plt~savefig(file)
-  plt~close("all")
-  self~assertTrue(stream(file, "c", "query exists") \= "", "png written")
-  self~assertSame("PNG", charin(file, 2, 3), "png signature")
-  call stream file, "c", "close"
+  do
+    plt~savefig(file)
+    self~assertTrue(stream(file, "c", "query exists") \= "", "png written")
+    self~assertSame("PNG", charin(file, 2, 3), "png signature")
+  finally                                -- however the test ends
+    plt~close("all")
+    call stream file, "c", "close"
+  end
 
 -- pandas takes self for a temporary (chained assignment) when its reference
 -- count is that of an unnamed object: o[k] = v from Rexx must not look so
@@ -72,9 +75,9 @@ return testResult
   pd = .py~import("pandas")
   warnings = .py~import("warnings")
   cw = warnings~catch_warnings~new
-  cw~invoke("__enter__")
-  warnings~simplefilter("error")         -- a warning fails the test
+  cw~invoke("__enter__")                 -- Python's with: __exit__ in FINALLY
   do
+    warnings~simplefilter("error")       -- a warning fails the test
     df = pd~DataFrame(.py~dict(.py~kw("a", (1, 2, 3), "b", (4.0, .py~None, 6.0))))
     df["c"] = df["a"] * 2
     df~loc[0, "a"] = 10
@@ -82,10 +85,10 @@ return testResult
     s = pd~Series((1, 2, 3))
     s[0] = 5
   catch c = syntax
-    cw~invoke("__exit__", .nil, .nil, .nil)
     self~fail(c~message)
+  finally
+    cw~invoke("__exit__", .nil, .nil, .nil)
   end
-  cw~invoke("__exit__", .nil, .nil, .nil)
   self~assertSame("{'a': [10, 2, 3], 'b': [4.0, 0.0, 6.0], 'c': [2, 4, 6]}", -
     df~to_dict("list")~string, "df changed in place")
   self~assertSame("[5, 2, 3]", s~tolist~string, "series changed in place")
