@@ -524,16 +524,61 @@ of ooRexx's, these conditions go back as a Rexx handler's would (*ADDRESS in
 Python*), but a HALT is a HALT again there too: there is Python code in
 between.
 
+**A thrown condition goes through Python as itself too, and goes on.** A
+condition thrown with ooRexx's `THROW` (RFE #31, r13541; experimental in
+ooRexx) goes from caller to caller until something catches it, whatever its
+name, as a SYNTAX error does. Rexx code that Python called throws one: the
+call from Python returns with it pending, its condition object saying
+`THROWN` `.true`, and Python gets a `RexxError` (`thrown` is `True`). If
+Python does not catch it, `raiseAgain` raises the kept condition object with
+`RaiseConditionObject`, as for any other condition, and ooRexx, which goes
+by the object's `THROWN`, holds it as it holds an error and throws it again
+when the native method returns: a `CATCH` clause or `SIGNAL ON` any number
+of Rexx levels above the call to Python catches it, `CALL ON` does not trap
+it, the `FINALLY` clauses of the levels it leaves run, and uncaught it is
+error 4.1 (4.901 with its description), as with no Python in between
+(`Throw.testGroup`). The bridge needed no code for this: it is what keeping
+the condition object buys. An uncaught thrown condition is not turned into
+an error before a native caller sees it, as a HALT is, so nothing is lost on
+the way.
+
+**Python throws a Rexx condition with `oorexx.throw(condition, rc=None,
+description=None, additional=None)`**, the arguments of `THROW condition rc
+DESCRIPTION description ADDITIONAL additional` (and of ooRexx's `Throw`
+API, in that order). In Python it is a `RexxError` like those made from a
+condition (`condition`, `rc`, `description`, `thrown` set), raised by the
+function, which Python code can catch. When it reaches the Rexx code that
+called Python (`finish`), the bridge throws the condition there with
+`context->Throw` (r13546), so it goes on from caller to caller as one
+thrown in Rexx: it is the counterpart of `.py~raise`, with which Rexx code
+raises a Python exception. A `list` or a `tuple` as `additional` is a Rexx
+Array of its items, what `ADDITIONAL` usually is and what SYNTAX requires;
+any other object goes as it would as an argument. `Throw` checks its
+arguments as `THROW` does, so a name `THROW` does not accept, or an `rc`
+where none belongs, is error 93.900 in the Rexx caller, raised and not
+thrown. `Throw` does not return: ooRexx unwinds the native method with a
+C++ exception, as `ThrowException` does. The bridge's methods are written
+for that (their locals release what they hold in their destructors, and
+none catches exceptions), and `throwFromPython` lets go of every Python
+reference first, with the GIL, so the unwinding touches no Python state.
+Until then the bridge had used only the `Raise` forms, which return. Before
+`THROW` there was nothing a Python function could raise in Rexx but an
+error: a condition raised with `RaiseCondition` goes one level, to code
+that rarely expects it.
+
 A `RexxError` carries the condition's parts as attributes (`condition`,
 `code`, `rc`, `message`, `errortext`, `position`, `program`, `description`,
-`traceback`),
+`traceback`, `thrown`),
 as Tom Dyer's bridge in Alchemy does: Python code can tell errors apart, or
 log where they happened, without parsing the text. They are read from the
 condition (`DecodeConditionInfo`) under the kernel lock, when it is cleared,
 and set on the exception with the GIL (`takeCondition`, `raiseRexxError` in
 `bridge.cpp`); `None` when the error is not a Rexx condition. `traceback` is
 not in `DecodeConditionInfo`'s result: it is the condition object's
-`TRACEBACK` List, its lines joined by line ends, as Rexx shows them.
+`TRACEBACK` List, its lines joined by line ends, as Rexx shows them. The text of one that is not an error ends with
+the condition's description, if it has one (`Rexx condition USER BADCONFIG:
+missing key 'port'`), as ooRexx's error 4.901 does for an uncaught thrown
+condition (r13550).
 
 `.py~raise(exc)` raises a Python exception from Rexx code: `exc` is an
 exception, or an exception class called with the rest of the arguments
@@ -792,7 +837,9 @@ A Rexx condition that the callable raises again (an `oorexx.RexxError` from
 Rexx code it called) would be raised by the bridge in `command`, a Rexx
 activation that does not trap it, where ooRexx ignores a condition other than
 SYNTAX. So `command` traps any condition and gives it to the issuer as a
-handler written in Rexx would: SYNTAX as itself (`raise propagate`), any
+handler written in Rexx would: a thrown condition thrown on (`throw
+propagate`: it goes through a handler written in Rexx too, and `CALL ON`
+must not trap it), SYNTAX as itself (`raise propagate`), any
 other through `caller~raise`, with its `DESCRIPTION` and `ADDITIONAL`, and
 its `RESULT` (the `v` of a `RAISE ... RETURN v`; `.nil` when it has none) as
 the command's RC. A HALT that the
@@ -978,7 +1025,7 @@ interpreter stays attached until `close()`: before r13348, detaching it
 made `Terminate` wait forever (ooRexx bug #2107); it is right on every
 version, so it stays.
 
-**ooRexx versions.** The minimum is ooRexx 5.3.0 r13535, which CI also
+**ooRexx versions.** The minimum is ooRexx 5.3.0 r13550, which CI also
 runs. `python.cls` traps errors with CATCH
 clauses (RFE #31, r13514, language level 6.07), so an older ooRexx cannot
 even translate it; before r13517 a CATCH clause's condition object could be
@@ -990,7 +1037,12 @@ closing a connection, shutting a thread pool down, a context manager's
 `__exit__`, removing a command environment), within the rules FINALLY has
 since r13535; and since r13522 (ooRexx bug #2174) the value of a `RAISE ...
 RETURN v` is the condition's `RESULT` for every condition, which the
-tests expect (see *Exceptions*). The bridge
+tests expect (see *Exceptions*). Thrown conditions (RFE #31 again: the
+`THROW` instruction, r13541, experimental in ooRexx, and the `Throw` API,
+r13546, which `oorexx.throw` uses) go through Python as themselves, and
+`python.cls` passes one on with `THROW PROPAGATE` (see *Exceptions*); since
+r13550 one that nothing catches is error 4.901, which shows its description,
+and a `RexxError`'s text shows it in the same way. The bridge
 needs ooRexx's `.CommandHandler` (RFE #882, the base of *ADDRESS in Python*)
 and, for conditions other than SYNTAX to go through Python as themselves,
 ooRexx's fix for #2123 (r13320; see *Exceptions*);

@@ -275,8 +275,10 @@ an Object</screen>
 <para>The exception that a Rexx condition becomes in Python, a subclass of
 <literal>RuntimeError</literal>. Its text is Rexx's message, with the
 condition's code: <literal>Rexx error 42.3: Arithmetic overflow; divisor must
-not be zero.</literal> A Python exception that went through Rexx code is raised
-as itself instead (<xref linkend="condRoundTrip"/>).</para>
+not be zero.</literal> For a condition that is not an error, it is the
+condition's name and, if it has one, its description: <literal>Rexx condition
+USER BADCONFIG: no port</literal>. A Python exception that went through Rexx
+code is raised as itself instead (<xref linkend="condRoundTrip"/>).</para>
 <para>Its attributes are the parts of the Rexx condition, as Rexx's
 <computeroutput>condition("O")</computeroutput> has them:</para>
 <variablelist>
@@ -305,6 +307,11 @@ routine's name.</para></listitem></varlistentry>
 <varlistentry><term><literal>traceback</literal></term>
 <listitem><para>the Rexx traceback, as Rexx shows it when the error is not
 trapped: its lines joined by line ends.</para></listitem></varlistentry>
+<varlistentry><term><literal>thrown</literal></term>
+<listitem><para>&True; for a condition thrown with Rexx's
+<literal>THROW</literal> or with
+<xref linkend="fnThrow" xrefstyle="select:title"/>, &False; for one raised
+(<xref linkend="condThrown"/>).</para></listitem></varlistentry>
 </variablelist>
 <para>An attribute the condition does not have is &None;, and so are all of
 them when the error is not a Rexx condition (an interpreter that has been
@@ -328,6 +335,89 @@ SYNTAX 42.3 42 2 DIVIDE
 Arithmetic overflow/underflow.
      2 *-* return 1 / 0
        *-* Compiled method "CALL" with scope "Routine".</screen>
+</example>
+</section>
+
+<!-- ===================================================================== -->
+<section id="fnThrow"><title>throw</title>
+<indexterm><primary>throw function</primary><secondary>of the oorexx module</secondary></indexterm>
+<indexterm><primary>conditions</primary><secondary>thrown from Python</secondary></indexterm>
+<mediaobject><imageobject><imagedata fileref="images/oorexx_throw.svg" scale="55" /></imageobject></mediaobject>
+<para>Throws a Rexx condition, as Rexx's <computeroutput>THROW
+<emphasis role="italic">condition</emphasis> <emphasis role="italic">rc</emphasis>
+DESCRIPTION <emphasis role="italic">description</emphasis> ADDITIONAL
+<emphasis role="italic">additional</emphasis></computeroutput> does
+(<xref linkend="condThrown"/>). The function does not return: it raises a
+<xref linkend="clsRexxError" xrefstyle="select:title"/> whose
+<literal>condition</literal>, <literal>rc</literal> and
+<literal>description</literal> are those given, and whose
+<literal>thrown</literal> is &True;. Python code can catch it, as any other.
+When it reaches the Rexx code that called Python (a function, a method, a
+command handler), the condition is thrown there, and goes from caller to
+caller until a <literal>CATCH</literal> clause or <literal>SIGNAL ON</literal>
+catches it.</para>
+<variablelist>
+<varlistentry><term><emphasis role="italic">condition</emphasis></term>
+<listitem><para>the condition's name, a <literal>str</literal>, in any case:
+<literal>"ERROR"</literal>, <literal>"FAILURE"</literal>,
+<literal>"HALT"</literal>, <literal>"LOSTDIGITS"</literal>,
+<literal>"NOMETHOD"</literal>, <literal>"NOSTRING"</literal>,
+<literal>"NOTREADY"</literal>, <literal>"NOVALUE"</literal>,
+<literal>"SYNTAX"</literal>, or <literal>"USER"</literal> and the name of a
+user condition (<literal>"user badConfig"</literal>).</para></listitem></varlistentry>
+<varlistentry><term><emphasis role="italic">rc</emphasis></term>
+<listitem><para>the RC of an ERROR or a FAILURE, or the error code of a
+SYNTAX as Rexx writes it (<literal>"40.1"</literal>). These three need it; for
+any other condition it must be &None;, the default.</para></listitem></varlistentry>
+<varlistentry><term><emphasis role="italic">description</emphasis></term>
+<listitem><para>the condition's description: any object, whose
+<literal>str()</literal> is taken. Default &None;: no
+description.</para></listitem></varlistentry>
+<varlistentry><term><emphasis role="italic">additional</emphasis></term>
+<listitem><para>the condition's <literal>ADDITIONAL</literal>. A
+<literal>list</literal> or a <literal>tuple</literal> is a Rexx Array of its
+items, which is what SYNTAX needs (the substitution values of the error's
+message); any other object goes as it would as an argument of a Rexx routine.
+Default &None;: none.</para></listitem></varlistentry>
+</variablelist>
+<para>Rexx checks the arguments when the condition is thrown, as
+<literal>THROW</literal> checks them: a name that is not a condition's, or an
+<emphasis role="italic">rc</emphasis> where none belongs, is error 93.900 in
+the Rexx code that called Python. When no Rexx code called Python, the
+<classname>RexxError</classname> is all there is.</para>
+<example id="ex.pymodule-throw">
+<title>Python throws a Rexx condition</title>
+<programlisting language="python">import oorexx
+
+def port(config):
+    if "port" not in config:
+        oorexx.throw("user badConfig", description="no port", additional=[config])
+    return config["port"]
+
+with oorexx.Interpreter(prefixes=False) as rexx:
+    program = rexx.routine("""
+        use arg port, config
+        do
+          call connect port, config
+        catch c = user badConfig
+          say c~condition":" c~description "(thrown:" c~thrown")"
+        end
+        return "done"
+        ::routine connect               -- does not catch it: it goes on
+          use arg port, config
+          say "port" port~invoke(.nil, config)
+    """)
+    print(program(port, {"port": 8080}))
+    print(program(port, {}))
+    try:
+        port({})                        # no Rexx code in between
+    except oorexx.RexxError as e:
+        print(e, "|", e.condition, "|", e.thrown)</programlisting>
+<screen>port 8080
+done
+USER BADCONFIG: no port (thrown: 1)
+done
+Rexx condition USER BADCONFIG: no port | USER BADCONFIG | True</screen>
 </example>
 </section>
 
@@ -364,7 +454,8 @@ and <computeroutput>ctx.raise_(condition, rc, ...)</computeroutput> for its
 <methodname>raise</methodname>, a Python keyword (<xref linkend="clsRexxObject"/>).
 What the handler returns is <literal>RC</literal>, whatever its sign; &None;
 is 0. It raises <literal>ERROR</literal>, <literal>FAILURE</literal> or any
-other condition only through the context. A Python exception in the handler
+other condition only through the context, or throws it with
+<xref linkend="fnThrow" xrefstyle="select:title"/>. A Python exception in the handler
 is a SYNTAX error (98.900) there, as any other (<xref linkend="condPythonInRexx"/>),
 and, if the Rexx code does not trap it, Python gets it back as itself. An
 environment belongs to its interpreter instance, and closing the instance

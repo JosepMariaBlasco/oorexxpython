@@ -20,7 +20,10 @@ Windows: [releases](https://github.com/JosepMariaBlasco/oorexxpython/releases)
   Rexx's standard streams go through Python's (`sys.stdout`...), each line
   marked as Rexx's (`REXXout>`, as in BSF4ooRexx).
 - **Both ways at once, on any thread**: Rexx calls Python, which calls back a
-  Rexx object, which calls Python again.
+  Rexx object, which calls Python again. Errors cross as themselves: a
+  Python exception through Rexx code, a Rexx condition through Python code,
+  and a condition thrown with ooRexx's `THROW` goes on through Python to the
+  Rexx callers (Python throws one with `oorexx.throw`).
 - **One build for every Python 3 from 3.9**: the bridge uses Python's Stable
   ABI only, so the same binary works with 3.9, 3.10, 3.11, 3.12, 3.13,
   3.14, 3.15 and later, with no virtual environments and no per-version builds.
@@ -46,7 +49,7 @@ with oorexx.Interpreter() as rexx:
 **Status: prototype.** Both directions work and are covered by automated
 tests (ooRexxUnit test groups and Python checks, every nutshell sample
 included), on Linux x86_64, macOS (arm64 and x86_64) and Windows x64, with CPython
-3.9–3.15, against ooRexx 5.3.0 (trunk, r13535, also the minimum:
+3.9–3.15, against ooRexx 5.3.0 (trunk, r13550, also the minimum:
 [`docs/design.md`](docs/design.md), *ooRexx versions*). Every push runs them
 all with every Python on all four (GitHub Actions:
 `.github/workflows/build.yml`), except that on Windows the three thread
@@ -73,13 +76,13 @@ Windows, its installer program; on Linux and macOS, its zip, whose
 tells your Pythons where it is and records which Python Rexx programs use:
 no environment variables to set.
 
-1. **ooRexx 5.3.0, r13535 or later** (beta). Get it from
+1. **ooRexx 5.3.0, r13550 or later** (beta). Get it from
    [SourceForge](https://sourceforge.net/projects/oorexx/files/oorexx/5.3.0beta/)
    and check that `rexx -v` runs in a terminal. The bridge needs its
    `logicalwrapper.cls` (Python's `bool` in Rexx), new in r13278, and the fix
    for ooRexx bug #2122 (threads), in r13286, and ooRexx's `.CommandHandler`
    (RFE #882), and the fix for #2123 (conditions other than SYNTAX reach the
-   bridge), in r13320, and `RaiseConditionObject` (RFE #883, a condition raised again as it is), in r13329, and the fixes for #2130 and #2132 (a raised condition keeps the call's value; no crash under threads), in r13344, and CATCH clauses (RFE #31), which `python.cls` uses, in r13514, with a fix for them (a CATCH clause's condition object could be collected) in r13517; the samples use FINALLY clauses, in r13524, with the rules they have since r13535. 5.2.0, the current release, has none of them.
+   bridge), in r13320, and `RaiseConditionObject` (RFE #883, a condition raised again as it is), in r13329, and the fixes for #2130 and #2132 (a raised condition keeps the call's value; no crash under threads), in r13344, and CATCH clauses (RFE #31), which `python.cls` uses, in r13514, with a fix for them (a CATCH clause's condition object could be collected) in r13517; the samples use FINALLY clauses, in r13524, with the rules they have since r13535; and thrown conditions (the THROW instruction, experimental in ooRexx, in r13541, and the `Throw` API, with which Python throws a Rexx condition, in r13546; r13550 shows the description of one that nothing catches). 5.2.0, the current release, has none of them.
 2. **Python 3.9 or later**, any version: the bridge is one binary for all of
    them. If you want the samples that use numpy, matplotlib and pandas,
    install them too: `pip install numpy matplotlib pandas`.
@@ -205,7 +208,7 @@ macOS or Windows, with:
   prompt's environment;
 - `curl`, and [uv](https://docs.astral.sh/uv/) (or `pip`, which
   `setup-pythons.sh` uses to install uv);
-- an ooRexx 5.3.0, r13535 or later, with its API headers: an installed ooRexx (`/usr/local`), or one of ooRexx's portable
+- an ooRexx 5.3.0, r13550 or later, with its API headers: an installed ooRexx (`/usr/local`), or one of ooRexx's portable
   builds from
   [SourceForge](https://sourceforge.net/projects/oorexx/files/oorexx/5.3.0beta/portable/)
   with its `bin/` on the `PATH`.
@@ -269,7 +272,7 @@ is a failure). `PYTHONS="3.9 3.13"` and `TESTS=Threads.testGroup` choose;
 - `samples/` — short "nutshell" programs, one feature each, both ways;
   each shows the Python it replaces and its exact output (see its README).
 - `tests/` — `run.sh`; `rexx/` (ooRexxUnit test groups: basics, booleans,
-  callbacks, ADDRESS, numpy, lifetime, threads, subclassing, and all the samples),
+  callbacks, ADDRESS, numpy, lifetime, threads, subclassing, thrown conditions, and all the samples),
   `python/` (the Python
   side), `probe/` (the conversion probe and its expected output, run by
   `python/t80_conversion_probe.py`).

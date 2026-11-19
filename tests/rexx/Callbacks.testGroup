@@ -219,7 +219,7 @@ halted:
   .py~exec(self~py("def caught(f):",                        -
                    "    try: f()",                          -
                    "    except Exception as e: return type(e).__name__ + ': ' + str(e)"))
-  self~assertSame("RexxError: Rexx condition USER X", .py~main~caught(self~routine("userDescribed")), "Python catches it")
+  self~assertSame("RexxError: Rexx condition USER X: the description", .py~main~caught(self~routine("userDescribed")), "Python catches it")
 
 -- RAISE ... RETURN v in Rexx code called through Python: the Rexx caller
 -- gets v, untrapped and under CALL ON, as in plain Rexx (not Error 91 or

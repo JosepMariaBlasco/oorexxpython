@@ -13,6 +13,15 @@
 /*                                                                            */
 /* Licensed under the Apache License, Version 2.0.                            */
 /*----------------------------------------------------------------------------*/
+  do
+    call main arg(1)
+  catch failed = user failed              -- thrown wherever the work cannot go on
+    say "book-samples.rex:" failed~description
+    exit 1
+  end
+  exit 0
+
+::routine main
   parse source . . me
   sep = .file~separator
   root = .file~new(me)~parentFile~parentFile~absolutePath
@@ -34,10 +43,7 @@
       if line~strip~startsWith("<?sample "), line~strip~endsWith("?>") then do
         parse value line~strip with "<?sample " name "?>"
         path = samples || sep || name~strip
-        if \.file~new(path)~exists then do
-          say "book-samples.rex:" file~name": no sample" name~strip
-          exit 1
-        end
+        if \.file~new(path)~exists then throw user failed description (file~name": no sample" name~strip)
         out~appendAll(sample(path, name~strip))
         changed = .true
         used += 1
@@ -47,7 +53,6 @@
     if changed then call writeLines file~absolutePath, out
   end
   say "book-samples.rex:" used "samples"
-  exit 0
 
 /* A sample as DocBook: its program, the Python it replaces, how to run it,   */
 /* and its output.                                                            */

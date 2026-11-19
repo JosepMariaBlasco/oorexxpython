@@ -33,4 +33,30 @@ as itself (<xref linkend="ckSubclass"/> uses it to end a sequence).</para>
 <emphasis>Errors and Conditions</emphasis>.</para>
 </section>
 
+<section id="ckThrow"><title>Throwing a Condition through Python</title>
+<para><emphasis role="bold">You want</emphasis> Rexx code that Python calls
+(a key function, a callback) to stop the whole operation with a condition of
+your own, or Python code to tell Rexx what went wrong with a Rexx
+condition.</para>
+<?sample 29-throw.rex?>
+<para><emphasis role="bold">How it works.</emphasis> Rexx's
+<literal>THROW</literal> is Python's <literal>raise</literal>: a thrown
+condition goes from caller to caller until a
+<computeroutput>catch</computeroutput> clause catches it, and Python between
+two of those callers does not stop it. Here <literal>price</literal> throws
+while Python's <literal>map</literal> calls it for <literal>sum</literal>;
+<literal>total</literal>, which called Python, has no
+<computeroutput>catch</computeroutput> clause, so the condition goes on to
+the block that called <literal>total</literal>. (A condition raised with
+<literal>RAISE</literal> would stop in <literal>total</literal>, one level
+above the call, as Rexx's raised conditions do.) From Python,
+<computeroutput>oorexx.throw(condition, rc, description, additional)</computeroutput>
+throws a Rexx condition with <literal>THROW</literal>'s options: in Python it
+is an exception, an <literal>oorexx.RexxError</literal>, and in the Rexx code
+that called Python it is the condition, thrown.</para>
+<para><emphasis role="bold">See also</emphasis> <citetitle>Reference</citetitle>,
+<emphasis>Thrown Conditions</emphasis> and <emphasis>throw</emphasis>;
+<citetitle>ooRexx Reference</citetitle>, <emphasis>THROW</emphasis>.</para>
+</section>
+
 </chapter>

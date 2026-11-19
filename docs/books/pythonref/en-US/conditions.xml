@@ -117,14 +117,85 @@ clause or <literal>SIGNAL ON HALT</literal> traps it, <literal>CALL ON HALT</lit
 untrapped it ends as SYNTAX 4.1.</para>
 </section>
 
+<section id="condThrown"><title>Thrown Conditions</title>
+<indexterm><primary>THROW instruction</primary></indexterm>
+<indexterm><primary>conditions</primary><secondary>thrown</secondary></indexterm>
+<para>ooRexx's <literal>THROW</literal> instruction throws a condition: unlike
+one raised with <literal>RAISE</literal>, which goes one level, it goes from
+caller to caller until something catches it, whatever its name, as a SYNTAX
+error does (<citetitle>ooRexx Reference</citetitle>, <emphasis>Thrown
+Conditions</emphasis>; the instruction is experimental in ooRexx). Python in
+between changes nothing. Rexx code that Python called throws a condition: if
+the Python code does not catch it (it is an
+<xref linkend="clsRexxError" xrefstyle="select:title"/> whose
+<literal>thrown</literal> is &True;), it goes on in the Rexx code that called
+Python, and from there to its callers. A <literal>CATCH</literal> clause or
+<literal>SIGNAL ON</literal> catches it on any of those levels;
+<literal>CALL ON</literal> does not trap it, as it does not trap a SYNTAX
+error; the <literal>FINALLY</literal> clauses of the levels it leaves run;
+and a condition that nothing catches ends the program with error 4.1, or
+4.901, which shows its description. Its condition object says
+<literal>THROWN</literal> <literal>.true</literal>, and keeps its
+description and <literal>ADDITIONAL</literal>.</para>
+<para>Python code throws a Rexx condition with
+<xref linkend="fnThrow" xrefstyle="select:title"/>:
+<computeroutput>oorexx.throw("user badConfig", description="...")</computeroutput>
+is Rexx's <computeroutput>throw user badConfig description "..."</computeroutput>,
+thrown in the Rexx code that called Python. It is the counterpart of
+<xref linkend="mthPythonRaise" xrefstyle="select:title"/>, with which Rexx
+code raises a Python exception.</para>
+<example id="ex.conditions-thrown">
+<title>Thrown conditions, through Python and from Python</title>
+<programlisting language="rexx">do
+  say total(.array~of("pear", "fig"))
+  say total(.array~of("pear", "kiwi"))
+catch c = user noPrice
+  say c~condition":" c~description "(thrown:" c~thrown")"
+end
+
+.py~exec("import oorexx"                                  || "0a"x || -
+         "def port(config):"                              || "0a"x || -
+         "    if 'port' not in config:"                   || "0a"x || -
+         "        oorexx.throw('user badConfig', description='no port', additional=[config])" || "0a"x || -
+         "    return config['port']")
+do
+  say .py~main~port(.py~dict(.py~kw("port", 8080)))
+  say .py~main~port(.py~dict~new)
+catch c = user badConfig
+  say c~condition":" c~description c~additional[1]
+end
+
+::routine total                         -- does not catch it: it goes on
+  use arg basket
+  return .py~sum(.py~map(.context~package~findRoutine("PRICE"), basket))
+::routine price                         -- called by Python's map
+  use arg item
+  if item == "pear" then return 3
+  if item == "fig" then return 2
+  throw user noPrice description ("no price for" item)
+::requires "python.cls"</programlisting>
+<screen>5
+USER NOPRICE: no price for kiwi (thrown: 1)
+8080
+USER BADCONFIG: no port {}</screen>
+</example>
+<para>Through an <literal>ADDRESS</literal> environment written in Python, a
+thrown condition goes on as through a handler written in Rexx: thrown, to
+the code that issued the command and to its callers, an
+<literal>ERROR</literal> or a <literal>FAILURE</literal> with its RC.</para>
+</section>
+
 <section id="condRexxInPython"><title>Rexx Conditions in Python</title>
 <indexterm><primary>RexxError</primary></indexterm>
 <para>Any other Rexx condition that reaches Python, an error in Rexx code that
 Python called, is an <xref linkend="clsRexxError" xrefstyle="select:title"/>,
 whose text is Rexx's message:
 <literal>Rexx error 42.3: Arithmetic overflow; divisor must not be zero.</literal>
+A condition that is not an error has its name and, if it has one, its
+description: <literal>Rexx condition USER BADCONFIG: no port</literal>.
 Its attributes are the parts of the condition: its code, its line, its
-program, its texts and its traceback (<xref linkend="clsRexxError"/>).</para>
+program, its texts, its traceback, and whether it was thrown
+(<xref linkend="clsRexxError"/>).</para>
 <example id="ex.conditions-python">
 <title>Rexx errors and Python exceptions, seen from Python</title>
 <programlisting language="python">import oorexx

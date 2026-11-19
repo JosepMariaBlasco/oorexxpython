@@ -197,6 +197,8 @@ interpreter_removecommandenvironment ::= 'remove_command_environment(' name ')'
 
 interpreter_close ::= 'close()'
 
+oorexx_throw ::= 'oorexx.throw(' condition ( ',' rc ( ',' description ( ',' additional )? )? )? ')'
+
 rexxobject_message ::= name '(' ( argument ( ',' argument )* )? ')'
 
 rexxobject_call ::= '(' ( argument ( ',' argument )* )? ')'

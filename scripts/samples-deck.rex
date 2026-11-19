@@ -21,6 +21,15 @@
 /*                                                                            */
 /* Licensed under the Apache License, Version 2.0.                            */
 /*----------------------------------------------------------------------------*/
+  do
+    call main arg(1)
+  catch failed = user failed              -- thrown wherever a file cannot be read or written
+    say "samples-deck.rex:" failed~description
+    exit 1
+  end
+  exit 0
+
+::routine main
   parse source . . me
   sep = .file~separator
   root = .file~new(me)~parentFile~parentFile~absolutePath
@@ -94,7 +103,6 @@
 
   call writeLines out, deck
   say out
-  exit 0
 
 /* One sample's slide (or two): the prose of its header, its program, the     */
 /* Python it replaces and its output.                                         */
@@ -267,10 +275,7 @@
 ::routine readLines                         -- a file's lines, as an Array
   use arg name
   s = .stream~new(name)
-  if s~open("read") \== "READY:" then do
-    say "samples-deck.rex: cannot read" name
-    exit 1
-  end
+  if s~open("read") \== "READY:" then throw user failed description ("cannot read" name)
   a = s~arrayIn
   s~close
   return a
@@ -279,9 +284,6 @@
   use arg name, a
   s = .stream~new(name)
   call SysFileDelete name
-  if s~open("write replace") \== "READY:" then do
-    say "samples-deck.rex: cannot write" name
-    exit 1
-  end
+  if s~open("write replace") \== "READY:" then throw user failed description ("cannot write" name)
   s~charOut(a~makeString("L", "0a"x) || "0a"x)
   s~close

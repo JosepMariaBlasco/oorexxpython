@@ -303,6 +303,51 @@ for label, how, f, value in (("function, routine", "function", ns(go=lambda: pas
                              ("handler, method", "handler", "method", "rc 7")):
     check(f"CATCH past Python ({label})", past_catch(how, f), "trapped USER X d")
 
+# thrown conditions (ooRexx's THROW): a condition nothing in Rexx caught is a
+# RexxError that says so, with the description in its text
+def parts(f):
+    e = caught(f)
+    return (type(e).__name__, str(e), e.condition, e.description, e.thrown)
+check("THROW, uncaught: RexxError, thrown",
+      parts(r.routine("call deep\nreturn 1\ndeep: throw user boom description 'the description'")),
+      ("RexxError", "Rexx condition USER BOOM: the description", "USER BOOM", "the description", True))
+check("RAISE: not thrown",
+      parts(r.routine("raise user boom description 'the description'")),
+      ("RexxError", "Rexx condition USER BOOM: the description", "USER BOOM", "the description", False))
+check("a SYNTAX error: not thrown", caught(lambda: r.eval("1 / 0")).thrown, False)
+check("THROW SYNTAX: thrown", caught(r.routine("throw syntax 40.1 array ('F')")).thrown, True)
+# oorexx.throw: in Python, a RexxError like those (no Rexx code involved)
+check("oorexx.throw, in Python",
+      parts(lambda: oorexx.throw("user top", description="t")),
+      ("RexxError", "Rexx condition USER TOP: t", "USER TOP", "t", True))
+check("... its RC", caught(lambda: oorexx.throw("error", 12)).rc, 12)
+check("... needs a name", raises(lambda: oorexx.throw()).startswith("TypeError"), True)
+check("... a str", raises(lambda: oorexx.throw(5)).startswith("TypeError"), True)
+# thrown by a Python function that Rexx code called: thrown in that Rexx
+# code, where a CATCH clause catches it levels above, and uncaught it comes
+# back to Python
+def py_throw(): oorexx.throw("user viaRexx", None, "d", [1, "two"])
+check("oorexx.throw through Rexx, caught there", r.routine(
+    "use arg f; do; call level f; catch c = user viarexx\n"
+    "return c~condition c~thrown c~description c~additional~makeString('l', '/'); end; return 'no'\n"
+    "level: procedure; use arg f; return f~invoke(.nil)")(py_throw), "USER VIAREXX 1 d 1/two")
+check("... uncaught there: back in Python",
+      parts(lambda: r.routine("use arg f; return f~invoke(.nil)")(py_throw)),
+      ("RexxError", "Rexx condition USER VIAREXX: d", "USER VIAREXX", "d", True))
+check("... what THROW would not accept: 93.900", raises(lambda: r.routine("use arg f; return f~invoke(.nil)")(
+    lambda: oorexx.throw("nope"))), 'RexxError: Rexx error 93.900: Throw cannot throw a condition named "NOPE".')
+# from a command handler: thrown in the code that issued the command
+def throwing(command, ctx):
+    if command == "throw": oorexx.throw("user cmd", description="from the handler")
+    return 5
+r.add_command_environment("THROWING", throwing)
+check("oorexx.throw in a handler, caught by the issuer", r.routine(
+    "do; address throwing 'throw'; catch c = any; return c~condition c~thrown c~description; end; return 'rc' rc")(),
+    "USER CMD 1 from the handler")
+check("... uncaught", parts(r.routine("address throwing 'throw'; return 'rc' rc")),
+      ("RexxError", "Rexx condition USER CMD: from the handler", "USER CMD", "from the handler", True))
+check("... a command that does not throw", r.routine("address throwing 'x'; return 'rc' rc")(), "rc 5")
+
 # closing an interpreter releases its environments' handlers at once, also
 # while other instances live (r here)
 def closing_handler(command, ctx): return 0

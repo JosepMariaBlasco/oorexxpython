@@ -364,6 +364,8 @@ struct PyError
 struct RexxSide
 {
     RexxThreadContext *tc;
+    RexxMethodContext *mc = NULL;         // the native method in progress, when
+                                          // there is one (finish: Throw)
     RexxInstance *inst;
     RexxClassObject pyObjectClass;
     RexxClassObject kwClass;
@@ -484,6 +486,7 @@ static void setBooleans(RexxThreadContext *tc, InstanceData &d, RexxClassObject 
 static bool findClasses(RexxMethodContext *context, RexxSide &side)
 {
     side.tc = context->threadContext;
+    side.mc = context;
     side.inst = context->threadContext->instance;
     side.pyObjectClass = context->FindContextClass("PYOBJECT");
     side.kwClass = context->FindContextClass("PYKWARGS");
@@ -1863,6 +1866,80 @@ static bool raiseAgain(RexxSide &side, PyError &err, bool *halted, RexxObjectPtr
     return true;
 }
 
+// an oorexx.RexxError made by oorexx.throw(condition, rc, description,
+// additional) (moduleThrow), which no Python code caught: the condition is
+// thrown in the Rexx caller, as the THROW instruction throws it, with the
+// Throw API (RFE #31, r13546).  Throw does not return: it unwinds this native
+// method (the destructors of its locals run), so everything Python is let go
+// before the call.  It checks its arguments as THROW does, and a bad one is
+// error 93.900 in the caller.  False when err is not such an error.
+static bool throwFromPython(RexxSide &side, Val &result, PyError &err)
+{
+    RexxThreadContext *c = side.tc;
+    if (side.mc == NULL || side.mc->functions->interfaceVersion < METHOD_INTERFACE_VERSION_5_3_0) return false;
+    std::string name, description;
+    bool hasRC = false, hasDescription = false, hasAdditional = false, sequence = false;
+    Val rc;
+    std::vector<Val> additional;          // one item, or a list's or a tuple's items
+    {
+        Gil gil;
+        PyObject *t = err.exc != NULL && PyObject_IsInstance(err.exc, rexxErrorType) == 1
+                      ? PyObject_GetAttrString(err.exc, "_rexx_throw") : NULL;
+        PyErr_Clear();
+        if (t == NULL) return false;
+        if (!PyTuple_Check(t) || PyTuple_Size(t) != 4) { Py_DECREF(t); return false; }
+        name = pyString(PyTuple_GetItem(t, 0));
+        PyObject *r = PyTuple_GetItem(t, 1), *d = PyTuple_GetItem(t, 2), *a = PyTuple_GetItem(t, 3);
+        if (r != Py_None) { hasRC = true; Py_INCREF(r); pyToVal(r, rc); }
+        if (d != Py_None) { hasDescription = true; description = pyString(d); }
+        if (a != Py_None)
+        {
+            hasAdditional = true;
+            // a list or a tuple: a Rexx Array of its items, as ADDITIONAL
+            // usually is (THROW's ARRAY option), and must be for SYNTAX
+            sequence = PyList_Check(a) || PyTuple_Check(a);
+            Py_ssize_t n = sequence ? PySequence_Size(a) : 1;
+            for (Py_ssize_t i = 0; i < n; i++)
+            {
+                PyObject *item = sequence ? PySequence_GetItem(a, i) : (Py_INCREF(a), a);
+                additional.emplace_back();
+                if (item != NULL) pyToVal(item, additional.back());
+            }
+        }
+        Py_DECREF(t);
+        PyErr_Clear();
+        Py_DECREF(err.exc);               // nothing Python is left for the unwinding
+        err.exc = NULL;
+        if (result.kind != Val::NIL) dropVal(result);
+        result.kind = Val::NIL;
+    }
+    RexxObjectPtr rcObj = hasRC ? valToRexx(side, rc) : NULLOBJECT;
+    RexxObjectPtr descObj = hasDescription ? (RexxObjectPtr)c->String(description.data(), description.size()) : NULLOBJECT;
+    RexxObjectPtr addObj = NULLOBJECT;
+    if (hasAdditional && sequence)
+    {
+        RexxArrayObject array = c->NewArray(additional.size());
+        for (size_t i = 0; i < additional.size(); i++)
+        {
+            RexxObjectPtr item = valToRexx(side, additional[i]);
+            if (item != NULLOBJECT) c->ArrayPut(array, item, i + 1);
+        }
+        addObj = array;
+    }
+    else if (hasAdditional) addObj = valToRexx(side, additional[0]);
+    bool python = holdsPython(rc);
+    for (const Val &v : additional) python = python || holdsPython(v);
+    if (python)
+    {
+        Gil gil;
+        dropVal(rc);
+        for (Val &v : additional) dropVal(v);
+    }
+    if (c->CheckCondition()) return true; // a conversion failed: that error stands
+    side.mc->Throw(name.c_str(), rcObj, (RexxStringObject)descObj, addObj);
+    return true;                          // (not reached)
+}
+
 static RexxObjectPtr finish(RexxSide &side, Val &result, PyError &err)
 {
     RexxThreadContext *c = side.tc;
@@ -1873,6 +1950,7 @@ static RexxObjectPtr finish(RexxSide &side, Val &result, PyError &err)
         if (result.kind != Val::NIL) { Gil gil; dropVal(result); }
         return halted ? c->Nil() : value;
     }
+    if (err.set && throwFromPython(side, result, err)) return NULLOBJECT;
     if (err.set)
     {
         if (result.kind != Val::NIL) { Gil gil; dropVal(result); }
@@ -1984,6 +2062,7 @@ struct ConditionInfo
     std::string condition, code, message, errortext, program, description, traceback;
     long rc = 0;
     size_t position = 0;
+    bool thrown = false;                  // thrown (THROW), not raised: THROWN
     Val object;                           // the condition object itself (REXX), so
                                           // that it can be raised again as itself
     Val value;                            // what the Rexx call returned with the
@@ -2028,6 +2107,7 @@ static std::string takeCondition(RexxThreadContext *tc, RexxSide *side = NULL, V
         if (info.errortext != NULLOBJECT) ci->errortext = tc->CString(info.errortext);
         if (info.program != NULLOBJECT) ci->program = tc->CString(info.program);
         if (info.description != NULLOBJECT) ci->description = tc->CString(info.description);
+        ci->thrown = tc->DirectoryAt(cond, "THROWN") == tc->True();
         // the Rexx traceback, as Rexx shows it (a List of lines in the
         // condition object, not in RexxCondition)
         RexxObjectPtr tb = tc->DirectoryAt(cond, "TRACEBACK");
@@ -2044,6 +2124,9 @@ static std::string takeCondition(RexxThreadContext *tc, RexxSide *side = NULL, V
             }
         }
     }
+    // a condition has no message: its description, if it has one, as Rexx
+    // shows an uncaught thrown condition (error 4.901, r13550)
+    if (name != "SYNTAX" && text.empty() && info.description != NULLOBJECT) text = tc->CString(info.description);
     tc->ClearCondition();
     if (name != "SYNTAX")
     {
@@ -2091,6 +2174,7 @@ static void raiseRexxError(const std::string &text, ConditionInfo &ci)
         str("traceback", ci.traceback, ci.traceback.empty());
         PyObject *rc = PyLong_FromLong(ci.rc);
         if (rc != NULL) { PyObject_SetAttrString(e, "rc", rc); Py_DECREF(rc); }
+        PyObject_SetAttrString(e, "thrown", ci.thrown ? Py_True : Py_False);
         PyObject *pos = ci.position != 0 ? PyLong_FromSize_t(ci.position) : (Py_INCREF(Py_None), Py_None);
         if (pos != NULL) { PyObject_SetAttrString(e, "position", pos); Py_DECREF(pos); }
     }
@@ -2521,6 +2605,61 @@ static PyObject *pairCallPeer(PyObject *, PyObject *a)
     return result;
 }
 
+// oorexx.throw(condition, rc=None, description=None, additional=None): throw
+// a Rexx condition from Python, as Rexx's THROW condition rc DESCRIPTION
+// description ADDITIONAL additional.  In Python it is an oorexx.RexxError,
+// raised here, that Python code can catch as any other; when it reaches the
+// Rexx code that called Python, the condition is thrown there
+// (throwFromPython), and goes from caller to caller until something catches
+// it.  The arguments are checked there, as THROW checks them.
+static PyObject *moduleThrow(PyObject *, PyObject *args, PyObject *kwargs)
+{
+    static const char *names[] = {"condition", "rc", "description", "additional", NULL};
+    PyObject *condition, *rc = Py_None, *description = Py_None, *additional = Py_None;
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "U|OOO:throw", (char **)names,
+                                     &condition, &rc, &description, &additional)) return NULL;
+    // the name as Rexx has it: in uppercase, one blank between its words
+    std::string name;
+    {
+        std::string word;
+        for (char ch : upper(pyString(condition)) + " ")
+        {
+            if (ch != ' ' && ch != '\t') { word += ch; continue; }
+            if (word.empty()) continue;
+            name += (name.empty() ? "" : " ") + word;
+            word.clear();
+        }
+    }
+    PyObject *text = description != Py_None ? PyObject_Str(description) : (Py_INCREF(Py_None), Py_None);
+    if (text == NULL) return NULL;
+    std::string message = "Rexx condition " + name;
+    if (text != Py_None && !pyString(text).empty()) message += ": " + pyString(text);
+    PyObject *e = PyObject_CallFunction(rexxErrorType, "s", message.c_str());
+    PyObject *n = PyUnicode_DecodeUTF8(name.data(), (Py_ssize_t)name.size(), "replace");
+    PyObject *t = n != NULL ? PyTuple_Pack(4, n, rc, text, additional) : NULL;
+    if (e != NULL && t != NULL)
+    {
+        PyObject_SetAttrString(e, "condition", n);
+        PyObject_SetAttrString(e, "rc", rc);
+        PyObject_SetAttrString(e, "description", text);
+        PyObject_SetAttrString(e, "thrown", Py_True);
+        PyObject_SetAttrString(e, "_rexx_throw", t);
+        if (!PyErr_Occurred()) PyErr_SetObject(rexxErrorType, e);
+    }
+    Py_XDECREF(t);
+    Py_XDECREF(n);
+    Py_XDECREF(e);
+    Py_DECREF(text);
+    return NULL;
+}
+
+static PyMethodDef moduleFunctions[] =
+{
+    {"throw", (PyCFunction)(void (*)(void))moduleThrow, METH_VARARGS | METH_KEYWORDS,
+     "throw(condition, rc=None, description=None, additional=None): throw a Rexx condition, as Rexx's THROW"},
+    {NULL, NULL, 0, NULL}
+};
+
 static PyMethodDef pairFunctions[] =
 {
     {"_call_peer", (PyCFunction)pairCallPeer, METH_VARARGS, "for python.cls: Python calls an override"},
@@ -2902,14 +3041,14 @@ static bool makeTypes()
     if (attrs != NULL)
     {
         for (const char *a : {"condition", "code", "rc", "message", "errortext", "position",
-                              "program", "description", "traceback"})
+                              "program", "description", "traceback", "thrown"})
         {
             PyDict_SetItemString(attrs, a, Py_None);
         }
         PyObject *doc = PyUnicode_FromString(
             "A Rexx condition in Rexx code that Python called: condition, code (SYNTAX's, \"42.3\"), "
             "rc, message, errortext, position (the line), program, description, traceback (the Rexx "
-            "traceback, as Rexx shows it).");
+            "traceback, as Rexx shows it), thrown (whether THROW threw it).");
         if (doc != NULL) { PyDict_SetItemString(attrs, "__doc__", doc); Py_DECREF(doc); }
     }
     rexxErrorType = PyErr_NewException("oorexx.RexxError", PyExc_RuntimeError, attrs);
@@ -2930,12 +3069,15 @@ static bool fillModule(PyObject *m)
     if (pairType == NULL) pairType = makePairType();
     if (pairType == NULL) return false;
     PyObject_SetAttrString(m, "_Pair", pairType);
-    for (PyMethodDef *d = pairFunctions; d->ml_name != NULL; d++)
+    for (PyMethodDef *table : {pairFunctions, moduleFunctions})
     {
-        PyObject *f = PyCFunction_NewEx(d, NULL, NULL);
-        if (f == NULL) return false;
-        PyObject_SetAttrString(m, d->ml_name, f);
-        Py_DECREF(f);
+        for (PyMethodDef *d = table; d->ml_name != NULL; d++)
+        {
+            PyObject *f = PyCFunction_NewEx(d, NULL, NULL);
+            if (f == NULL) return false;
+            PyObject_SetAttrString(m, d->ml_name, f);
+            Py_DECREF(f);
+        }
     }
     return !PyErr_Occurred();
 }
@@ -3499,7 +3641,7 @@ static PyObject *registerHandler(Inst *inst, PyObject *nameObj, PyObject *handle
             }
             if (core == NULLOBJECT || ours == NULLOBJECT)
             {
-                error = "add_command_environment: this ooRexx has no .CommandHandler (5.3.0 r13535 or later is needed)";
+                error = "add_command_environment: this ooRexx has no .CommandHandler (5.3.0 r13550 or later is needed)";
                 return NULLOBJECT;
             }
             RexxObjectPtr h = tc->SendMessage1(ours, "NEW", tc->ArrayAt(rargs, 2));
@@ -3542,7 +3684,7 @@ static PyObject *interpreterRemoveEnvironment(PyObject *self, PyObject *args)
             }
             if (core == NULLOBJECT)
             {
-                error = "remove_command_environment: this ooRexx has no .CommandHandler (5.3.0 r13535 or later is needed)";
+                error = "remove_command_environment: this ooRexx has no .CommandHandler (5.3.0 r13550 or later is needed)";
                 return NULLOBJECT;
             }
             return tc->SendMessage1(core, "DEREGISTER", tc->ArrayAt(rargs, 1));

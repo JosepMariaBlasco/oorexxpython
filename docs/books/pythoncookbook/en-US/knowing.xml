@@ -28,6 +28,7 @@ recipes, on one page.</para>
 <row><entry><computeroutput>(1, 2)</computeroutput></entry><entry><computeroutput>[1, 2]</computeroutput>: a Rexx Array goes as a list</entry></row>
 <row><entry><computeroutput>.py~str(2026)</computeroutput>, <computeroutput>py.box("float", 1)</computeroutput></entry><entry><computeroutput>"2026"</computeroutput>, <computeroutput>1.0</computeroutput></entry></row>
 <row><entry><computeroutput>do ... catch c = syntax ... end</computeroutput> (legacy: <computeroutput>signal on syntax</computeroutput>)</entry><entry><computeroutput>try ... except</computeroutput>: SYNTAX 98.900</entry></row>
+<row><entry><computeroutput>throw user x description d</computeroutput>, in Rexx code that Python calls</entry><entry><computeroutput>raise X(d)</computeroutput>: it goes on through Python to the Rexx callers; from Python, <computeroutput>oorexx.throw("user x", description=d)</computeroutput></entry></row>
 <row><entry><computeroutput>do ... finally ... end</computeroutput></entry><entry><computeroutput>try ... finally</computeroutput>, and <computeroutput>with</computeroutput>: what must run however the block ends (<computeroutput>o~close</computeroutput>, <computeroutput>cm~invoke("__exit__", .nil, .nil, .nil)</computeroutput>)</entry></row>
 <row><entry><computeroutput>::class C subclass PyObject</computeroutput> and <computeroutput>.py~extend(self, base)</computeroutput></entry><entry><computeroutput>class C(base)</computeroutput></entry></row>
 </tbody>

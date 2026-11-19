@@ -43,6 +43,7 @@ by `scripts/samples-deck.rex` (edit those, not the deck), and the skin
 | `09-threads.rex` | Rexx threads and a Python thread pool, together; `DO ... FINALLY` for Python's `with` |
 | `27-string-module.rex` | number-looking text: `.py~str(x)`, or a module imported as `"string"` |
 | `28-address.rex` | an ADDRESS environment written in Python, registered and removed from Rexx as ooRexx's own: `.CommandHandler~register(name, .py~commandHandler(f))`, `~deregister` |
+| `29-throw.rex` | thrown conditions: Rexx's `THROW` through Python, caught levels above; Python's `oorexx.throw` |
 
 ## The Python standard library, from ooRexx
 

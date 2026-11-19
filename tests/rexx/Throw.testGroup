@@ -1,0 +1,375 @@
+#!/usr/bin/env rexx
+/*----------------------------------------------------------------------------*/
+/* Throw.testGroup: thrown conditions (ooRexx's THROW instruction) through    */
+/* Python, and conditions that Python throws (oorexx.throw).                  */
+/*                                                                            */
+/* Licensed under the Apache License, Version 2.0.                            */
+/*----------------------------------------------------------------------------*/
+  parse source . . fileSpec
+
+  group = .TestGroup~new(fileSpec)
+  group~add(.Throw.testGroup)
+
+  if group~isAutomatedTest then return group
+
+  testResult = group~suite~execute~~print
+
+return testResult
+-- End of entry point.
+
+::requires 'PyTestCase.cls'
+
+::class "Throw.testGroup" subclass PyTestCase public
+
+-- a routine of this file, as an object
+::method routine private
+  use strict arg name
+  return .context~package~findRoutine(name)
+
+::method setUp
+  .py~exec(self~py("import oorexx",                                                  -
+                   "def call(f, *args):",                                             -
+                   "    return f(*args)",                                             -
+                   "def throw(*args, **kwargs):",                                     -
+                   "    oorexx.throw(*args, **kwargs)",                               -
+                   "def caught(f, *args):",                                           -
+                   "    try:",                                                        -
+                   "        return f(*args)",                                         -
+                   "    except oorexx.RexxError as e:",                               -
+                   "        return '%s | %s | %s | %s' % (e, e.condition, e.description, e.thrown)"))
+
+-- the Python functions of setUp
+::method call private
+  return .py~main~getattr("call")
+::method throw private
+  return .py~main~getattr("throw")
+
+-- Rexx code that Python called throws a condition: it goes through Python
+-- and on from caller to caller, as with no Python in between, to the CATCH
+-- clause two Rexx levels above the call to Python
+::method test_thrown_through_python
+  do
+    call twoLevels self~call, self~routine("throws")
+    self~fail("the thrown condition must go on")
+  catch c = user boom
+    self~assertSame("USER BOOM", c~condition)
+    self~assertTrue(c~thrown, "THROWN")
+    self~assertTrue(c~propagated, "PROPAGATED")
+    self~assertSame("the description", c~description, "its DESCRIPTION")
+    self~assertSame("A,2", c~additional~makeString("l", ","), "its ADDITIONAL")
+    self~assertSame("CATCH", condition("I"))
+  end
+
+-- the same condition raised (RAISE) stops one level above the call to
+-- Python, as in plain Rexx: that level gets the value, and nothing else
+-- sees the condition
+::method test_raised_stops_one_level_up
+  do
+    x = twoLevels(self~call, self~routine("raises"))
+  catch c = user boom
+    self~fail("a raised condition must not go further than one level")
+  end
+  self~assertSame("oneLevel got 7", x)
+
+-- SIGNAL ON catches a thrown condition; CALL ON does not, as it does not
+-- trap a SYNTAX error
+::method test_signal_on_and_call_on
+  self~assertSame("SIGNAL USER BOOM 1", self~signalOn(self~call, self~routine("throws")), "SIGNAL ON")
+  ran = 0
+  call on user boom name handler
+  do
+    self~call~invoke(.nil, self~routine("throws"))
+    self~fail("the thrown condition must not be trapped by CALL ON")
+  catch c = user boom
+    self~assertTrue(c~thrown, "caught by the block around")
+  end
+  call off user boom
+  self~assertSame(0, ran, "the CALL ON handler did not run")
+  return
+handler:
+  ran += 1
+  return
+
+::method signalOn private
+  use arg pyCallable, f
+  signal on user boom name trapped
+  pyCallable~invoke(.nil, f)
+  return "not trapped"
+trapped:
+  return condition("I") condition("C") condition("O")~thrown
+
+-- the FINALLY clauses of the Rexx levels the condition leaves run, on both
+-- sides of Python
+::method test_finally_clauses_run
+  .local~orxpy.trail = .array~new
+  do
+    do
+      self~call~invoke(.nil, self~routine("throwsWithFinally"))
+    finally
+      .local~orxpy.trail~append("outer")
+    end
+  catch user boom
+    .local~orxpy.trail~append("caught")
+  end
+  self~assertSame("inner outer caught", .local~orxpy.trail~makeString("l", " "))
+
+-- Python catches it: an oorexx.RexxError that says whether the condition
+-- was thrown, with the description in its text
+::method test_python_catches
+  caught = .py~main~getattr("caught")
+  self~assertSame("Rexx condition USER BOOM: the description | USER BOOM | the description | True", -
+                  caught~invoke(.nil, self~routine("throws")), "thrown")
+  self~assertSame("Rexx condition USER BOOM: the description | USER BOOM | the description | False", -
+                  caught~invoke(.nil, self~routine("raises")), "raised")
+  self~assertSame("Rexx condition USER BARE | USER BARE | None | True", -
+                  caught~invoke(.nil, self~routine("throwsBare")), "no description")
+
+-- Python throws: the condition is thrown in the Rexx caller, and goes on
+-- from there (DESCRIPTION a string, ADDITIONAL a list as a Rexx Array)
+::method test_python_throws
+  do
+    call twoLevels self~throw, "user badConfig", .nil, "missing key 'port'", .py~list(.array~of("app.yaml", 12))
+    self~fail("the condition Python threw must go on")
+  catch c = user badconfig
+    self~assertSame("USER BADCONFIG", c~condition, "the name, in uppercase")
+    self~assertTrue(c~thrown, "THROWN")
+    self~assertTrue(c~propagated, "PROPAGATED")
+    self~assertSame("missing key 'port'", c~description, "its DESCRIPTION")
+    self~assertTrue(c~additional~isA(.Array), "a list is a Rexx Array")
+    self~assertSame("app.yaml,12", c~additional~makeString("l", ","), "its ADDITIONAL")
+  end
+
+-- with keyword arguments; a tuple is an Array too; a description that is
+-- not a str is its str()
+::method test_python_throws_keywords
+  do
+    self~throw~invoke(.nil, "User  Spaced", .py~kw("additional", .py~tuple(.array~of("a")), "description", 42))
+    self~fail("no condition")
+  catch c = user spaced
+    self~assertSame("USER SPACED", c~condition, "one blank between USER and the name")
+    self~assertSame("42", c~description)
+    self~assertTrue(c~description~isA(.String), "the description is a String")
+    self~assertSame("a", c~additional[1])
+  end
+
+-- ADDITIONAL that is not a list: the object itself (a Rexx object comes back
+-- as itself, a Python one as a .PyObject)
+::method test_python_throws_additional
+  o = .object~new
+  do
+    self~throw~invoke(.nil, "user x", .nil, .nil, o)
+  catch c = user x
+    self~assertSame(o, c~additional, "a Rexx object: itself")
+    self~assertSame("", c~description, "no description: a null string")
+  end
+  do
+    self~throw~invoke(.nil, "user x", .nil, .nil, .py~dict)
+  catch c = user x
+    self~assertTrue(c~additional~isA(.PyObject), "a dict: a .PyObject")
+  end
+  do
+    self~throw~invoke(.nil, "user x")
+  catch c = user x
+    self~assertFalse(c~hasIndex("ADDITIONAL"), "none")
+  end
+
+-- every condition THROW accepts, ERROR and FAILURE with their RC
+::method test_python_throws_every_condition
+  do name over "HALT", "LOSTDIGITS", "NOMETHOD", "NOSTRING", "NOTREADY", "NOVALUE"
+    do
+      self~throw~invoke(.nil, name~lower)
+      self~fail(name "not thrown")
+    catch c = any
+      self~assertSame(name, c~condition)
+      self~assertTrue(c~thrown, name": THROWN")
+    end
+  end
+  do
+    self~throw~invoke(.nil, "error", 12, "an error")
+    self~fail("ERROR not thrown")
+  catch c = error
+    self~assertSame(12, c~rc, "ERROR: its RC")
+    self~assertSame("an error", c~description)
+    self~assertTrue(c~thrown, "ERROR: THROWN")
+  end
+  do
+    self~throw~invoke(.nil, "failure", -3)
+    self~fail("FAILURE not thrown")
+  catch c = failure
+    self~assertSame(-3, c~rc, "FAILURE: its RC")
+  end
+
+-- SYNTAX: the error code as Rexx writes it, ADDITIONAL the substitution
+-- values; thrown, as THROW SYNTAX throws it
+::method test_python_throws_syntax
+  do
+    self~throw~invoke(.nil, "syntax", "40.1", "the description", .py~list(.array~of("MYFUNC")))
+    self~fail("SYNTAX not thrown")
+  catch c = syntax
+    self~assertSame("40.1", c~code)
+    self~assertSame('External routine "MYFUNC" failed.', c~message)
+    self~assertSame("the description", c~description)
+    self~assertTrue(c~thrown, "THROWN")
+  end
+  do
+    self~throw~invoke(.nil, "syntax", 40)
+    self~fail("SYNTAX not thrown")
+  catch c = syntax
+    self~assertSame("40.0", c~code, "a major code only")
+  end
+
+-- arguments THROW would not accept: error 93.900 in the Rexx caller,
+-- raised, not thrown (a SYNTAX code that is not valid: THROW SYNTAX's error)
+::method test_python_throws_bad_arguments
+  bad = .array~of(.array~of("bogus"), .array~of(""), .array~of("user"), .array~of("user a b"), -
+                  .array~of("error"), .array~of("syntax"), .array~of("user x", 5), .array~of("halt", 0))
+  do args over bad
+    do
+      self~throw~sendWith("INVOKE", .array~of(.nil)~~appendAll(args))
+      self~fail("no error for" args~makeString("l", ","))
+    catch c = any
+      self~assertSame("SYNTAX 93.900", c~condition c~code, args~makeString("l", ","))
+      self~assertFalse(c~thrown, "raised, not thrown")
+    end
+  end
+  do
+    self~throw~invoke(.nil, "syntax", "abc")
+    self~fail("no error for a bad code")
+  catch c = syntax
+    self~assertSame("33.904", c~code, "a SYNTAX code that is not valid")
+  end
+  -- Python's own checks: a TypeError, SYNTAX 98.900 in Rexx
+  do
+    self~throw~invoke(.nil)
+    self~fail("no error without a name")
+  catch c = syntax
+    self~assertSame("98.900", c~code, "no condition name")
+    self~assertSame("TypeError", .py~type(c~additional[2])~getattr("__name__"))
+  end
+
+-- in Python it is an oorexx.RexxError that Python code can catch: then
+-- nothing reaches Rexx
+::method test_python_catches_its_own
+  r = .py~main~getattr("caught")~invoke(.nil, self~throw, "user mine", .nil, "d")
+  self~assertSame("Rexx condition USER MINE: d | USER MINE | d | True", r)
+
+-- CALL ON does not trap what Python throws; SIGNAL ON catches it
+::method test_python_throws_traps
+  ran = 0
+  call on user x name handler
+  do
+    self~throw~invoke(.nil, "user x")
+    self~fail("no condition")
+  catch c = user x
+    nop
+  end
+  call off user x
+  self~assertSame(0, ran, "the CALL ON handler did not run")
+  self~assertSame("SIGNAL USER BOOM 1", self~signalOn(self~throw, "user boom"), "SIGNAL ON")
+  return
+handler:
+  ran += 1
+  return
+
+-- Rexx -> Python -> Rexx -> Python, which throws: through both
+::method test_python_throws_nested
+  do
+    self~call~invoke(.nil, self~routine("callsPython"), self~throw)
+    self~fail("no condition")
+  catch c = user deep
+    self~assertTrue(c~thrown)
+    self~assertSame("from Python", c~description)
+  end
+
+-- through an ADDRESS environment written in Python, a thrown condition goes
+-- on as through a handler written in Rexx: thrown (not through the
+-- context), an ERROR with its RC, and CALL ON does not trap it
+::method test_through_address
+  .py~exec(self~py("def throwing(command, ctx):",                                    -
+                   "    if command == 'rexx': return ctx.getVar('F')()",             -
+                   "    if command == 'python': oorexx.throw('user boom', None, 'from the handler', ['h'])", -
+                   "    if command == 'error': oorexx.throw('error', 9, 'bad')",    -
+                   "    return 5"))
+  .CommandHandler~register("PYTHROW", .py~commandHandler(.py~main~getattr("throwing")))
+  .CommandHandler~register("RXTHROW", .RexxThrower~new)
+  f = self~routine("throws")
+  do
+    do env over "PYTHROW", "RXTHROW"
+      address value env
+      do
+        "rexx"
+        self~fail(env": the condition Rexx code threw must go on")
+      catch c = user boom
+        self~assertTrue(c~thrown, env": THROWN")
+        self~assertSame("the description", c~description, env": its DESCRIPTION")
+        self~assertSame("A", c~additional[1], env": its ADDITIONAL")
+      end
+      ran = 0
+      call on user boom name handler
+      do
+        "rexx"
+        self~fail(env": no condition")
+      catch c = user boom
+        nop
+      end
+      call off user boom
+      self~assertSame(0, ran, env": CALL ON does not trap it")
+      "other"
+      self~assertSame(5, rc, env": a command that does not throw")
+    end
+    address pythrow
+    do
+      "python"
+      self~fail("the condition the handler threw must go on")
+    catch c = user boom
+      self~assertTrue(c~thrown, "the handler's: THROWN")
+      self~assertSame("from the handler", c~description, "the handler's: its DESCRIPTION")
+      self~assertSame("h", c~additional[1], "the handler's: its ADDITIONAL")
+    end
+    do
+      "error"
+      self~fail("no ERROR")
+    catch c = error
+      self~assertTrue(c~thrown, "ERROR: THROWN")
+      self~assertSame(9, c~rc, "ERROR: its RC")
+      self~assertSame("bad", c~description, "ERROR: its DESCRIPTION")
+    end
+  finally
+    address
+    .CommandHandler~deregister("PYTHROW")
+    .CommandHandler~deregister("RXTHROW")
+  end
+  return
+handler:
+  ran += 1
+  return
+
+-- a handler written in Rexx, to compare with
+::class RexxThrower inherit CommandHandler
+::method command
+  use arg command, context
+  if command == "rexx" then return context~getVar("F")~call
+  return 5
+
+::routine twoLevels
+  use arg pyCallable, ...
+  return oneLevel(pyCallable, arg(2, "A"))
+::routine oneLevel
+  use arg pyCallable, args
+  x = pyCallable~sendWith("INVOKE", .array~of(.nil)~~appendAll(args))
+  return "oneLevel got" x
+::routine throws
+  throw user boom description "the description" array ("A", 2)
+::routine throwsBare
+  throw user bare
+::routine raises
+  raise user boom description "the description" return 7
+::routine throwsWithFinally
+  do
+    throw user boom
+  finally
+    .local~orxpy.trail~append("inner")
+  end
+::routine callsPython
+  use arg throw
+  return throw~invoke(.nil, "user deep", .nil, "from Python")

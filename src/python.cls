@@ -60,7 +60,9 @@
  * A Python exception is SYNTAX 98.900 "Python error: Type: message", with
  * the exception in condition("O")~additional[2] and the traceback in
  * additional[3], as BSF4ooRexx; if it goes back to Python, it is raised
- * again as itself.
+ * again as itself.  A condition that Rexx code throws (THROW) goes through
+ * Python and on to the Rexx callers, as itself; Python throws one with
+ * oorexx.throw(condition, rc, description, additional).
  */
 
 .local~py = .Python~new
@@ -940,7 +942,9 @@ def make(bases, name, specs, rexx_class, new_for):
   do
     rc = handler~invoke("__call__", .py~str(command), caller)   -- the command always a str
   -- a condition Python raised again (an oorexx.RexxError) reaches the issuer
-  -- as a Rexx handler's would: SYNTAX itself; any other through the
+  -- as a Rexx handler's would: SYNTAX itself, and a thrown condition (THROW,
+  -- or Python's oorexx.throw) thrown on, as it goes through a handler
+  -- written in Rexx; any other through the
   -- context, its DESCRIPTION and ADDITIONAL kept (its RESULT, the v of a
   -- RAISE ... RETURN v, is the command's RC, as the value a Rexx handler
   -- returns).  A HALT that Rexx code the handler called left
@@ -949,6 +953,7 @@ def make(bases, name, specs, rexx_class, new_for):
   -- (SIGNAL ON HALT traps it, CALL ON HALT resumes with RC 0, untrapped it
   -- ends as SYNTAX 4.1, as caller~raise("HALT", 0) from a Rexx handler)
   catch co = any
+    if co~thrown == .true then throw propagate   -- (a condition object made by hand may have no THROWN)
     if co~condition == "SYNTAX" then raise propagate
     if co~condition == "HALT" then return caller~raise("HALT", 0)
     return caller~raise(co~condition, co~result, co~description, co~additional)
