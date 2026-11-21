@@ -20,8 +20,8 @@ depends on a fix being present. #2122 has none any more: the bridge needs
 its fix. The design notes behind them are in
 [`../docs/design.md`](../docs/design.md), *Lifetime*.
 
-The bridge needs ooRexx 5.3.0 r13550 or later (`logicalwrapper.cls`, since
-r13278, #2122's fix, since r13286, #2123's, since r13320, CATCH, since r13514, safe since r13517, FINALLY, since r13524, THROW, since r13541, the `Throw` API, since r13546), so the fixes above are all present. Before that, ooRexx 5.2.0 was the minimum for
+The bridge needs ooRexx 5.3.0 r13564 or later (`logicalwrapper.cls`, since
+r13278, #2122's fix, since r13286, #2123's, since r13320, CATCH, since r13514, safe since r13517, FINALLY, since r13524, THROW, since r13541, the `Throw` API, since r13546, the `ThrowObject` API, since r13554, THROW SYNTAX's own error codes, since r13564), so the fixes above are all present. Before that, ooRexx 5.2.0 was the minimum for
 using an interpreter from one thread at a time: from several at once it
 crashed inside ooRexx (in its tables of activities, on `AttachThread` and
 when a thread waits for the kernel lock), and `Threads.testGroup`,

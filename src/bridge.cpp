@@ -1757,6 +1757,25 @@ Args::~Args()
 
 static PyObject *rexxErrorType = NULL;   // oorexx.RexxError
 
+// whether this ooRexx has ThrowObject (r13554): .RexxInfo~revision, asked
+// once (the 5.3.0 thread interface got ThrowObject with no new version)
+static bool throwObjectThere(RexxThreadContext *c)
+{
+    static std::atomic<int> there(-1);
+    int t = there.load();
+    if (t < 0)
+    {
+        t = 0;
+        RexxObjectPtr info = c->DirectoryAt(c->GetGlobalEnvironment(), "REXXINFO");
+        RexxObjectPtr rev = info != NULLOBJECT ? c->SendMessage0(info, "REVISION") : NULLOBJECT;
+        wholenumber_t n;
+        if (c->CheckCondition()) c->ClearCondition();
+        else if (rev != NULLOBJECT && c->WholeNumber(rev, &n) && n >= 13554) t = 1;
+        there.store(t);
+    }
+    return t == 1;
+}
+
 // an oorexx.RexxError made from a Rexx condition of this instance (it keeps
 // the condition object, raiseRexxError): raise that condition again, as
 // itself, with its code and ADDITIONAL (SYNTAX), or its DESCRIPTION,
@@ -1861,8 +1880,18 @@ static bool raiseAgain(RexxSide &side, PyError &err, bool *halted, RexxObjectPtr
     // (#2130, r13339: the method's own value is kept; since r13522, #2174,
     // v is also the condition's RESULT, for every condition;
     // Callbacks.testGroup, test_raise_return_value).
+    // A thrown condition (THROW, THROWN .true) is thrown again, with
+    // ThrowObject (r13554), which throws a copy of it when this native method
+    // returns: since r13554 RaiseConditionObject always raises (one level,
+    // THROWN .false).  THROWN is compared with .true: an object made by hand
+    // may have no THROWN entry.  ThrowObject is in the 5.3.0 thread interface
+    // with no version of its own, so the revision says whether it is there
+    // (throwObjectThere); before r13554 RaiseConditionObject keeps THROWN and
+    // throws a thrown condition again itself.
     *value = val;
-    c->RaiseConditionObject(d);
+    RexxObjectPtr thrown = c->DirectoryAt(d, "THROWN");
+    if (thrown != NULLOBJECT && thrown == c->True() && throwObjectThere(c)) c->ThrowObject(d);
+    else c->RaiseConditionObject(d);
     return true;
 }
 
@@ -3641,7 +3670,7 @@ static PyObject *registerHandler(Inst *inst, PyObject *nameObj, PyObject *handle
             }
             if (core == NULLOBJECT || ours == NULLOBJECT)
             {
-                error = "add_command_environment: this ooRexx has no .CommandHandler (5.3.0 r13550 or later is needed)";
+                error = "add_command_environment: this ooRexx has no .CommandHandler (5.3.0 r13564 or later is needed)";
                 return NULLOBJECT;
             }
             RexxObjectPtr h = tc->SendMessage1(ours, "NEW", tc->ArrayAt(rargs, 2));
@@ -3684,7 +3713,7 @@ static PyObject *interpreterRemoveEnvironment(PyObject *self, PyObject *args)
             }
             if (core == NULLOBJECT)
             {
-                error = "remove_command_environment: this ooRexx has no .CommandHandler (5.3.0 r13550 or later is needed)";
+                error = "remove_command_environment: this ooRexx has no .CommandHandler (5.3.0 r13564 or later is needed)";
                 return NULLOBJECT;
             }
             return tc->SendMessage1(core, "DEREGISTER", tc->ArrayAt(rargs, 1));

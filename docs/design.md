@@ -530,15 +530,19 @@ ooRexx) goes from caller to caller until something catches it, whatever its
 name, as a SYNTAX error does. Rexx code that Python called throws one: the
 call from Python returns with it pending, its condition object saying
 `THROWN` `.true`, and Python gets a `RexxError` (`thrown` is `True`). If
-Python does not catch it, `raiseAgain` raises the kept condition object with
-`RaiseConditionObject`, as for any other condition, and ooRexx, which goes
-by the object's `THROWN`, holds it as it holds an error and throws it again
-when the native method returns: a `CATCH` clause or `SIGNAL ON` any number
+Python does not catch it, `raiseAgain` throws the kept condition object again
+with `ThrowObject` (r13554), which throws a copy of it when the native method
+returns (a condition whose `THROWN` is not `.true` is raised with
+`RaiseConditionObject`, which since r13554 always raises): a `CATCH` clause
+or `SIGNAL ON` any number
 of Rexx levels above the call to Python catches it, `CALL ON` does not trap
 it, the `FINALLY` clauses of the levels it leaves run, and uncaught it is
 error 4.1 (4.901 with its description), as with no Python in between
-(`Throw.testGroup`). The bridge needed no code for this: it is what keeping
-the condition object buys. An uncaught thrown condition is not turned into
+(`Throw.testGroup`). Keeping the condition object is what makes this one
+call. `ThrowObject` came into the 5.3.0 thread interface with no version of
+its own, so the bridge asks `.RexxInfo~revision` once; on an older ooRexx
+(r13550 to r13553) `RaiseConditionObject` still went by the object's
+`THROWN` and threw it again itself, and the bridge uses that. An uncaught thrown condition is not turned into
 an error before a native caller sees it, as a HALT is, so nothing is lost on
 the way.
 
@@ -1025,7 +1029,7 @@ interpreter stays attached until `close()`: before r13348, detaching it
 made `Terminate` wait forever (ooRexx bug #2107); it is right on every
 version, so it stays.
 
-**ooRexx versions.** The minimum is ooRexx 5.3.0 r13550, which CI also
+**ooRexx versions.** The minimum is ooRexx 5.3.0 r13564, which CI also
 runs. `python.cls` traps errors with CATCH
 clauses (RFE #31, r13514, language level 6.07), so an older ooRexx cannot
 even translate it; before r13517 a CATCH clause's condition object could be
@@ -1039,7 +1043,9 @@ since r13535; and since r13522 (ooRexx bug #2174) the value of a `RAISE ...
 RETURN v` is the condition's `RESULT` for every condition, which the
 tests expect (see *Exceptions*). Thrown conditions (RFE #31 again: the
 `THROW` instruction, r13541, experimental in ooRexx, and the `Throw` API,
-r13546, which `oorexx.throw` uses) go through Python as themselves, and
+r13546, which `oorexx.throw` uses) go through Python as themselves (the
+bridge passes one on with the `ThrowObject` API, r13554: since then
+`RaiseConditionObject` always raises), and
 `python.cls` passes one on with `THROW PROPAGATE` (see *Exceptions*); since
 r13550 one that nothing catches is error 4.901, which shows its description,
 and a `RexxError`'s text shows it in the same way. The bridge

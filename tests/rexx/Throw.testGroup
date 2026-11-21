@@ -236,7 +236,7 @@ trapped:
     self~throw~invoke(.nil, "syntax", "abc")
     self~fail("no error for a bad code")
   catch c = syntax
-    self~assertSame("33.904", c~code, "a SYNTAX code that is not valid")
+    self~assertSame("33.905", c~code, "a SYNTAX code that is not valid")
   end
   -- Python's own checks: a TypeError, SYNTAX 98.900 in Rexx
   do
